@@ -1,7 +1,6 @@
 ﻿from flask import Blueprint, render_template, request, flash, redirect, url_for
 from app import db
 from app.models import Pet, User, DaycareEnrollment, DaycareAttendance
-from app.sms_service import send_daycare_checkin_sms, send_daycare_checkout_sms
 from datetime import datetime
 
 bp = Blueprint('kiosk', __name__, url_prefix='/kiosk')
@@ -129,14 +128,7 @@ def process_checkin(enrollment, pet):
     )
     db.session.add(attendance)
 
-    # Capture SMS data from already-loaded objects before any commit
-    owner       = pet.owner
-    owner_phone = owner.phone if owner else None
-    owner_id    = owner.id if owner else None
-    pet_name    = pet.name
-    time_str    = check_in_time.strftime('%I:%M %p')
-
-    # flush() sends INSERT and assigns the ID without committing the transaction
+    # flush() assigns the ID before commit — needed for play group assignment
     db.session.flush()
     attendance_id = attendance.id
     db.session.commit()
@@ -144,7 +136,6 @@ def process_checkin(enrollment, pet):
     # Auto-assign play group in a separate operation after the commit
     try:
         from app.models import PlayGroup
-        size_map = {'small': 25, 'large': 50}
         weight = float(pet.weight) if pet.weight else 0
         if weight < 25:
             size = 'small'
@@ -163,19 +154,7 @@ def process_checkin(enrollment, pet):
         db.session.rollback()
         import logging; logging.getLogger(__name__).error(f'Play group auto-assign failed: {e}')
 
-    # Send SMS using pre-captured plain values — no session objects needed
-    try:
-        if owner_phone:
-            body = (
-                f"\U0001f43e {pet_name} has checked in to Ruff Life Retreat daycare"
-                f" at {time_str}. We'll send another message at pick-up time!"
-            )
-            from app.sms_service import _send
-            _send(owner_phone, body, user_id=owner_id)
-    except Exception as e:
-        import logging; logging.getLogger(__name__).error(f'SMS failed for kiosk check-in: {e}')
-
-    flash(f'✓ {pet.name} checked in successfully at {datetime.now().strftime("%I:%M %p")}!', 'success')
+    flash(f'✓ {pet.name} checked in successfully at {check_in_time.strftime("%I:%M %p")}!', 'success')
     return redirect(url_for('kiosk.index'))
 
 
@@ -192,27 +171,7 @@ def process_checkout(enrollment, pet):
     
     check_out_time = datetime.now()
     attendance.check_out_time = check_out_time
-
-    # Capture everything needed for SMS BEFORE commit
-    owner       = pet.owner
-    owner_phone = owner.phone if owner else None
-    owner_id    = owner.id if owner else None
-    pet_name    = pet.name
-    time_str    = check_out_time.strftime('%I:%M %p')
-
     db.session.commit()
-
-    # Send SMS using pre-captured values
-    try:
-        if owner_phone:
-            body = (
-                f"\U0001f43e {pet_name} has checked out of Ruff Life Retreat daycare"
-                f" at {time_str}. Hope they had a great day! See you next time. \U0001f436"
-            )
-            from app.sms_service import _send
-            _send(owner_phone, body, user_id=owner_id)
-    except Exception as e:
-        import logging; logging.getLogger(__name__).error(f'SMS failed for kiosk check-out: {e}')
 
     # Check daycare milestone survey
     try:
