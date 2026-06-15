@@ -539,21 +539,62 @@ def daycare_dashboard():
             .order_by(ServiceBlock.start_date.asc())
             .limit(10).all())
 
-    # Weekly schedule calendar (Mon–Fri of current week)
-    monday_of_week = today - timedelta(days=today.weekday())
-    week_schedule = []
-    for i, (label, field) in enumerate([
-        ('Mon', 'monday'), ('Tue', 'tuesday'), ('Wed', 'wednesday'),
-        ('Thu', 'thursday'), ('Fri', 'friday')
-    ]):
-        day_date = monday_of_week + timedelta(days=i)
+    # Daycare 2-week calendar (boarding-style)
+    import json as _json
+    dc_offset = request.args.get('dc_offset', 0, type=int)
+    dc_offset = max(0, dc_offset)
+    monday_start = today - timedelta(days=today.weekday())
+    cal_start = monday_start + timedelta(weeks=dc_offset * 2)
+    cal_end   = cal_start + timedelta(days=13)
+
+    # Closure dates within this window
+    closure_dates_set = set()
+    if daycare_service:
+        blocks_in_range = (ServiceBlock.query
+            .filter_by(service_type_id=daycare_service.id)
+            .filter(ServiceBlock.end_date >= cal_start)
+            .filter(ServiceBlock.start_date <= cal_end)
+            .all())
+        for blk in blocks_in_range:
+            bd = blk.start_date
+            while bd <= blk.end_date:
+                if cal_start <= bd <= cal_end:
+                    closure_dates_set.add(bd)
+                bd += timedelta(days=1)
+
+    _day_fields = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday', 4: 'friday'}
+    daycare_cal_dates       = {}  # date_str -> [pet names]  (Jinja highlighting)
+    daycare_cal_detail_data = {}  # date_str -> {pets, is_closed, count}  (JS modal)
+
+    for _offset in range(14):
+        d   = cal_start + timedelta(days=_offset)
+        dow = d.weekday()
+        if dow >= 5:
+            continue
+        field    = _day_fields[dow]
         day_pets = [e for e in enrollments if getattr(e, field)]
-        week_schedule.append({
-            'date': day_date,
-            'label': label,
-            'pets': day_pets,
-            'is_today': day_date == today,
-        })
+        ds       = d.isoformat()
+        is_closed = d in closure_dates_set
+        if day_pets and not is_closed:
+            daycare_cal_dates[ds] = [e.pet.name for e in day_pets]
+        daycare_cal_detail_data[ds] = {
+            'pets': [
+                {
+                    'name':         e.pet.name,
+                    'breed':        e.pet.breed or 'Dog',
+                    'owner':        f'{e.pet.owner.first_name} {e.pet.owner.last_name}',
+                    'special_rate': float(e.special_rate) if e.special_rate else None,
+                }
+                for e in day_pets
+            ],
+            'is_closed': is_closed,
+            'count':     len(day_pets),
+        }
+
+    dc_weeks = [
+        [cal_start + timedelta(days=i)     for i in range(7)],
+        [cal_start + timedelta(days=7 + i) for i in range(7)],
+    ]
 
     return render_template('admin/daycare_dashboard.html',
                          enrollments=enrollments,
@@ -565,7 +606,10 @@ def daycare_dashboard():
                          contacted_waitlist=contacted_waitlist,
                          all_waitlist=all_waitlist,
                          upcoming_blocks=upcoming_blocks,
-                         week_schedule=week_schedule,
+                         dc_offset=dc_offset,
+                         dc_weeks=dc_weeks,
+                         daycare_cal_dates=daycare_cal_dates,
+                         daycare_cal_detail=_json.dumps(daycare_cal_detail_data),
                          now=datetime.now(),
                          today=today)
 
