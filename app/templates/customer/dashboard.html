@@ -65,7 +65,7 @@
                             <i class="fas fa-calendar-check me-2"></i>Upcoming Appointments
                         </div>
                         <div class="card-body p-0">
-                            {% if upcoming_appointments %}
+                            {% if upcoming_appointments or cancelled_upcoming %}
                             <ul class="list-group list-group-flush">
                                 {% for appt in upcoming_appointments %}
                                 <li class="list-group-item py-3">
@@ -96,6 +96,36 @@
                                                 </button>
                                             </form>
                                             {% endif %}
+                                        </div>
+                                    </div>
+                                </li>
+                                {% endfor %}
+                                {% for appt in cancelled_upcoming %}
+                                <li class="list-group-item py-3 list-group-item-danger">
+                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                        <div>
+                                            <div class="fw-bold">
+                                                <i class="fas fa-ban me-1"></i>{{ appt.service_type.name }}
+                                                <span class="badge bg-danger ms-1" style="font-size:0.7rem;">CANCELLED</span>
+                                            </div>
+                                            <div class="text-muted small">
+                                                {{ appt.pet.name }} &bull;
+                                                {{ appt.appointment_date.strftime('%a, %b %d') }}
+                                                {% if appt.start_time %} at {{ appt.start_time.strftime('%I:%M %p') }}{% endif %}
+                                            </div>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2 flex-shrink-0 flex-wrap justify-content-end">
+                                            <form method="POST" action="{{ url_for('customer.notify_cancel_sms', appt_id=appt.id) }}" class="d-inline">
+                                                <button type="submit" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;"
+                                                        title="Send cancellation confirmation to your phone">
+                                                    <i class="fas fa-sms me-1"></i>Notify via Text
+                                                </button>
+                                            </form>
+                                            <form method="POST" action="{{ url_for('customer.acknowledge_cancel', appt_id=appt.id) }}" class="d-inline">
+                                                <button type="submit" class="btn btn-sm btn-danger py-0 px-2" style="font-size:0.75rem;">
+                                                    <i class="fas fa-check me-1"></i>Acknowledge
+                                                </button>
+                                            </form>
                                         </div>
                                     </div>
                                 </li>
@@ -247,7 +277,7 @@
         <!-- ── APPOINTMENTS ── -->
         <div class="tab-pane fade" id="pane-appointments">
 
-            {% if upcoming_appointments %}
+            {% if upcoming_appointments or cancelled_upcoming %}
             <h5 class="fw-bold mb-3" style="color:#1a1a2e;">Upcoming</h5>
             <div class="card shadow-sm mb-4">
                 <div class="card-body p-0">
@@ -280,6 +310,30 @@
                                 </td>
                             </tr>
                             {% endfor %}
+                            {% for appt in cancelled_upcoming %}
+                            <tr class="table-danger">
+                                <td>
+                                    <strong>{{ appt.service_type.name }}</strong>
+                                    <span class="badge bg-danger ms-1">CANCELLED</span>
+                                </td>
+                                <td>{{ appt.pet.name }}</td>
+                                <td>{{ appt.appointment_date.strftime('%a, %b %d, %Y') }}</td>
+                                <td>{{ appt.start_time.strftime('%I:%M %p') if appt.start_time else '—' }}</td>
+                                <td><span class="badge bg-danger">Cancelled</span></td>
+                                <td class="text-nowrap">
+                                    <form method="POST" action="{{ url_for('customer.notify_cancel_sms', appt_id=appt.id) }}" class="d-inline">
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                            <i class="fas fa-sms me-1"></i>Notify via Text
+                                        </button>
+                                    </form>
+                                    <form method="POST" action="{{ url_for('customer.acknowledge_cancel', appt_id=appt.id) }}" class="d-inline">
+                                        <button type="submit" class="btn btn-sm btn-danger">
+                                            <i class="fas fa-check me-1"></i>Acknowledge
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
                         </tbody>
                     </table>
                 </div>
@@ -309,7 +363,7 @@
             </div>
             {% endif %}
 
-            {% if not upcoming_appointments and not past_appointments %}
+            {% if not upcoming_appointments and not cancelled_upcoming and not past_appointments %}
             <div class="text-center py-5 text-muted">
                 <i class="fas fa-calendar fa-3x mb-3 d-block opacity-25"></i>
                 <p>No appointments yet.</p>

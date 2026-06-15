@@ -112,11 +112,27 @@ def dashboard():
                 and (a.pet_id, a.appointment_date) in completed_boarding_pet_dates)
     ]
 
+    # Cancelled future reservations not yet acknowledged by the customer
+    cancelled_upcoming = (Appointment.query
+        .filter_by(user_id=current_user.id)
+        .filter(Appointment.appointment_date >= today)
+        .filter(Appointment.status == 'cancelled')
+        .filter(Appointment.cancel_acknowledged == False)
+        .order_by(Appointment.appointment_date.asc())
+        .all())
+
     past_appointments = (Appointment.query
         .filter_by(user_id=current_user.id)
         .filter(db.or_(
             Appointment.appointment_date < today,
-            Appointment.status.in_(['completed', 'cancelled'])
+            Appointment.status == 'completed',
+            db.and_(
+                Appointment.status == 'cancelled',
+                db.or_(
+                    Appointment.appointment_date < today,
+                    Appointment.cancel_acknowledged == True
+                )
+            )
         ))
         .order_by(Appointment.appointment_date.desc())
         .limit(10).all())
@@ -176,6 +192,7 @@ def dashboard():
                            timedelta=_td,
                            pets=pets,
                            upcoming_appointments=upcoming_appointments,
+                           cancelled_upcoming=cancelled_upcoming,
                            past_appointments=past_appointments,
                            upcoming_boarding=upcoming_boarding,
                            past_boarding=past_boarding,
@@ -1034,3 +1051,49 @@ def cancel_appointment(appt_id):
     flash('Your reservation has been cancelled. Contact us if you have any questions.', 'success')
     return redirect(url_for('customer.dashboard'))
 # ── END NEW ───────────────────────────────────────────────────────────────────
+
+
+@bp.route('/appointment/<int:appt_id>/acknowledge-cancel', methods=['POST'])
+@login_required
+def acknowledge_cancel(appt_id):
+    """Customer dismisses a cancelled reservation from their upcoming view."""
+    appt = Appointment.query.filter_by(id=appt_id, user_id=current_user.id).first_or_404()
+    if appt.status != 'cancelled':
+        flash('This reservation is not cancelled.', 'warning')
+        return redirect(url_for('customer.dashboard'))
+    appt.cancel_acknowledged = True
+    db.session.commit()
+    flash('Reservation removed from your upcoming list.', 'success')
+    return redirect(url_for('customer.dashboard'))
+
+
+@bp.route('/appointment/<int:appt_id>/notify-cancel-sms', methods=['POST'])
+@login_required
+def notify_cancel_sms(appt_id):
+    """Send the customer an SMS confirming their appointment was cancelled."""
+    from flask import current_app
+    appt = Appointment.query.filter_by(id=appt_id, user_id=current_user.id).first_or_404()
+    if appt.status != 'cancelled':
+        flash('This reservation is not cancelled.', 'warning')
+        return redirect(url_for('customer.dashboard'))
+    if not current_user.phone:
+        flash('No phone number on file — please update your profile.', 'warning')
+        return redirect(url_for('customer.dashboard'))
+    try:
+        from app.sms_service import _send
+        pet_name = appt.pet.name if appt.pet else 'your pet'
+        svc_name = appt.service_type.name if appt.service_type else 'appointment'
+        date_str = appt.appointment_date.strftime('%A, %B %d') if appt.appointment_date else 'your scheduled date'
+        body = (
+            f"Hi {current_user.first_name}, your {svc_name} for {pet_name} on {date_str} "
+            f"has been cancelled. Please contact us to reschedule. — Ruff Life Retreat"
+        )
+        sent = _send(current_user.phone, body, user_id=current_user.id)
+        if sent:
+            flash('Cancellation confirmation sent to your phone.', 'success')
+        else:
+            flash('Could not send SMS — please check your phone number or contact us directly.', 'warning')
+    except Exception as e:
+        current_app.logger.error(f'notify_cancel_sms error: {e}')
+        flash('SMS send failed. Please contact us directly.', 'danger')
+    return redirect(url_for('customer.dashboard'))

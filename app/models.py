@@ -171,7 +171,8 @@ class Appointment(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now)
     archived = db.Column(db.Boolean, default=False)
     needs_reapproval = db.Column(db.Boolean, default=False, nullable=False, server_default='0')
-    
+    cancel_acknowledged = db.Column(db.Boolean, default=False, nullable=False, server_default='0')
+
     # Relationships
     user = db.relationship('User', back_populates='appointments')
     pet = db.relationship('Pet', back_populates='appointments')
