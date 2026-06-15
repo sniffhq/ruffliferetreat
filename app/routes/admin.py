@@ -2277,6 +2277,7 @@ def edit_customer(customer_id):
     customer.emergency_contact_name  = request.form.get('emergency_contact_name', '').strip() or None
     customer.emergency_contact_phone = request.form.get('emergency_contact_phone', '').strip() or None
     customer.sms_opt_in              = request.form.get('sms_opt_in') == '1'
+    customer.is_active               = request.form.get('is_active') == '1'
 
     db.session.commit()
     try:
