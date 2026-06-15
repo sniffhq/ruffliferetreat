@@ -580,10 +580,12 @@ def daycare_dashboard():
         daycare_cal_detail_data[ds] = {
             'pets': [
                 {
-                    'name':         e.pet.name,
-                    'breed':        e.pet.breed or 'Dog',
-                    'owner':        f'{e.pet.owner.first_name} {e.pet.owner.last_name}',
-                    'special_rate': float(e.special_rate) if e.special_rate else None,
+                    'name':          e.pet.name,
+                    'breed':         e.pet.breed or 'Dog',
+                    'owner':         f'{e.pet.owner.first_name} {e.pet.owner.last_name}',
+                    'special_rate':  float(e.special_rate) if e.special_rate else None,
+                    'enrollment_id': e.id,
+                    'is_checked_in': e.id in checked_in_by_enrollment,
                 }
                 for e in day_pets
             ],

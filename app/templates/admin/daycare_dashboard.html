@@ -396,7 +396,8 @@
 </div>
 
 <script>
-const daycareCal = {{ daycare_cal_detail|safe }};
+const daycareCal  = {{ daycare_cal_detail|safe }};
+const todayStr    = '{{ today.isoformat() }}';
 
 function fmtDaycareDate(ds) {
     var d = new Date(ds + 'T00:00:00');
@@ -406,6 +407,7 @@ function fmtDaycareDate(ds) {
 function showDaycareDay(ds) {
     var data = daycareCal[ds];
     if (!data) return;
+    var isToday = (ds === todayStr);
     document.getElementById('daycareDayDate').textContent = fmtDaycareDate(ds);
     var html = '';
     if (data.is_closed) {
@@ -415,14 +417,26 @@ function showDaycareDay(ds) {
         html += '<div class="px-4 py-2 fw-bold border-bottom" style="background:#f8f9fa;font-size:0.8rem;text-transform:uppercase;letter-spacing:1px;color:#198754;">' +
                 '<i class="fas fa-paw me-2"></i>Expected (' + data.pets.length + ')</div>';
         data.pets.forEach(function(p) {
-            html += '<div class="px-4 py-3 border-bottom">' +
+            html += '<div class="d-flex align-items-center justify-content-between px-4 py-3 border-bottom">' +
+                    '<div>' +
                     '<strong class="fs-6">' + p.name + '</strong>' +
                     '<span class="text-muted small ms-2">' + p.breed + '</span>';
             if (p.special_rate) {
                 html += '<span class="badge ms-2" style="background:#FFC107;color:#1a1a2e;font-size:0.7rem;"><i class="fas fa-tag me-1"></i>$' +
                         parseInt(p.special_rate) + '/day</span>';
             }
-            html += '<div class="text-muted small mt-1"><i class="fas fa-user me-1"></i>' + p.owner + '</div></div>';
+            html += '<div class="text-muted small mt-1"><i class="fas fa-user me-1"></i>' + p.owner + '</div>' +
+                    '</div>';
+            if (isToday) {
+                if (p.is_checked_in) {
+                    html += '<span class="badge bg-success px-3 py-2"><i class="fas fa-check me-1"></i>Checked In</span>';
+                } else {
+                    html += '<form method="POST" action="/admin/daycare/enrollment/' + p.enrollment_id + '/checkin" style="margin:0;">' +
+                            '<button type="submit" class="btn btn-sm btn-success fw-bold">' +
+                            '<i class="fas fa-sign-in-alt me-1"></i>Check In</button></form>';
+                }
+            }
+            html += '</div>';
         });
     } else if (!data.is_closed) {
         html += '<div class="p-4 text-muted text-center"><i class="fas fa-dog fa-2x mb-2 d-block opacity-25"></i>No pets enrolled for this day of the week.</div>';
