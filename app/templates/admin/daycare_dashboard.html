@@ -222,11 +222,11 @@
                                 {{ "%.1f"|format(duration) }} hours
                             </td>
                             <td>
-                                <form method="POST" action="{{ url_for('admin.daycare_checkout', attendance_id=attendance.id) }}" 
+                                <form method="POST" action="{{ url_for('admin.daycare_checkout', attendance_id=attendance.id) }}"
                                       style="display: inline;"
-                                      onsubmit="return confirm('Delete this attendance record?');">
-                                    <button type="submit" class="btn btn-sm btn-danger" title="Delete Record">
-                                        <i class="fas fa-trash"></i>
+                                      onsubmit="return confirm('Check out {{ attendance.enrollment.pet.name }}?');">
+                                    <button type="submit" class="btn btn-sm btn-warning text-dark">
+                                        <i class="fas fa-sign-out-alt me-1"></i>Check Out
                                     </button>
                                 </form>
                             </td>
