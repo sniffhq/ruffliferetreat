@@ -139,30 +139,27 @@
                     <!-- OCR Upload -->
                     <div class="card mb-3 border-0" style="background:#EAF8F7;">
                         <div class="card-body py-3 px-3">
-                            <div class="d-flex align-items-center gap-3">
-                                <div>
-                                    <label class="form-label fw-bold mb-1" style="font-size:0.88rem;">
-                                        <i class="fas fa-magic me-1" style="color:#3DBDB5;"></i>
-                                        Auto-fill from document
-                                    </label>
-                                    <div class="text-muted" style="font-size:0.78rem;">
-                                        Upload a vaccination record and we'll try to read it automatically.
-                                    </div>
-                                </div>
-                                <div class="ms-auto d-flex gap-2 align-items-center">
-                                    <input type="file" id="ocrFileInput" class="form-control form-control-sm"
-                                           accept=".pdf,.jpg,.jpeg,.png" style="max-width:220px;">
-                                    <button type="button" class="btn btn-sm fw-bold"
-                                            style="background:#3DBDB5;color:white;white-space:nowrap;"
-                                            onclick="runOCR({{ pet.id }})">
-                                        <i class="fas fa-search me-1"></i>Scan
-                                    </button>
-                                </div>
+                            <label class="form-label fw-bold mb-1" style="font-size:0.88rem;">
+                                <i class="fas fa-magic me-1" style="color:#3DBDB5;"></i>
+                                Scan your vaccination document
+                            </label>
+                            <p class="text-muted mb-3" style="font-size:0.82rem;">
+                                <strong>Step 1:</strong> Click <em>Choose File</em> and select your vaccination record (PDF, JPG, or PNG).<br>
+                                <strong>Step 2:</strong> Click <strong>Scan</strong> — we'll read the document and automatically fill in the vaccine names and expiration dates below.
+                            </p>
+                            <div class="d-flex gap-2 align-items-center">
+                                <input type="file" id="ocrFileInput" class="form-control form-control-sm"
+                                       accept=".pdf,.jpg,.jpeg,.png" style="max-width:260px;">
+                                <button type="button" class="btn btn-sm fw-bold"
+                                        style="background:#3DBDB5;color:white;white-space:nowrap;"
+                                        onclick="runOCR({{ pet.id }})">
+                                    <i class="fas fa-search me-1"></i>Scan
+                                </button>
                             </div>
                             <div id="ocrStatus" class="mt-2" style="font-size:0.82rem;display:none;"></div>
                         </div>
                     </div>
-                    <div id="vaccination-records-container">
+                    <div id="vaccination-records-container" style="display:none;">
                         <div class="vaccination-record card mb-3 border-primary">
                             <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
@@ -216,7 +213,7 @@
                         </div>
                     </div>
 
-                    <button type="button" class="btn btn-outline-primary btn-sm mb-3" onclick="addVaccinationRecord()">
+                    <button type="button" id="addAnotherVaccineBtn" class="btn btn-outline-primary btn-sm mb-3" onclick="addVaccinationRecord()" style="display:none;">
                         <i class="fas fa-plus me-1"></i>Add Another Vaccine
                     </button>
 
@@ -306,6 +303,8 @@ async function runOCR(petId) {
 
         if (!data.records || data.records.length === 0) {
             status.innerHTML = '<span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>No vaccination data found. Please fill in the fields manually.</span>';
+            document.getElementById('vaccination-records-container').style.display = 'block';
+            document.getElementById('addAnotherVaccineBtn').style.display = 'inline-block';
             return;
         }
 
@@ -360,8 +359,13 @@ async function runOCR(petId) {
             : `<span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>Found ${data.records.length} record(s) but some details may be incomplete. Please review carefully before saving.</span>`;
         status.innerHTML = msg;
 
+        document.getElementById('vaccination-records-container').style.display = 'block';
+        document.getElementById('addAnotherVaccineBtn').style.display = 'inline-block';
+
     } catch (err) {
         status.innerHTML = `<span class="text-danger"><i class="fas fa-times-circle me-1"></i>Scan error: ${err.message} — please fill in the fields manually.</span>`;
+        document.getElementById('vaccination-records-container').style.display = 'block';
+        document.getElementById('addAnotherVaccineBtn').style.display = 'inline-block';
     }
 }
 
