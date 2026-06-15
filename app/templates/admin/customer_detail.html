@@ -84,7 +84,7 @@
                 </span>
                 {% if customer.waiver_accepted_at %}
                 <span class="text-muted small">
-                    Signed on {{ customer.waiver_accepted_at.strftime('%B %d, %Y at %-I:%M %p') }}
+                    Signed on {{ customer.waiver_accepted_at.strftime('%B %d, %Y at %I:%M %p') }}
                 </span>
                 {% else %}
                 <span class="text-muted small">Date not recorded</span>

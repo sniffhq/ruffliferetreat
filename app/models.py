@@ -551,6 +551,7 @@ class SmsMessage(db.Model):
     from_number = db.Column(db.String(20))
     to_number   = db.Column(db.String(20))
     body        = db.Column(db.Text)
+    media_url   = db.Column(db.Text, nullable=True)   # comma-separated MMS media URLs
     twilio_sid  = db.Column(db.String(40))
     is_read     = db.Column(db.Boolean, default=False)
     created_at  = db.Column(db.DateTime, default=datetime.now)

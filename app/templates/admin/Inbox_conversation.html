@@ -249,7 +249,13 @@
                                         {% else %}
                                             background:#f1f3f5; color:#000;
                                         {% endif %}">
-                                <div>{{ msg.body }}</div>
+                                {% if msg.body %}<div>{{ msg.body }}</div>{% endif %}
+                                {% if msg.media_url %}
+                                    {% for url in msg.media_url.split(',') %}
+                                        <div class="mt-1"><img src="{{ url }}" alt="MMS image"
+                                             style="max-width:100%; border-radius:8px;"></div>
+                                    {% endfor %}
+                                {% endif %}
                                 <div class="text-end mt-1" style="font-size:0.7rem; opacity:0.65;">
                                     {{ msg.created_at.strftime('%m/%d %I:%M %p') }}
                                     {% if msg.direction == 'outbound' %}

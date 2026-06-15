@@ -1,0 +1,234 @@
+<!-- ============================================================ -->
+<!-- ARTICLE 1: Daycare Dashboard Calendar                        -->
+<!-- ============================================================ -->
+
+<h3>Overview</h3>
+<ul>
+<li>The Daycare Dashboard now includes a <strong>two-week calendar</strong> showing which enrolled dogs are scheduled each day</li>
+<li>Follows the same layout as the Boarding Dashboard for consistency</li>
+</ul>
+
+<h3>Where to Find It</h3>
+<ul>
+<li>Navigate to <strong>Admin → Daycare Dashboard</strong> and scroll past the Check-In / Check-Out section</li>
+</ul>
+
+<h3>Reading the Calendar</h3>
+<ul>
+<li><strong>Green circle</strong> — dogs are scheduled for daycare on that day. Click to view the list.</li>
+<li><strong>Yellow highlight</strong> — today's date</li>
+<li><strong>Yellow highlight + green ring</strong> — today has dogs scheduled</li>
+<li><strong>Grey number, no circle</strong> — weekend; daycare is not offered</li>
+<li><strong>No circle on a weekday</strong> — no dogs enrolled that day, or the facility is closed</li>
+</ul>
+
+<h3>Navigating Weeks</h3>
+<ul>
+<li>Use <strong>Previous</strong> and <strong>Next</strong> to move backward or forward by two weeks</li>
+<li>Use <strong>Today</strong> to return to the current two-week window</li>
+</ul>
+
+<h3>Day Detail Popup</h3>
+<ul>
+<li>Click any green circle to open a popup showing each dog's <strong>name, breed, owner,</strong> and any <strong>special daily rate</strong></li>
+</ul>
+
+<h3>Notes</h3>
+<ul>
+<li>The calendar reflects <strong>recurring enrollment schedules</strong>, not individual bookings. A dog enrolled Monday / Wednesday / Friday appears on every such weekday.</li>
+<li>Closure dates automatically suppress the green circle for that day</li>
+</ul>
+
+
+<!-- ============================================================ -->
+<!-- ARTICLE 2: Boarding Outlook (formerly Boarding Occupancy)    -->
+<!-- ============================================================ -->
+
+<h3>Overview</h3>
+<ul>
+<li>The <strong>Boarding Occupancy</strong> report and dashboard section have been renamed to <strong>Boarding Outlook</strong></li>
+<li>No functionality has changed — only the name</li>
+</ul>
+
+<h3>Where to Find It</h3>
+<ul>
+<li><strong>Admin → Boarding Dashboard</strong> — "Boarding Outlook" section</li>
+<li><strong>Reports → Boarding Outlook</strong></li>
+<li><strong>Admin Dashboard</strong> → quick-action card labeled "Boarding Outlook"</li>
+</ul>
+
+<h3>Why the Change</h3>
+<ul>
+<li>"Boarding Outlook" better reflects that the view shows <strong>upcoming reservations and capacity over time</strong>, not just current occupancy</li>
+</ul>
+
+
+<!-- ============================================================ -->
+<!-- ARTICLE 3: Grooming Report — Prep Date Logic                 -->
+<!-- ============================================================ -->
+
+<h3>Overview</h3>
+<ul>
+<li>The Grooming Report now defaults to <strong>tomorrow's pickups</strong> when opened today</li>
+<li>The date picker selects the <strong>prep date</strong> (the day grooming is performed), and the report displays the <strong>following day's</strong> pickups</li>
+</ul>
+
+<h3>Where to Find It</h3>
+<ul>
+<li><strong>Admin → Boarding Dashboard → Grooming Report</strong>, or via the Reports menu</li>
+</ul>
+
+<h3>How the Date Logic Works</h3>
+<ul>
+<li>Selecting <strong>June 15</strong> (prep date) shows dogs checking out on <strong>June 16</strong></li>
+<li>Selecting <strong>June 17</strong> (prep date) shows dogs checking out on <strong>June 18</strong></li>
+<li>The report heading confirms both: <em>"Grooming Prep — [prep date] · pickups on [pickup date]"</em></li>
+<li>The <strong>Reset</strong> button always returns to today as the prep date (showing tomorrow's pickups)</li>
+</ul>
+
+<h3>Before 10 AM Filter</h3>
+<ul>
+<li>Click <strong>Before 10 AM</strong> to show only dogs being picked up before 10:00 AM</li>
+<li>Use this to prioritize which dogs need grooming first thing in the morning</li>
+<li>When active, the button is highlighted yellow and a note appears in the summary banner</li>
+<li>Click again to remove the filter</li>
+<li>The filter works with any prep date selected</li>
+</ul>
+
+
+<!-- ============================================================ -->
+<!-- ARTICLE 4: Homepage Photo Management                         -->
+<!-- ============================================================ -->
+
+<h3>Overview</h3>
+<ul>
+<li>Admins can now <strong>change the homepage hero photo</strong> without restarting the server</li>
+<li>The new photo goes live <strong>immediately</strong> after uploading</li>
+</ul>
+
+<h3>Where to Find It</h3>
+<ul>
+<li><strong>Admin Dashboard → Homepage Photo</strong> (quick-action card, second row)</li>
+<li>Or navigate directly to <strong>Admin → Site → Homepage Photo</strong></li>
+</ul>
+
+<h3>Uploading a New Photo</h3>
+<ul>
+<li>Go to the Homepage Photo page — you will see a preview of the current photo</li>
+<li>Under <strong>Upload New Photo</strong>, click <strong>Choose File</strong> and select your image</li>
+<li>Accepted formats: <strong>JPG, PNG, GIF, WebP</strong></li>
+<li>Click <strong>Upload & Go Live</strong> — the photo updates on the homepage instantly</li>
+</ul>
+
+<h3>Reverting to the Default Photo</h3>
+<ul>
+<li>If a custom photo is active, a <strong>Revert to Default</strong> section appears at the bottom of the page</li>
+<li>Click <strong>Reset to Default</strong> and confirm — the original homepage photo is restored immediately</li>
+</ul>
+
+<h3>Notes</h3>
+<ul>
+<li>Only <strong>one custom photo</strong> is active at a time. Uploading a new photo automatically removes the previous custom photo.</li>
+<li>The default photo is never deleted — reverting always restores it</li>
+
+
+<!-- ============================================================ -->
+<!-- ARTICLE 5: Kiosk — Phone Number Auto-Lookup                  -->
+<!-- ============================================================ -->
+
+<h3>Overview</h3>
+<ul>
+<li>The daycare kiosk now <strong>looks up enrolled pets automatically</strong> when a phone number is entered</li>
+<li>Staff and customers no longer need to type a pet name manually</li>
+</ul>
+
+<h3>New Check-In / Check-Out Flow</h3>
+<ul>
+<li><strong>Step 1 — Enter phone number:</strong> The customer types their phone number. After 10 digits, the lookup runs automatically. Alternatively, tap <strong>Find Pets</strong> to trigger it manually.</li>
+<li><strong>Step 2 — Select a pet:</strong> The kiosk shows the owner's name and a large button for each enrolled dog. If only one dog is enrolled, it is selected automatically. Tap the correct dog's button to highlight it.</li>
+<li><strong>Step 3 — Check In or Check Out:</strong> Once a pet is selected, the <strong>Check In</strong> (green) and <strong>Check Out</strong> (dark) buttons appear. Tap the appropriate action.</li>
+</ul>
+
+<h3>If the Phone Number Is Not Found</h3>
+<ul>
+<li>A red error message appears below the phone field (e.g. "No account found for that number")</li>
+<li>Direct the customer to a staff member to verify their phone number on file</li>
+</ul>
+
+<h3>Changing the Phone Number</h3>
+<ul>
+<li>Tap the <strong>Change</strong> button (top right of the pet selection area) to clear the lookup and start over</li>
+</ul>
+
+<h3>Notes</h3>
+<ul>
+<li>Phone matching is <strong>format-flexible</strong> — <code>9125551234</code>, <code>(912) 555-1234</code>, and <code>912-555-1234</code> all match the same account</li>
+<li>Only <strong>active daycare enrollments</strong> are shown. Inactive enrollments do not appear.</li>
+<li>Staff can process check-ins/outs from the <strong>Admin → Daycare Dashboard</strong> if the kiosk is unavailable</li>
+</ul>
+
+
+<!-- ============================================================ -->
+<!-- ARTICLE 6: Kiosk — SMS Notifications Removed                 -->
+<!-- ============================================================ -->
+
+<h3>Overview</h3>
+<ul>
+<li>SMS notifications for kiosk <strong>check-ins and check-outs have been removed</strong></li>
+<li>Customers will no longer receive a text message when their dog checks in or out via the kiosk</li>
+</ul>
+
+<h3>What Changed</h3>
+<ul>
+<li><strong>Previously:</strong> A text was sent to the owner at check-in ("🐾 Buddy has checked in…") and again at check-out ("🐾 Buddy has checked out…")</li>
+<li><strong>Now:</strong> No SMS is sent at check-in or check-out from the kiosk</li>
+</ul>
+
+<h3>What Was Not Changed</h3>
+<ul>
+<li>Play group <strong>auto-assignment</strong> still runs at check-in</li>
+<li>The daycare <strong>milestone survey</strong> check still runs at check-out</li>
+<li>SMS notifications from other parts of the application (inbox messages, balance reminders, etc.) are <strong>unaffected</strong></li>
+</ul>
+
+
+<!-- ============================================================ -->
+<!-- ARTICLE 7: Waiver Management                                 -->
+<!-- ============================================================ -->
+
+<h3>Overview</h3>
+<ul>
+<li>The waiver system now includes <strong>admin controls</strong> to correct waiver status and an <strong>automatic prompt</strong> for customers who haven't signed</li>
+</ul>
+
+<h3>Waiver Acceptance Report</h3>
+<ul>
+<li>Navigate to <strong>Reports → Waiver Acceptance Report</strong></li>
+<li>Use the tabs to filter: <strong>All Customers</strong>, <strong>Accepted</strong>, or <strong>Not Accepted</strong></li>
+<li>The "Accepted" tab shows the date each customer signed</li>
+<li>A yellow <strong>Backfilled</strong> badge on a customer detail page means their waiver was automatically marked as accepted when the waiver feature was first introduced — not because they personally signed it. These records should be reviewed and reset if needed.</li>
+</ul>
+
+<h3>Resetting a Waiver (Incorrect or Backfilled Record)</h3>
+<ul>
+<li>Go to <strong>Admin → Customers</strong> and open the customer's record</li>
+<li>Find the <strong>Waiver</strong> card (between Customer Info and Pets)</li>
+<li>Click <strong>Reset Waiver</strong> and confirm</li>
+<li>The customer's waiver is cleared — the next time they log in, they will be redirected to sign it before accessing their account</li>
+</ul>
+
+<h3>Marking a Waiver as Accepted (Paper Copy Collected)</h3>
+<ul>
+<li>Go to <strong>Admin → Customers</strong> and open the customer's record</li>
+<li>Find the <strong>Waiver</strong> card — if the waiver shows <strong>Not Accepted</strong>, click <strong>Mark Accepted</strong> and confirm</li>
+<li>The waiver is recorded as accepted with today's date and time</li>
+<li>Use this only when a <strong>paper waiver has been collected in person</strong></li>
+</ul>
+
+<h3>Customer Online Waiver Signing</h3>
+<ul>
+<li>When a customer logs in with no waiver on file, they are <strong>automatically redirected</strong> to a waiver signing page</li>
+<li>They must read the waiver, check the agreement box, and click <strong>Sign Waiver & Continue</strong> before accessing their account</li>
+<li>Once signed, they are taken to their dashboard and will <strong>not be shown the waiver again</strong> unless an admin resets it</li>
+<li>Customers <strong>cannot bypass this step</strong> — all account pages redirect to the waiver until it is completed</li>
+</ul>

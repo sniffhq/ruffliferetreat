@@ -413,6 +413,11 @@ def sms_webhook():
     body        = request.form.get('Body', '').strip()
     twilio_sid  = request.form.get('MessageSid', '')
 
+    # Collect MMS media URLs (Twilio sends NumMedia + MediaUrl0, MediaUrl1, …)
+    num_media  = int(request.form.get('NumMedia', 0))
+    media_urls = [request.form.get(f'MediaUrl{i}', '') for i in range(num_media)]
+    media_url  = ','.join(u for u in media_urls if u) or None
+
     # Try to match to a customer account by phone number
     user = None
     if from_number:
@@ -433,6 +438,7 @@ def sms_webhook():
             from_number=from_number,
             to_number=to_number,
             body=body,
+            media_url=media_url,
             twilio_sid=twilio_sid,
             is_read=False
         )
