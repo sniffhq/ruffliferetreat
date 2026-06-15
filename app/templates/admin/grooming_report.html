@@ -64,6 +64,11 @@
                title="Reset to tomorrow">
                 <i class="fas fa-sync-alt me-1"></i> Tomorrow
             </a>
+            <a href="{{ url_for('admin.grooming_report', date=report_date.isoformat(), early='0' if early_only else '1') }}"
+               class="btn btn-sm {% if early_only %}btn-warning text-dark fw-bold{% else %}btn-outline-secondary{% endif %}"
+               title="Show only pets being picked up before 10:00 AM">
+                <i class="fas fa-clock me-1"></i>Before 10 AM{% if early_only %} <i class="fas fa-check ms-1"></i>{% endif %}
+            </a>
             <button onclick="window.print()" class="btn btn-warning text-dark fw-bold btn-sm">
                 <i class="fas fa-print me-2"></i>Print
             </button>
@@ -94,7 +99,7 @@
         <i class="fas fa-cut me-2"></i>
         <strong>{{ grooming_items|length }} pet{{ 's' if grooming_items|length != 1 }}</strong>
         need grooming services for
-        <strong>{{ report_date.strftime('%A, %B %d') }}</strong>.
+        <strong>{{ report_date.strftime('%A, %B %d') }}</strong>{% if early_only %} — <span class="fw-bold"><i class="fas fa-clock me-1"></i>before 10 AM only</span>{% endif %}.
     </div>
     {% endif %}
 

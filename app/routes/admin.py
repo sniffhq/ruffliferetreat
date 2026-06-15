@@ -6508,10 +6508,12 @@ def grooming_report():
         
         if grooming_addons:
             pickup_time = None
+            pickup_hour = None
             if b.check_out_time:
                 try:
                     # If it's a time/datetime object, format it
                     pickup_time = b.check_out_time.strftime('%I:%M %p')
+                    pickup_hour = b.check_out_time.hour
                 except AttributeError:
                     # If it's already a string, try to parse and reformat it
                     time_str = str(b.check_out_time).strip()
@@ -6521,13 +6523,14 @@ def grooming_report():
                             parts = time_str.split(':')
                             hour = int(parts[0])
                             minute = int(parts[1])
-                            
+                            pickup_hour = hour
+
                             # Convert to 12-hour format
                             period = 'AM' if hour < 12 else 'PM'
                             display_hour = hour if hour <= 12 else hour - 12
                             if display_hour == 0:
                                 display_hour = 12
-                            
+
                             pickup_time = f"{display_hour:02d}:{minute:02d} {period}"
                         else:
                             # If no colon, use as-is
@@ -6538,13 +6541,14 @@ def grooming_report():
                 except Exception:
                     # Fallback to string representation
                     pickup_time = str(b.check_out_time)
-            
+
             grooming_items.append({
                 'boarding':     b,
                 'pet':          pet,
                 'customer':     customer,
                 'addons':       grooming_addons,
                 'pickup_time':  pickup_time,
+                'pickup_hour':  pickup_hour,
                 'kennel':       (f'{(b.kennel_type or "Kennel").title()} #{b.kennel_number}'
                                  if b.kennel_number else 'Unassigned'),
                 'notes':        b.special_notes or '',
@@ -6554,10 +6558,17 @@ def grooming_report():
         x['pickup_time'] is None,
         x['pickup_time'] or ''
     ))
-    
+
+    # Early pickup filter — only show pets picked up before 10 AM
+    early_only = request.args.get('early', '0') == '1'
+    if early_only:
+        grooming_items = [i for i in grooming_items
+                          if i['pickup_hour'] is not None and i['pickup_hour'] < 10]
+
     return render_template('admin/grooming_report.html',
                            grooming_items=grooming_items,
                            report_date=report_date,
+                           early_only=early_only,
                            today=today,
                            generated_at=datetime.now().strftime('%B %d, %Y at %I:%M %p'))
 
