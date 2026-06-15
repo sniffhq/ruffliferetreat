@@ -58,58 +58,17 @@ def onboarding():
                     file.save(filepath)
                     pet.photo_path = filename
             
-            # Handle vaccine record upload
-            if 'vaccine_record' in request.files:
-                file = request.files['vaccine_record']
-                if file and file.filename and allowed_file(file.filename):
-                    filename = secure_filename(f"vaccine_{current_user.id}_{pet.name}_{file.filename}")
-                    filepath = os.path.join('app/static/uploads', filename)
-                    file.save(filepath)
-                    pet.vaccination_record_path = filename
-            
             db.session.add(pet)
             db.session.flush()  # Flush to get pet.id without committing
-            
-            # ========== NEW: Handle vaccination records ==========
-            vaccine_names = request.form.getlist('vaccine_name[]')
-            vaccine_dates = request.form.getlist('vaccination_date[]')
-            vaccine_expirations = request.form.getlist('expiration_date[]')
-            vaccine_vets = request.form.getlist('veterinarian[]')
-            vaccine_clinics = request.form.getlist('clinic_name[]')
-            vaccine_lots = request.form.getlist('lot_number[]')
-            vaccine_notes = request.form.getlist('vaccine_notes[]')
-            
-            # Create VaccinationRecord entries
-            for i in range(len(vaccine_names)):
-                if vaccine_names[i] and vaccine_dates[i] and vaccine_expirations[i]:
-                    # Handle "Other" vaccine name
-                    vaccine_name = vaccine_names[i]
-                    if vaccine_name == 'Other' and i < len(request.form.getlist('other_vaccine_name[]')):
-                        other_names = request.form.getlist('other_vaccine_name[]')
-                        if i < len(other_names) and other_names[i]:
-                            vaccine_name = other_names[i]
-                    
-                    vaccination = VaccinationRecord(
-                        pet_id=pet.id,
-                        vaccine_name=vaccine_name,
-                        vaccination_date=datetime.strptime(vaccine_dates[i], '%Y-%m-%d').date(),
-                        expiration_date=datetime.strptime(vaccine_expirations[i], '%Y-%m-%d').date(),
-                        veterinarian=vaccine_vets[i] if i < len(vaccine_vets) else None,
-                        clinic_name=vaccine_clinics[i] if i < len(vaccine_clinics) else None,
-                        lot_number=vaccine_lots[i] if i < len(vaccine_lots) else None,
-                        notes=vaccine_notes[i] if i < len(vaccine_notes) else None
-                    )
-                    db.session.add(vaccination)
-            # ========== END NEW CODE ==========
-            
+
             current_user.onboarding_complete = True
             if request.form.get('waiver_accepted') == '1':
                 from datetime import datetime as _dt
                 current_user.waiver_accepted    = True
                 current_user.waiver_accepted_at = _dt.now()
             db.session.commit()
-            
-            flash(f'Welcome to Ruff Life Retreat! {pet.name} has been added to your account with vaccination records.', 'success')
+
+            flash(f'Welcome to Ruff Life Retreat! {pet.name} has been added to your account. Please bring vaccination records (Bordetella, Rabies, DHPP) to your first visit.', 'success')
             return redirect(url_for('customer.dashboard'))
             
         except Exception as e:

@@ -9,8 +9,8 @@
             </div>
             <div class="card-body p-4">
                 <div class="alert alert-info">
-                    <i class="fas fa-info-circle"></i> 
-                    <strong>Complete Setup in 4 Steps:</strong> Your contact info, your pet's info, vaccination records, and veterinarian info!
+                    <i class="fas fa-info-circle"></i>
+                    <strong>Complete Setup in 3 Steps:</strong> Your contact info, your pet's info, and veterinarian info!
                 </div>
 
                 <form method="POST" enctype="multipart/form-data" id="onboardingForm">
@@ -206,97 +206,22 @@
                         </div>
                     </div>
 
-                    <!-- STEP 3: Vaccination Records - NEW SECTION -->
+                    <!-- Vaccination Requirements Notice -->
+                    <div class="alert alert-warning border-warning mb-4" style="border-left: 4px solid #ffc107;">
+                        <h6 class="fw-bold mb-2"><i class="fas fa-syringe me-2"></i>Vaccination Requirements</h6>
+                        <p class="mb-2">Before your pet's first service, the following vaccinations must be current and on file:</p>
+                        <ul class="mb-2">
+                            <li><strong>Bordetella</strong> (Kennel Cough)</li>
+                            <li><strong>Rabies</strong></li>
+                            <li><strong>Distemper/Parvo</strong> (DHPP)</li>
+                        </ul>
+                        <p class="mb-0 text-muted small">You can bring physical records on your first visit, email them to us, or ask your vet to send them directly. Our staff will enter them into your pet's profile before services begin.</p>
+                    </div>
+
+                    <!-- STEP 3: Veterinarian Information -->
                     <div class="onboarding-section">
                         <div class="section-header">
                             <span class="step-number">3</span>
-                            <h5><i class="fas fa-syringe"></i> Vaccination Records</h5>
-                        </div>
-
-                        <div class="alert alert-success">
-                            <i class="fas fa-info-circle"></i>
-                            <strong>Required for safety:</strong> Please provide vaccination details to help us track expiration dates and ensure compliance.
-                        </div>
-
-                        <!-- Vaccination Document Upload -->
-                        <div class="mb-4">
-                            <label for="vaccine_record" class="form-label">
-                                <i class="fas fa-file-upload"></i> Upload Vaccination Document *
-                            </label>
-                            <input type="file" class="form-control" id="vaccine_record" name="vaccine_record" accept=".pdf,.jpg,.jpeg,.png" required>
-                            <small class="text-muted">PDF or image file showing vaccination history</small>
-                        </div>
-
-                        <hr>
-
-                        <p class="text-muted mb-3">
-                            <strong>Please enter vaccination details below:</strong> This structured data helps us track expiration dates automatically.
-                        </p>
-
-                        <!-- Dynamic Vaccination Entries -->
-                        <div id="vaccination-entries">
-                            <div class="vaccination-entry border rounded p-3 mb-3" data-index="0" style="background-color: #f0f9ff;">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <h6 class="mb-0 text-primary">Vaccination #1</h6>
-                                    <button type="button" class="btn btn-sm btn-danger remove-vaccine" style="display: none;">
-                                        <i class="fas fa-trash"></i> Remove
-                                    </button>
-                                </div>
-                                <div class="row">
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label">Vaccine Name *</label>
-                                        <select class="form-select vaccine-select" name="vaccine_name[]">
-                                            <option value="">Select vaccine...</option>
-                                            <option value="Rabies">Rabies</option>
-                                            <option value="DHPP">DHPP (Distemper/Parvo)</option>
-                                            <option value="Bordetella">Bordetella (Kennel Cough)</option>
-                                            <option value="Leptospirosis">Leptospirosis</option>
-                                            <option value="Lyme Disease">Lyme Disease</option>
-                                            <option value="Influenza">Canine Influenza</option>
-                                            <option value="Other">Other</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-6 mb-3 other-vaccine-name" style="display: none;">
-                                        <label class="form-label">Specify Vaccine Name</label>
-                                        <input type="text" class="form-control other-vaccine-input" name="other_vaccine_name[]" placeholder="Enter vaccine name">
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label">Vaccination Date *</label>
-                                        <input type="date" class="form-control" name="vaccination_date[]">
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label">Expiration Date *</label>
-                                        <input type="date" class="form-control" name="expiration_date[]">
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label">Veterinarian</label>
-                                        <input type="text" class="form-control" name="veterinarian[]" placeholder="Dr. Smith">
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label">Clinic Name</label>
-                                        <input type="text" class="form-control" name="clinic_name[]" placeholder="Happy Paws Veterinary">
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label">Lot Number</label>
-                                        <input type="text" class="form-control" name="lot_number[]" placeholder="Optional">
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label">Notes</label>
-                                        <input type="text" class="form-control" name="vaccine_notes[]" placeholder="Optional">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <button type="button" class="btn btn-outline-success" id="add-vaccine-btn">
-                            <i class="fas fa-plus"></i> Add Another Vaccine
-                        </button>
-                    </div>
-
-                    <!-- STEP 4: Veterinarian Information -->
-                    <div class="onboarding-section">
-                        <div class="section-header">
-                            <span class="step-number">4</span>
                             <h5><i class="fas fa-stethoscope"></i> Veterinarian Information</h5>
                         </div>
 
@@ -348,9 +273,9 @@
             <div class="card-body">
                 <h5><i class="fas fa-question-circle"></i> What's Next?</h5>
                 <ol class="mb-0">
-                    <li>Complete this onboarding (all 4 steps)</li>
-                    <li>We'll review your pet's vaccination records</li>
-                    <li>Once approved, you can book appointments!</li>
+                    <li>Complete this onboarding (all 3 steps)</li>
+                    <li>Bring or email your pet's vaccination records (Bordetella, Rabies, DHPP) before your first visit</li>
+                    <li>Once records are on file, you're all set to book!</li>
                     <li>You can add more pets anytime from your dashboard</li>
                 </ol>
             </div>
@@ -378,96 +303,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Vaccination entry management
-let vaccineIndex = 1;
-
-// Handle "Other" vaccine name
-document.addEventListener('change', function(e) {
-    if (e.target.classList.contains('vaccine-select')) {
-        const entry = e.target.closest('.vaccination-entry');
-        const otherDiv = entry.querySelector('.other-vaccine-name');
-        const otherInput = entry.querySelector('.other-vaccine-input');
-        
-        if (e.target.value === 'Other') {
-            otherDiv.style.display = 'block';
-            otherInput.required = true;
-        } else {
-            otherDiv.style.display = 'none';
-            otherInput.required = false;
-            otherInput.value = '';
-        }
-    }
-});
-
-// Add new vaccine entry
-document.getElementById('add-vaccine-btn').addEventListener('click', function() {
-    vaccineIndex++;
-    const newEntry = document.querySelector('.vaccination-entry').cloneNode(true);
-    newEntry.setAttribute('data-index', vaccineIndex);
-    newEntry.querySelector('h6').textContent = 'Vaccination #' + vaccineIndex;
-    
-    newEntry.querySelectorAll('input, select, textarea').forEach(input => {
-        if (input.type === 'checkbox' || input.type === 'radio') {
-            input.checked = false;
-        } else {
-            input.value = '';
-        }
-    });
-    
-    newEntry.querySelector('.remove-vaccine').style.display = 'inline-block';
-    newEntry.querySelector('.other-vaccine-name').style.display = 'none';
-    document.getElementById('vaccination-entries').appendChild(newEntry);
-    updateRemoveButtons();
-});
-
-// Remove vaccine entry
-document.addEventListener('click', function(e) {
-    if (e.target.closest('.remove-vaccine')) {
-        e.target.closest('.vaccination-entry').remove();
-        updateRemoveButtons();
-        renumberEntries();
-    }
-});
-
-function updateRemoveButtons() {
-    const entries = document.querySelectorAll('.vaccination-entry');
-    entries.forEach((entry, index) => {
-        const removeBtn = entry.querySelector('.remove-vaccine');
-        if (entries.length > 1) {
-            removeBtn.style.display = 'inline-block';
-        } else {
-            removeBtn.style.display = 'none';
-        }
-    });
-}
-
-function renumberEntries() {
-    document.querySelectorAll('.vaccination-entry').forEach((entry, index) => {
-        entry.querySelector('h6').textContent = 'Vaccination #' + (index + 1);
-    });
-}
-
-// Form validation
-document.getElementById('onboardingForm').addEventListener('submit', function(e) {
-    const vaccineEntries = document.querySelectorAll('.vaccination-entry');
-    let hasValidVaccine = false;
-    
-    vaccineEntries.forEach(entry => {
-        const name = entry.querySelector('[name="vaccine_name[]"]').value;
-        const date = entry.querySelector('[name="vaccination_date[]"]').value;
-        const expiration = entry.querySelector('[name="expiration_date[]"]').value;
-        
-        if (name && date && expiration) {
-            hasValidVaccine = true;
-        }
-    });
-    
-    if (!hasValidVaccine) {
-        e.preventDefault();
-        alert('Please add at least one complete vaccination record (name, date, and expiration date).');
-        return false;
-    }
-});
 </script>
 
 <style>
