@@ -60,6 +60,7 @@
             cursor: pointer;
             text-align: left;
             transition: all 0.15s;
+            position: relative;
         }
         .pet-btn:hover {
             border-color: #FFC107;
@@ -69,6 +70,25 @@
             border-color: #198754;
             background: #d1e7dd;
             color: #0a3622;
+        }
+        .pet-btn.selected::after {
+            content: '✓';
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.3rem;
+            color: #198754;
+        }
+        .pet-count-badge {
+            display: inline-block;
+            background: #198754;
+            color: white;
+            border-radius: 50px;
+            padding: 2px 10px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin-left: 8px;
         }
         .btn-checkin {
             background: #198754;
@@ -150,8 +170,8 @@
     <form method="POST" action="{{ url_for('kiosk.index') }}" id="kiosk-form"
           onsubmit="return validateForm()">
 
-        <!-- Hidden pet name — set by JS when pet button is tapped -->
-        <input type="hidden" name="pet_name" id="selected-pet-name" value="">
+        <!-- Pet names (comma-separated) — built by JS as pets are toggled -->
+        <input type="hidden" name="pet_names" id="selected-pet-names" value="">
 
         <!-- ── Step 1: Phone number ── -->
         <div id="step-phone" class="mb-3">
@@ -182,22 +202,27 @@
                     <i class="fas fa-times me-1"></i>Change
                 </button>
             </div>
-            <div class="fw-bold mb-2 text-muted"
-                 style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em;">
-                Select your pet:
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="fw-bold text-muted"
+                     style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em;">
+                    Select pet(s):
+                </div>
+                <div id="pet-count" style="display:none;">
+                    <span class="pet-count-badge" id="pet-count-label"></span>
+                </div>
             </div>
             <div id="pet-buttons" class="d-grid gap-3"></div>
         </div>
 
-        <!-- ── Step 3: Action buttons (shown after pet selected) ── -->
+        <!-- ── Step 3: Action buttons (shown after ≥1 pet selected) ── -->
         <div id="step-actions" style="display:none;">
             <hr class="divider">
             <div class="d-grid gap-3">
-                <button type="submit" name="action" value="checkin" class="btn-checkin">
-                    <i class="fas fa-sign-in-alt me-2"></i>Check In
+                <button type="submit" name="action" value="checkin" class="btn-checkin" id="btn-checkin">
+                    <i class="fas fa-sign-in-alt me-2"></i><span id="checkin-label">Check In</span>
                 </button>
-                <button type="submit" name="action" value="checkout" class="btn-checkout">
-                    <i class="fas fa-sign-out-alt me-2"></i>Check Out
+                <button type="submit" name="action" value="checkout" class="btn-checkout" id="btn-checkout">
+                    <i class="fas fa-sign-out-alt me-2"></i><span id="checkout-label">Check Out</span>
                 </button>
             </div>
         </div>
@@ -222,6 +247,9 @@
     {% endif %}
     {% endwith %}
 
+    // ── State ─────────────────────────────────────────────────────────────
+    let selectedPets = new Set();
+
     // ── Auto-trigger lookup after 10 digits ───────────────────────────────
     let lookupTimeout = null;
     document.getElementById('phone').addEventListener('input', function () {
@@ -230,18 +258,17 @@
         if (digits.length >= 10) {
             lookupTimeout = setTimeout(lookupPets, 600);
         } else {
-            // Reset pet section if phone is edited
             hidePets();
         }
     });
 
-    // ── Lookup function ───────────────────────────────────────────────────
+    // ── Lookup ────────────────────────────────────────────────────────────
     function lookupPets() {
         const phone = document.getElementById('phone').value.trim();
         if (!phone) return;
 
-        const btn  = document.getElementById('lookup-btn');
-        const msg  = document.getElementById('phone-msg');
+        const btn = document.getElementById('lookup-btn');
+        const msg = document.getElementById('phone-msg');
 
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Looking up…';
@@ -260,10 +287,9 @@
                     return;
                 }
 
-                // Hide any previous error
                 msg.style.display = 'none';
+                selectedPets.clear();
 
-                // Populate greeting + pet buttons
                 document.getElementById('owner-greeting').textContent =
                     'Hi, ' + data.owner + '! 👋';
 
@@ -273,14 +299,15 @@
                     const el = document.createElement('button');
                     el.type = 'button';
                     el.className = 'pet-btn';
+                    el.dataset.petName = pet.name;
                     el.innerHTML = '<i class="fas fa-paw me-2 text-warning"></i>' + pet.name;
-                    el.addEventListener('click', function () { selectPet(pet.name, el); });
+                    el.addEventListener('click', function () { togglePet(pet.name, el); });
                     container.appendChild(el);
                 });
 
                 document.getElementById('step-pets').style.display = '';
 
-                // Auto-select single pet
+                // Auto-select if only one pet
                 if (data.pets.length === 1) {
                     container.querySelector('.pet-btn').click();
                 }
@@ -294,35 +321,63 @@
             });
     }
 
-    // ── Pet selection ─────────────────────────────────────────────────────
-    function selectPet(name, buttonEl) {
-        document.querySelectorAll('.pet-btn').forEach(function (b) {
-            b.classList.remove('selected');
-        });
-        buttonEl.classList.add('selected');
-        document.getElementById('selected-pet-name').value = name;
-        document.getElementById('step-actions').style.display = '';
+    // ── Toggle pet selection ──────────────────────────────────────────────
+    function togglePet(name, buttonEl) {
+        if (selectedPets.has(name)) {
+            selectedPets.delete(name);
+            buttonEl.classList.remove('selected');
+        } else {
+            selectedPets.add(name);
+            buttonEl.classList.add('selected');
+        }
+        updateSelectionUI();
     }
 
-    // ── Reset phone / start over ──────────────────────────────────────────
+    function updateSelectionUI() {
+        const count = selectedPets.size;
+
+        // Hidden field
+        document.getElementById('selected-pet-names').value = Array.from(selectedPets).join(',');
+
+        // Counter badge
+        const badge = document.getElementById('pet-count');
+        const label = document.getElementById('pet-count-label');
+        if (count > 0) {
+            label.textContent = count + (count === 1 ? ' selected' : ' selected');
+            badge.style.display = '';
+        } else {
+            badge.style.display = 'none';
+        }
+
+        // Action button labels
+        const petWord = count === 1 ? '1 Pet' : count + ' Pets';
+        document.getElementById('checkin-label').textContent  = count > 1 ? 'Check In '  + petWord : 'Check In';
+        document.getElementById('checkout-label').textContent = count > 1 ? 'Check Out ' + petWord : 'Check Out';
+
+        // Show / hide action buttons
+        document.getElementById('step-actions').style.display = count > 0 ? '' : 'none';
+    }
+
+    // ── Reset / start over ────────────────────────────────────────────────
     function resetPhone() {
         document.getElementById('phone').value = '';
-        document.getElementById('selected-pet-name').value = '';
         document.getElementById('phone-msg').style.display = 'none';
         hidePets();
         document.getElementById('phone').focus();
     }
 
     function hidePets() {
+        selectedPets.clear();
+        document.getElementById('selected-pet-names').value = '';
         document.getElementById('step-pets').style.display = 'none';
         document.getElementById('step-actions').style.display = 'none';
-        document.getElementById('selected-pet-name').value = '';
+        document.getElementById('pet-count').style.display = 'none';
     }
 
-    // ── Guard against empty pet on submit ─────────────────────────────────
+    // ── Guard on submit ───────────────────────────────────────────────────
     function validateForm() {
-        if (!document.getElementById('selected-pet-name').value) {
-            alert('Please look up a phone number and select a pet first.');
+        if (selectedPets.size === 0) {
+            alert('Please look up a phone number and select at least one pet.');
             return false;
         }
         return true;

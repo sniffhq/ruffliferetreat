@@ -1,30 +1,31 @@
-﻿from flask import Blueprint, render_template, request, flash, redirect, url_for
+import re
+import logging
+from flask import Blueprint, render_template, request, flash, redirect, url_for
 from app import db
 from app.models import Pet, User, DaycareEnrollment, DaycareAttendance
 from datetime import datetime
 
 bp = Blueprint('kiosk', __name__, url_prefix='/kiosk')
+logger = logging.getLogger(__name__)
+
 
 @bp.route('/', methods=['GET', 'POST'])
 def index():
-    """Single page for check-in and check-out"""
+    """Single page for check-in and check-out — supports multiple pets per submission."""
     if request.method == 'POST':
-        phone    = request.form.get('phone', '').strip()
-        pet_name = request.form.get('pet_name', '').strip()
-        action   = request.form.get('action')
+        phone      = request.form.get('phone', '').strip()
+        pet_names  = [n.strip() for n in request.form.get('pet_names', '').split(',') if n.strip()]
+        action     = request.form.get('action')
 
-        if not phone or not pet_name:
-            flash('Please enter both phone number and pet name.', 'warning')
+        if not phone or not pet_names:
+            flash('Please look up a phone number and select at least one pet.', 'warning')
             return redirect(url_for('kiosk.index'))
 
-        # Normalize phone — strip non-digits for flexible matching
-        import re
         phone_digits = re.sub(r'\D', '', phone)
 
-        # Find the pet by owner phone and pet name
-        all_users = User.query.filter(User.phone.isnot(None)).all()
+        # Find owner by phone
         owner = None
-        for u in all_users:
+        for u in User.query.filter(User.phone.isnot(None)).all():
             if re.sub(r'\D', '', u.phone or '') == phone_digits:
                 owner = u
                 break
@@ -33,34 +34,46 @@ def index():
             flash(f'No account found for phone number "{phone}". Please contact staff.', 'danger')
             return redirect(url_for('kiosk.index'))
 
-        pet = Pet.query.filter(
-            Pet.user_id == owner.id,
-            db.func.lower(Pet.name) == pet_name.lower(),
-            Pet.is_active == True
-        ).first()
+        # Process each selected pet
+        successes = []
+        warnings  = []
 
-        if not pet:
-            flash(f'No pet named "{pet_name}" found for that phone number.', 'danger')
-            return redirect(url_for('kiosk.index'))
+        for pet_name in pet_names:
+            pet = Pet.query.filter(
+                Pet.user_id == owner.id,
+                db.func.lower(Pet.name) == pet_name.lower(),
+                Pet.is_active == True
+            ).first()
 
-        # Check enrollment
-        enrollment = DaycareEnrollment.query.filter_by(
-            pet_id=pet.id,
-            active=True
-        ).first()
+            if not pet:
+                warnings.append(f'No pet named "{pet_name}" found.')
+                continue
 
-        if not enrollment:
-            flash(f'{pet.name} is not enrolled in daycare. Please contact staff.', 'warning')
-            return redirect(url_for('kiosk.index'))
+            enrollment = DaycareEnrollment.query.filter_by(
+                pet_id=pet.id, active=True
+            ).first()
 
-        # Process action
-        if action == 'checkin':
-            return process_checkin(enrollment, pet)
-        elif action == 'checkout':
-            return process_checkout(enrollment, pet)
-        else:
-            flash('Invalid action.', 'danger')
-            return redirect(url_for('kiosk.index'))
+            if not enrollment:
+                warnings.append(f'{pet.name} is not enrolled in daycare.')
+                continue
+
+            if action == 'checkin':
+                ok, msg = _do_checkin(enrollment, pet)
+            elif action == 'checkout':
+                ok, msg = _do_checkout(enrollment, pet)
+            else:
+                warnings.append('Invalid action.')
+                continue
+
+            (successes if ok else warnings).append(msg)
+
+        # Flash combined results
+        if successes:
+            flash(' · '.join(successes), 'success')
+        for w in warnings:
+            flash(w, 'warning')
+
+        return redirect(url_for('kiosk.index'))
 
     return render_template('kiosk/index.html')
 
@@ -68,7 +81,6 @@ def index():
 @bp.route('/lookup-pets')
 def lookup_pets():
     """AJAX: return daycare-enrolled pets for a given phone number."""
-    import re
     from flask import jsonify
 
     phone = request.args.get('phone', '').strip()
@@ -77,9 +89,8 @@ def lookup_pets():
     if len(phone_digits) < 10:
         return jsonify({'error': 'Enter a full phone number', 'pets': []})
 
-    all_users = User.query.filter(User.phone.isnot(None)).all()
     owner = None
-    for u in all_users:
+    for u in User.query.filter(User.phone.isnot(None)).all():
         if re.sub(r'\D', '', u.phone or '') == phone_digits:
             owner = u
             break
@@ -107,80 +118,71 @@ def dashboard():
     return redirect(url_for('admin.daycare_dashboard'))
 
 
-def process_checkin(enrollment, pet):
-    """Handle check-in"""
+# ── Internal helpers — return (success: bool, message: str) ──────────────────
+
+def _do_checkin(enrollment, pet):
+    """Check in one pet. Returns (ok, message)."""
     today = datetime.now().date()
-    
+
     existing = DaycareAttendance.query.filter(
         DaycareAttendance.enrollment_id == enrollment.id,
         db.func.date(DaycareAttendance.check_in_time) == today,
         DaycareAttendance.check_out_time == None
     ).first()
-    
+
     if existing:
-        flash(f'{pet.name} is already checked in!', 'warning')
-        return redirect(url_for('kiosk.index'))
-    
+        return False, f'{pet.name} is already checked in'
+
     check_in_time = datetime.now()
     attendance = DaycareAttendance(
         enrollment_id=enrollment.id,
         check_in_time=check_in_time
     )
     db.session.add(attendance)
-
-    # flush() assigns the ID before commit — needed for play group assignment
     db.session.flush()
     attendance_id = attendance.id
     db.session.commit()
 
-    # Auto-assign play group in a separate operation after the commit
+    # Auto-assign play group
     try:
         from app.models import PlayGroup
         weight = float(pet.weight) if pet.weight else 0
-        if weight < 25:
-            size = 'small'
-        elif weight <= 50:
-            size = 'medium'
-        else:
-            size = 'large'
-        temp = pet.temperament or 'calm'
-        group = (PlayGroup.query.filter_by(size_category=size, temperament=temp, active=True).first()
-                 or PlayGroup.query.filter_by(size_category=size, temperament='mixed', active=True).first()
-                 or PlayGroup.query.filter_by(size_category=size, active=True).first())
+        size   = 'small' if weight < 25 else ('medium' if weight <= 50 else 'large')
+        temp   = pet.temperament or 'calm'
+        group  = (PlayGroup.query.filter_by(size_category=size, temperament=temp,    active=True).first()
+               or PlayGroup.query.filter_by(size_category=size, temperament='mixed', active=True).first()
+               or PlayGroup.query.filter_by(size_category=size,                      active=True).first())
         if group:
             DaycareAttendance.query.filter_by(id=attendance_id).update({'play_group_id': group.id})
             db.session.commit()
     except Exception as e:
         db.session.rollback()
-        import logging; logging.getLogger(__name__).error(f'Play group auto-assign failed: {e}')
+        logger.error(f'Play group auto-assign failed for {pet.name}: {e}')
 
-    flash(f'✓ {pet.name} checked in successfully at {check_in_time.strftime("%I:%M %p")}!', 'success')
-    return redirect(url_for('kiosk.index'))
+    return True, f'✓ {pet.name} checked in at {check_in_time.strftime("%I:%M %p")}'
 
 
-def process_checkout(enrollment, pet):
-    """Handle check-out"""
+def _do_checkout(enrollment, pet):
+    """Check out one pet. Returns (ok, message)."""
     attendance = DaycareAttendance.query.filter(
         DaycareAttendance.enrollment_id == enrollment.id,
         DaycareAttendance.check_out_time == None
     ).order_by(DaycareAttendance.check_in_time.desc()).first()
-    
+
     if not attendance:
-        flash(f'{pet.name} is not currently checked in.', 'warning')
-        return redirect(url_for('kiosk.index'))
-    
+        return False, f'{pet.name} is not currently checked in'
+
     check_out_time = datetime.now()
     attendance.check_out_time = check_out_time
     db.session.commit()
 
-    # Check daycare milestone survey
+    # Milestone survey check
     try:
         from app.survey_service import check_daycare_milestone
         if pet.owner:
             check_daycare_milestone(pet.owner.id)
     except Exception as e:
-        import logging; logging.getLogger(__name__).error(f'Survey milestone check failed: {e}')
+        logger.error(f'Survey milestone check failed for {pet.name}: {e}')
 
-    duration = (attendance.check_out_time - attendance.check_in_time).total_seconds() / 3600
-    flash(f'✓ {pet.name} checked out successfully! Duration: {duration:.1f} hours', 'success')
-    return redirect(url_for('kiosk.index'))
+    duration = (check_out_time - attendance.check_in_time).total_seconds() / 3600
+    return True, f'✓ {pet.name} checked out ({duration:.1f} hrs)'
