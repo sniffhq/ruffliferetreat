@@ -367,23 +367,34 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <form method="POST" action="{{ url_for('admin.deactivate_daycare_enrollment', enrollment_id=enrollment.id) }}"
-                                      style="display: inline;"
-                                      onsubmit="return confirm('Are you sure you want to unenroll {{ enrollment.pet.name }}?');">
-                                    <button type="submit" class="btn btn-sm btn-danger">
-                                        <i class="fas fa-times"></i> Unenroll
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                                            data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="fas fa-ellipsis-h"></i>
                                     </button>
-                                </form>
-                                <form method="POST"
-                                      action="{{ url_for('admin.toggle_special_rate', enrollment_id=enrollment.id) }}"
-                                      style="display:inline;"
-                                      onsubmit="return confirm('{% if enrollment.special_rate %}Remove special rate for {{ enrollment.pet.name }}? Standard pricing will apply.{% else %}Apply $20/day special rate to {{ enrollment.pet.name }}?{% endif %}');">
-                                    <button type="submit"
-                                            class="btn btn-sm {% if enrollment.special_rate %}btn-warning text-dark{% else %}btn-outline-warning{% endif %} ms-1"
-                                            title="{% if enrollment.special_rate %}Remove special rate{% else %}Apply $20/day special rate{% endif %}">
-                                        <i class="fas fa-tag me-1"></i>{% if enrollment.special_rate %}${{ enrollment.special_rate|int }}/day ✓{% else %}Set Rate{% endif %}
-                                    </button>
-                                </form>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li>
+                                            <form method="POST"
+                                                  action="{{ url_for('admin.toggle_special_rate', enrollment_id=enrollment.id) }}"
+                                                  onsubmit="return confirm('{% if enrollment.special_rate %}Remove special rate for {{ enrollment.pet.name }}?{% else %}Apply $20/day special rate to {{ enrollment.pet.name }}?{% endif %}');">
+                                                <button type="submit" class="dropdown-item">
+                                                    <i class="fas fa-tag me-2 {% if enrollment.special_rate %}text-warning{% else %}text-muted{% endif %}"></i>
+                                                    {% if enrollment.special_rate %}Remove Special Rate{% else %}Set $20/day Rate{% endif %}
+                                                </button>
+                                            </form>
+                                        </li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <form method="POST"
+                                                  action="{{ url_for('admin.deactivate_daycare_enrollment', enrollment_id=enrollment.id) }}"
+                                                  onsubmit="return confirm('Unenroll {{ enrollment.pet.name }} from daycare?');">
+                                                <button type="submit" class="dropdown-item text-danger">
+                                                    <i class="fas fa-times me-2"></i>Unenroll
+                                                </button>
+                                            </form>
+                                        </li>
+                                    </ul>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
