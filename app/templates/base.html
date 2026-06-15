@@ -162,8 +162,15 @@
                         </a>
                     </li>
 
+                    {% elif current_user.is_authenticated %}
+                    <!-- Customer Portal Navigation (left side) -->
+                    <li class="nav-item"><a class="nav-link px-3" href="{{ url_for('customer.dashboard') }}" style="font-size:0.875rem;">Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link px-3" href="{{ url_for('customer.pets') }}" style="font-size:0.875rem;">My Pets</a></li>
+                    <li class="nav-item"><a class="nav-link px-3" href="{{ url_for('customer.book_appointment') }}" style="font-size:0.875rem;">Book</a></li>
+                    <li class="nav-item"><a class="nav-link px-3" href="{{ url_for('customer.my_photos') }}" style="font-size:0.875rem;"><i class="fas fa-images me-1"></i>My Photos</a></li>
+                    <li class="nav-item"><a class="nav-link px-3" href="{{ url_for('customer.faq') }}" style="font-size:0.875rem;"><i class="fas fa-question-circle me-1"></i>FAQ</a></li>
                     {% else %}
-                    <!-- Public Navigation -->
+                    <!-- Public Navigation (logged-out visitors only) -->
                     <li class="nav-item"><a class="nav-link px-3" href="{{ url_for('public.boarding') }}" style="font-size:0.875rem;">Boarding</a></li>
                     <li class="nav-item"><a class="nav-link px-3" href="{{ url_for('public.grooming') }}" style="font-size:0.875rem;">Grooming</a></li>
                     <li class="nav-item"><a class="nav-link px-3" href="{{ url_for('public.daycare') }}" style="font-size:0.875rem;">Daycare</a></li>
@@ -174,14 +181,6 @@
                 <!-- Right side -->
                 <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-1">
                     {% if current_user.is_authenticated %}
-                        {% if not current_user.is_admin %}
-                            <li class="nav-item"><a class="nav-link px-3" href="{{ url_for('customer.dashboard') }}" style="font-size:0.875rem;">Dashboard</a></li>
-                            <li class="nav-item"><a class="nav-link px-3" href="{{ url_for('customer.pets') }}" style="font-size:0.875rem;">My Pets</a></li>
-                            <li class="nav-item"><a class="nav-link px-3" href="{{ url_for('customer.book_appointment') }}" style="font-size:0.875rem;">Book</a></li>
-                            <li class="nav-item"><a class="nav-link px-3" href="{{ url_for('customer.my_photos') }}" style="font-size:0.875rem;"><i class="fas fa-images me-1"></i>My Photos</a></li>
-                            <li class="nav-item"><a class="nav-link px-3" href="{{ url_for('customer.faq') }}" style="font-size:0.875rem;"><i class="fas fa-question-circle me-1"></i>FAQ</a></li>
-                        {% endif %}
-
                         <!-- User dropdown -->
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle d-flex align-items-center gap-2 px-3 py-2 rounded"
