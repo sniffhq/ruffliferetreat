@@ -10,7 +10,8 @@
             <i class="fas fa-arrow-left me-1"></i>Back to Profile
         </a>
         <div class="d-flex gap-2 align-items-center">
-            <!-- Invoice type switcher -->
+            {% if not viewing_payment %}
+            <!-- Invoice type switcher (only on live invoice view) -->
             <div class="btn-group btn-group-sm" role="group">
                 <a href="{{ url_for('admin.customer_invoice', customer_id=customer.id, type='boarding') }}"
                    class="btn {% if invoice_type == 'boarding' %}btn-dark{% else %}btn-outline-secondary{% endif %}">
@@ -32,24 +33,39 @@
                     <i class="fas fa-calculator me-2"></i>Send Estimate
                 </button>
             </form>
+            {% endif %}
             <form method="POST"
                   action="{{ url_for('admin.send_invoice_sms', customer_id=customer.id) }}"
-                  onsubmit="return confirm('Send invoice link to {{ customer.first_name }} at {{ customer.phone }}?');">
+                  onsubmit="return confirm('{% if viewing_payment %}Resend invoice to {% else %}Send invoice link to {% endif %}{{ customer.first_name }} at {{ customer.phone }}?');">
                 <button type="submit" class="btn btn-info text-white fw-bold">
-                    <i class="fas fa-sms me-2"></i>Send Invoice
+                    <i class="fas fa-sms me-2"></i>{% if viewing_payment %}Resend Invoice{% else %}Send Invoice{% endif %}
                 </button>
             </form>
+            {% if not viewing_payment %}
             {% set true_balance = [total_outstanding - total_paid, 0]|max %}
             {% if pet_sections and true_balance > 0 %}
             <button class="btn btn-success fw-bold" data-bs-toggle="modal" data-bs-target="#markPaidModal">
                 <i class="fas fa-check-circle me-2"></i>Mark All as Paid
             </button>
             {% endif %}
+            {% endif %}
             <button onclick="window.print()" class="btn btn-outline-dark">
                 <i class="fas fa-print me-1"></i>Print / Save PDF
             </button>
         </div>
     </div>
+
+    {% if viewing_payment %}
+    <div class="alert alert-success d-flex align-items-center gap-3 mb-3 no-print">
+        <i class="fas fa-check-circle fa-lg"></i>
+        <div>
+            <strong>Paid Receipt</strong> — This invoice was paid on
+            <strong>{{ viewing_payment.payment_date.strftime('%B %d, %Y') }}</strong>
+            via {{ viewing_payment.payment_method or 'unknown method' }}
+            (${{ "%.2f"|format(viewing_payment.amount) }}).
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Invoice Card -->
     <div class="card shadow-sm" id="invoice-card">
@@ -206,7 +222,8 @@
             </div>
             {% endif %}
 
-            <!-- Add adjustment (no-print) -->
+            <!-- Add adjustment (no-print, hidden on paid receipt view) -->
+            {% if not viewing_payment %}
             <div class="no-print mb-4">
                 <button type="button" class="btn btn-sm btn-outline-secondary"
                         data-bs-toggle="collapse" data-bs-target="#addAdjPanel">
@@ -241,6 +258,7 @@
                     </form>
                 </div>
             </div>
+            {% endif %}
 
             <!-- Grand Total -->
             <div class="inv-divider pt-3 mt-2">

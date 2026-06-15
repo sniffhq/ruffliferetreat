@@ -2437,6 +2437,12 @@ def customer_invoice(customer_id):
     customer     = User.query.get_or_404(customer_id)
     today        = date.today()
     invoice_type = request.args.get('type', 'boarding')  # 'boarding' or 'daycare'
+    payment_id   = request.args.get('payment_id', type=int)  # view a specific paid invoice
+
+    # If viewing a specific payment, load it for display
+    viewing_payment = None
+    if payment_id:
+        viewing_payment = Payment.query.filter_by(id=payment_id, customer_id=customer_id).first()
 
     # Resolve customer-specific or facility-default rates
     from app.rate_resolver import get_rates, get_pet_boarding_rate, get_pet_daycare_rate
@@ -2455,12 +2461,18 @@ def customer_invoice(customer_id):
         lines = []
 
         if invoice_type == 'boarding':
-            # Boarding records — completed and unpaid
-            boardings = Boarding.query.filter_by(
-                pet_id=pet.id, status='completed'
-            ).filter(Boarding.payment_id == None).order_by(
-                Boarding.check_in_date.asc()
-            ).all()
+            if viewing_payment:
+                # Show boardings paid under this specific payment
+                boardings = Boarding.query.filter_by(
+                    pet_id=pet.id, payment_id=payment_id
+                ).order_by(Boarding.check_in_date.asc()).all()
+            else:
+                # Boarding records — completed and unpaid
+                boardings = Boarding.query.filter_by(
+                    pet_id=pet.id, status='completed'
+                ).filter(Boarding.payment_id == None).order_by(
+                    Boarding.check_in_date.asc()
+                ).all()
 
             for b in boardings:
                 days     = _boarding_days(b)
@@ -2502,15 +2514,21 @@ def customer_invoice(customer_id):
                 })
 
         elif invoice_type == 'daycare':
-            # Daycare attendance — checked out and unpaid
             enrollments = DaycareEnrollment.query.filter_by(pet_id=pet.id).all()
             for enr in enrollments:
-                attendances = DaycareAttendance.query.filter_by(
-                    enrollment_id=enr.id
-                ).filter(
-                    DaycareAttendance.check_out_time != None,
-                    DaycareAttendance.payment_id == None
-                ).order_by(DaycareAttendance.check_in_time.asc()).all()
+                if viewing_payment:
+                    # Show daycare sessions paid under this specific payment
+                    attendances = DaycareAttendance.query.filter_by(
+                        enrollment_id=enr.id, payment_id=payment_id
+                    ).order_by(DaycareAttendance.check_in_time.asc()).all()
+                else:
+                    # Daycare attendance — checked out and unpaid
+                    attendances = DaycareAttendance.query.filter_by(
+                        enrollment_id=enr.id
+                    ).filter(
+                        DaycareAttendance.check_out_time != None,
+                        DaycareAttendance.payment_id == None
+                    ).order_by(DaycareAttendance.check_in_time.asc()).all()
 
                 for att in attendances:
                     rate = daycare_rate_for_attendance(att)
@@ -2579,7 +2597,8 @@ def customer_invoice(customer_id):
         true_balance=max(0.0, total_outstanding - total_paid),
         grand_total=grand_total,
         today=today,
-        rates=rates)
+        rates=rates,
+        viewing_payment=viewing_payment)
 
 
 
