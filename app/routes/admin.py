@@ -280,6 +280,7 @@ def complete_appointment(appt_id):
 def approve_appointment(appt_id):
     appt = Appointment.query.get_or_404(appt_id)
     appt.status = 'confirmed'
+    appt.needs_reapproval = False
     db.session.commit()
 
     # If this is a boarding appointment, auto-create the Boarding record

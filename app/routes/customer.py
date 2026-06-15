@@ -867,6 +867,14 @@ def edit_appointment(appt_id):
             new_notes   = (request.form.get('notes', '').strip() + addon_note).strip() or None
 
             old_status = appt.status
+            old_checkin  = appt.appointment_date
+            old_checkout = appt.end_time.date() if appt.end_time else None
+            new_checkout = end_datetime.date() if end_datetime else None
+
+            # Flag for re-approval if the appointment was already confirmed
+            # OR if the customer changed the check-in or check-out date
+            date_changed = (old_checkin != appointment_date) or (old_checkout != new_checkout)
+            was_confirmed = old_status == 'confirmed'
 
             appt.pet_id           = int(pet_ids[0])
             appt.appointment_date = appointment_date
@@ -874,6 +882,7 @@ def edit_appointment(appt_id):
             appt.end_time         = end_datetime
             appt.notes            = new_notes
             appt.status           = 'pending'
+            appt.needs_reapproval = was_confirmed or date_changed
 
             # Handle additional pets
             if len(pet_ids) > 1:
@@ -887,14 +896,15 @@ def edit_appointment(appt_id):
                     db.session.delete(s)
                 for pid in pet_ids[1:]:
                     new_appt = Appointment(
-                        user_id          = current_user.id,
-                        pet_id           = int(pid),
-                        service_type_id  = appt.service_type_id,
-                        appointment_date = appointment_date,
-                        start_time       = start_datetime,
-                        end_time         = end_datetime,
-                        notes            = new_notes,
-                        status           = 'pending'
+                        user_id           = current_user.id,
+                        pet_id            = int(pid),
+                        service_type_id   = appt.service_type_id,
+                        appointment_date  = appointment_date,
+                        start_time        = start_datetime,
+                        end_time          = end_datetime,
+                        notes             = new_notes,
+                        status            = 'pending',
+                        needs_reapproval  = appt.needs_reapproval
                     )
                     db.session.add(new_appt)
 
