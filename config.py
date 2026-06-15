@@ -19,9 +19,9 @@ class Config:
     MAIL_DEFAULT_SENDER = os.environ.get('MAIL_USERNAME') or 'rufflifenotifications@gmail.com'
     
     # Twilio SMS Configuration
-    TWILIO_ACCOUNT_SID  = os.environ.get('TWILIO_ACCOUNT_SID',  'AC1502d9b78fd51a795d39a17e303de68a')
-    TWILIO_AUTH_TOKEN   = os.environ.get('TWILIO_AUTH_TOKEN',   'c94f6cab8b30bda415322176a96f8874')
-    TWILIO_PHONE_NUMBER = os.environ.get('TWILIO_PHONE_NUMBER', '+19125134498')
+    TWILIO_ACCOUNT_SID  = os.environ.get('TWILIO_ACCOUNT_SID')
+    TWILIO_AUTH_TOKEN   = os.environ.get('TWILIO_AUTH_TOKEN')
+    TWILIO_PHONE_NUMBER = os.environ.get('TWILIO_PHONE_NUMBER')
 
     # Staff phone numbers to receive forwarded customer replies
     STAFF_ALERT_PHONES = [
@@ -37,10 +37,6 @@ class Config:
     BUSINESS_PHONE   = '(912) 648-2295'
     BUSINESS_ADDRESS = '2945 Midland Rd. Guyton, GA 31312'
 
-    # AI Chat (Groq)
-    GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
-    GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
-
-    # AI Chat (Groq)
-    GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
+    # AI Chat
+    GROQ_API_KEY   = os.environ.get('GROQ_API_KEY', '')
     GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
