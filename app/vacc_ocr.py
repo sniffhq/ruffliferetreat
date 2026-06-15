@@ -141,7 +141,10 @@ def _ocr_image(image_path):
         import pytesseract
         from PIL import Image
         pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
-        img  = Image.open(image_path)
+        img = Image.open(image_path)
+        # pytesseract only handles 1, L, RGB, RGBA — convert anything else (e.g. CMYK, P)
+        if img.mode not in ('1', 'L', 'RGB', 'RGBA'):
+            img = img.convert('RGB')
         text = pytesseract.image_to_string(img, config='--psm 6')
         return text
     except Exception as e:
@@ -157,6 +160,8 @@ def _ocr_pdf(pdf_path):
         for page in pages:
             import pytesseract
             pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
+            if page.mode not in ('1', 'L', 'RGB', 'RGBA'):
+                page = page.convert('RGB')
             text_parts.append(pytesseract.image_to_string(page, config='--psm 6'))
         return '\n'.join(text_parts)
     except Exception as e:
