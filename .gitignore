@@ -59,7 +59,7 @@ find_bad_vacc.py
 init_database.py
 list_customers.py
 migrate_role.py
-rate_resolver.py
+/rate_resolver.py
 revert_echo.py
 send_greg.py
 show_completed.py
@@ -72,3 +72,12 @@ kennel_capacity_card.html
 pet_tags.js
 timelog.csv
 rufflifeservers.txt
+
+# Stray root-level migration scripts (belong in migrations/versions/ only)
+*_customer_rates.py
+*_invoice_adj_service_type.py
+*_pet_tags.py
+rufflife_x0y1z2a3b4c5_audit_log.py
+*_customer_rates 2.py
+*_invoice_adj_service_type 2.py
+*_pet_tags 2.py
