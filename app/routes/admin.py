@@ -4116,6 +4116,88 @@ def gallery_delete(photo_id):
     return redirect(url_for('public.gallery'))
 
 
+# ── HOMEPAGE PHOTO MANAGEMENT ────────────────────────────────────────────────
+
+@bp.route('/site/homepage-photo', methods=['GET'])
+@login_required
+@admin_required
+def homepage_photo_settings():
+    """Show the homepage hero photo management page."""
+    from app.settings_service import get_setting
+    current_filename = get_setting('homepage_hero_photo')
+    if current_filename:
+        current_url = url_for('static', filename=f'uploads/homepage/{current_filename}')
+    else:
+        current_url = url_for('static', filename='img/homepage.jpg')
+    return render_template('admin/homepage_photo.html',
+                           current_url=current_url,
+                           current_filename=current_filename)
+
+
+@bp.route('/site/homepage-photo/upload', methods=['POST'])
+@login_required
+@admin_required
+def homepage_photo_upload():
+    """Replace the homepage hero photo — no server restart needed."""
+    import os
+    from werkzeug.utils import secure_filename
+    from app.settings_service import set_setting, get_setting
+    from datetime import datetime as _dt
+
+    photo = request.files.get('photo')
+    if not photo or not photo.filename:
+        flash('No photo selected.', 'danger')
+        return redirect(url_for('admin.homepage_photo_settings'))
+
+    allowed = {'jpg', 'jpeg', 'png', 'gif', 'webp'}
+    ext = photo.filename.rsplit('.', 1)[-1].lower()
+    if ext not in allowed:
+        flash('Invalid file type. Please upload a JPG, PNG, GIF, or WebP image.', 'danger')
+        return redirect(url_for('admin.homepage_photo_settings'))
+
+    upload_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'homepage')
+    os.makedirs(upload_dir, exist_ok=True)
+
+    # Remove old uploaded file if one exists (keep static/img/homepage.jpg untouched)
+    old_filename = get_setting('homepage_hero_photo')
+    if old_filename:
+        old_path = os.path.join(upload_dir, old_filename)
+        if os.path.exists(old_path):
+            try:
+                os.remove(old_path)
+            except OSError:
+                pass
+
+    filename = f'hero_{_dt.now().strftime("%Y%m%d%H%M%S")}.{ext}'
+    photo.save(os.path.join(upload_dir, filename))
+    set_setting('homepage_hero_photo', filename, user_id=current_user.id)
+
+    flash('Homepage photo updated! Changes are live immediately.', 'success')
+    return redirect(url_for('admin.homepage_photo_settings'))
+
+
+@bp.route('/site/homepage-photo/reset', methods=['POST'])
+@login_required
+@admin_required
+def homepage_photo_reset():
+    """Revert to the default homepage photo."""
+    import os
+    from app.settings_service import set_setting, get_setting
+
+    upload_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'homepage')
+    old_filename = get_setting('homepage_hero_photo')
+    if old_filename:
+        old_path = os.path.join(upload_dir, old_filename)
+        if os.path.exists(old_path):
+            try:
+                os.remove(old_path)
+            except OSError:
+                pass
+    set_setting('homepage_hero_photo', '', user_id=current_user.id)
+    flash('Homepage photo reset to default.', 'info')
+    return redirect(url_for('admin.homepage_photo_settings'))
+
+
 @bp.route('/inbox/unread-count')
 @login_required
 @admin_required
@@ -6441,22 +6523,24 @@ def audit_log_export():
 @admin_required
 def grooming_report():
     """
-    Daily Grooming Report — shows all boarding guests checking out on a
-    selected date who have add-ons requiring grooming.
-    Defaults to tomorrow. Accepts ?date=YYYY-MM-DD to view any day.
+    Daily Grooming Report — shows boarding guests checking out the day AFTER
+    the selected prep date. Selecting 6/17 shows 6/18 pickups so staff know
+    what grooming to complete today. Defaults to today → shows tomorrow's pickups.
     """
     from app.models import Boarding, Pet, User, Appointment, ServiceType
     from datetime import date, timedelta, datetime
     import re
-    
+
     today = date.today()
-    
-    # Accept an optional ?date= param; default to tomorrow
+
+    # ?date = the PREP date (day staff are doing grooming).
+    # report_date = prep_date + 1  (the actual pickup / checkout day).
     date_str = request.args.get('date', '').strip()
     try:
-        report_date = date.fromisoformat(date_str) if date_str else today + timedelta(days=1)
+        prep_date = date.fromisoformat(date_str) if date_str else today
     except ValueError:
-        report_date = today + timedelta(days=1)
+        prep_date = today
+    report_date = prep_date + timedelta(days=1)
     
     # Get all active boardings checking out on the selected date
     checkouts = (Boarding.query
@@ -6568,6 +6652,7 @@ def grooming_report():
     return render_template('admin/grooming_report.html',
                            grooming_items=grooming_items,
                            report_date=report_date,
+                           prep_date=prep_date,
                            early_only=early_only,
                            today=today,
                            generated_at=datetime.now().strftime('%B %d, %Y at %I:%M %p'))

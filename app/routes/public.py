@@ -48,7 +48,21 @@ def is_bot_submission(request, form_loaded_at):
 
 @bp.route('/')
 def index():
-    return render_template('public/index.html')
+    from app.settings_service import get_setting
+    from app.models import SurveyResponse
+    hero_filename = get_setting('homepage_hero_photo')
+    if hero_filename:
+        hero_url = url_for('static', filename=f'uploads/homepage/{hero_filename}')
+    else:
+        hero_url = url_for('static', filename='img/homepage.jpg')
+    # Most recent completed survey with a comment for the testimonial banner
+    testimonial = (SurveyResponse.query
+        .filter(SurveyResponse.submitted_at.isnot(None))
+        .filter(SurveyResponse.comments.isnot(None))
+        .filter(SurveyResponse.overall_rating >= 4)
+        .order_by(SurveyResponse.submitted_at.desc())
+        .first())
+    return render_template('public/index.html', hero_url=hero_url, testimonial=testimonial)
 
 @bp.route('/boarding')
 def boarding():
