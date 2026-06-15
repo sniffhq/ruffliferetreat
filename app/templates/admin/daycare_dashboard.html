@@ -250,6 +250,46 @@
         </div>
         </div><!-- /#activeEnrollmentsBody -->
     </div>
+
+    <!-- Upcoming Daycare Closures -->
+    {% if upcoming_blocks %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center"
+             style="background:#dc3545;">
+            <strong class="text-white">
+                <i class="fas fa-calendar-times me-2"></i>Upcoming Daycare Closures
+            </strong>
+            <span class="badge bg-light text-danger">{{ upcoming_blocks|length }}</span>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0" style="font-size:0.9rem;">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-3">Start Date</th>
+                        <th>End Date</th>
+                        <th>Duration</th>
+                        <th>Reason</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for block in upcoming_blocks %}
+                    {% set days = (block.end_date - block.start_date).days + 1 %}
+                    {% set is_active = block.start_date <= today and block.end_date >= today %}
+                    <tr {% if is_active %}class="table-danger"{% endif %}>
+                        <td class="ps-3">
+                            {% if is_active %}<span class="badge bg-danger me-1">NOW</span>{% endif %}
+                            {{ block.start_date.strftime('%a, %b %d, %Y') }}
+                        </td>
+                        <td>{{ block.end_date.strftime('%a, %b %d, %Y') }}</td>
+                        <td>{{ days }} day{{ 's' if days != 1 }}</td>
+                        <td class="text-muted">{{ block.reason or '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <script>
@@ -274,53 +314,6 @@ function filterEnrollments(query) {
     margin-right: 0.25rem;
 }
 </style>
-<!-- Upcoming Daycare Closures -->
-{% if upcoming_blocks %}
-<div class="card shadow-sm mb-4">
-    <div class="card-header d-flex justify-content-between align-items-center"
-         style="background:#dc3545;">
-        <strong class="text-white">
-            <i class="fas fa-calendar-times me-2"></i>Upcoming Daycare Closures
-        </strong>
-        <span class="badge bg-light text-danger">{{ upcoming_blocks|length }}</span>
-    </div>
-    <div class="card-body p-0">
-        <table class="table table-hover mb-0" style="font-size:0.9rem;">
-            <thead class="table-light">
-                <tr>
-                    <th class="ps-3">Start Date</th>
-                    <th>End Date</th>
-                    <th>Duration</th>
-                    <th>Reason</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for block in upcoming_blocks %}
-                {% set days = (block.end_date - block.start_date).days + 1 %}
-                {% set is_active = block.start_date <= today and block.end_date >= today %}
-                <tr {% if is_active %}class="table-danger"{% endif %}>
-                    <td class="ps-3">
-                        {% if is_active %}
-                        <span class="badge bg-danger me-1">NOW</span>
-                        {% endif %}
-                        {{ block.start_date.strftime('%a, %b %d, %Y') }}
-                    </td>
-                    <td>{{ block.end_date.strftime('%a, %b %d, %Y') }}</td>
-                    <td>
-                        {% if days == 1 %}
-                            1 day
-                        {% else %}
-                            {{ days }} days
-                        {% endif %}
-                    </td>
-                    <td class="text-muted">{{ block.reason or '—' }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-{% endif %}
 
 {% endblock %}
 
