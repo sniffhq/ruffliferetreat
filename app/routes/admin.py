@@ -6759,3 +6759,17 @@ def send_balance_reminder(customer_id):
         flash(f'Failed to send reminder: {e}', 'danger')
 
     return redirect(request.referrer or url_for('admin.customer_detail', customer_id=customer_id))
+
+
+@bp.route('/customer/<int:customer_id>/waiver-reset', methods=['POST'])
+@login_required
+@admin_required
+def customer_waiver_reset(customer_id):
+    """Clear a customer's waiver acceptance so they must re-sign."""
+    customer = User.query.get_or_404(customer_id)
+    customer.waiver_accepted    = False
+    customer.waiver_accepted_at = None
+    db.session.commit()
+    flash(f'Waiver acceptance cleared for {customer.first_name} {customer.last_name}. '
+          'They will need to re-sign the next time they log in.', 'success')
+    return redirect(url_for('admin.customer_detail', customer_id=customer_id))

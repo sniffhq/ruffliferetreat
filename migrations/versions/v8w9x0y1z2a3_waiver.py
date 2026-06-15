@@ -18,14 +18,8 @@ def upgrade():
     op.add_column('user', sa.Column('waiver_accepted',    sa.Boolean(),  nullable=True, server_default='0'))
     op.add_column('user', sa.Column('waiver_accepted_at', sa.DateTime(), nullable=True))
 
-    # Backfill: existing customers who completed onboarding are treated as having accepted
-    op.execute("""
-        UPDATE user
-        SET waiver_accepted = 1,
-            waiver_accepted_at = created_at
-        WHERE onboarding_complete = 1
-          AND role = 'customer'
-    """)
+    # NOTE: no backfill — existing customers default to waiver_accepted=0 and must
+    # sign the waiver explicitly on their next login.
 
 
 def downgrade():
