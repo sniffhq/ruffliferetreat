@@ -819,23 +819,141 @@ def toggle_special_rate(enrollment_id):
 def daycare_waitlist_admin():
     """View full daycare waitlist"""
     pending = DaycareWaitlist.query.filter_by(contacted=False).order_by(
-        DaycareWaitlist.last_name, DaycareWaitlist.first_name
+        DaycareWaitlist.submitted_date.asc()
     ).all()
-    contacted = DaycareWaitlist.query.filter_by(contacted=True).order_by(
-        DaycareWaitlist.last_name, DaycareWaitlist.first_name
-    ).all()
-    return render_template('admin/daycare_waitlist.html', pending=pending, contacted=contacted)
+
+    # Build pet lists per entry for the Approve modal
+    entry_pets = {}
+    for entry in pending:
+        if entry.user_id:
+            entry_pets[entry.id] = Pet.query.filter_by(
+                user_id=entry.user_id, is_active=True
+            ).order_by(Pet.name).all()
+        else:
+            entry_pets[entry.id] = Pet.query.filter_by(
+                is_active=True
+            ).order_by(Pet.name).all()
+
+    return render_template('admin/daycare_waitlist.html',
+                           pending=pending,
+                           entry_pets=entry_pets)
+
 
 @bp.route('/daycare/waitlist/mark-contacted/<int:entry_id>', methods=['POST'])
 @login_required
 @admin_required
 def mark_waitlist_contacted(entry_id):
-    """Toggle contacted status for waitlist entry"""
+    """Toggle contacted status for waitlist entry (legacy — kept for compatibility)"""
     entry = DaycareWaitlist.query.get_or_404(entry_id)
     entry.contacted = not entry.contacted
     db.session.commit()
     status = 'contacted' if entry.contacted else 'not contacted'
     flash(f'{entry.first_name} {entry.last_name} marked as {status}.', 'success')
+    return redirect(url_for('admin.daycare_waitlist_admin'))
+
+
+@bp.route('/daycare/waitlist/<int:entry_id>/approve', methods=['POST'])
+@login_required
+@admin_required
+def approve_waitlist_entry(entry_id):
+    """Enroll a pet from the waitlist and remove the waitlist entry."""
+    entry     = DaycareWaitlist.query.get_or_404(entry_id)
+    pet_id    = request.form.get('pet_id', type=int)
+    monday    = bool(request.form.get('monday'))
+    tuesday   = bool(request.form.get('tuesday'))
+    wednesday = bool(request.form.get('wednesday'))
+    thursday  = bool(request.form.get('thursday'))
+    friday    = bool(request.form.get('friday'))
+    notes     = request.form.get('notes', '')
+
+    if not pet_id or not any([monday, tuesday, wednesday, thursday, friday]):
+        flash('Please select a pet and at least one day.', 'danger')
+        return redirect(url_for('admin.daycare_waitlist_admin'))
+
+    pet = Pet.query.get_or_404(pet_id)
+    enrollment = DaycareEnrollment(
+        pet_id          = pet_id,
+        enrollment_date = datetime.now().date(),
+        monday=monday, tuesday=tuesday, wednesday=wednesday,
+        thursday=thursday, friday=friday,
+        notes=notes, active=True,
+    )
+    db.session.add(enrollment)
+    db.session.delete(entry)
+    db.session.commit()
+
+    try:
+        from app.audit_service import audit
+        audit('daycare.enrolled', 'daycare_enrollment', enrollment.id, pet.name,
+              f'{pet.name} enrolled from waitlist by {current_user.first_name} {current_user.last_name}')
+    except Exception:
+        pass
+
+    flash(f'{pet.name} enrolled in daycare and removed from the waitlist.', 'success')
+    return redirect(url_for('admin.daycare_dashboard'))
+
+
+@bp.route('/daycare/waitlist/<int:entry_id>/contact', methods=['POST'])
+@login_required
+@admin_required
+def contact_waitlist_entry(entry_id):
+    """Send a pre-written SMS to a waitlist customer and mark them as contacted."""
+    entry        = DaycareWaitlist.query.get_or_404(entry_id)
+    message_type = request.form.get('message_type', 'standby')  # 'standby' or 'opening'
+
+    # Prefer linked user's phone number
+    phone = entry.phone
+    linked_user_id = entry.user_id
+    if entry.user_id:
+        linked = User.query.get(entry.user_id)
+        if linked and linked.phone:
+            phone = linked.phone
+
+    first_name = entry.first_name
+    pet_name   = entry.pet_name or 'your pup'
+    business   = current_app.config.get('BUSINESS_NAME', 'Ruff Life Retreat')
+
+    if message_type == 'standby':
+        body = (
+            f"Hi {first_name}! Thank you for your interest in {business} Doggy Daycare. "
+            f"We don't have an opening available at this time, but we've placed {pet_name} "
+            f"on our standby list and will reach out as soon as a spot opens up! — {business}"
+        )
+    else:
+        body = (
+            f"Hi {first_name}! Great news — a spot has opened up in our Doggy Daycare program! "
+            f"We'd love to get {pet_name} enrolled. Please reply to this message or give us a call "
+            f"to get started. — {business}"
+        )
+
+    try:
+        from app.sms_service import _normalize_phone
+        from app.models import SmsMessage
+        from twilio.rest import Client
+
+        to_e164     = _normalize_phone(phone)
+        from_number = current_app.config.get('TWILIO_PHONE_NUMBER')
+        client      = Client(current_app.config.get('TWILIO_ACCOUNT_SID'),
+                             current_app.config.get('TWILIO_AUTH_TOKEN'))
+        message     = client.messages.create(body=body, from_=from_number, to=to_e164)
+
+        log = SmsMessage(
+            user_id     = linked_user_id,
+            direction   = 'outbound',
+            from_number = from_number,
+            to_number   = to_e164,
+            body        = body,
+            twilio_sid  = message.sid,
+            is_read     = True,
+        )
+        db.session.add(log)
+        entry.contacted = True
+        db.session.commit()
+        flash(f'Message sent to {first_name} {entry.last_name}.', 'success')
+    except Exception as e:
+        current_app.logger.error(f'Waitlist SMS failed for entry {entry_id}: {e}')
+        flash(f'SMS failed: {e}', 'danger')
+
     return redirect(url_for('admin.daycare_waitlist_admin'))
 
 def get_available_time_slots(target_date, booking_type='check_in'):

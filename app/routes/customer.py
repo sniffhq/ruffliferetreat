@@ -105,6 +105,23 @@ def onboarding():
                 current_user.waiver_accepted_at = _dt.now()
             db.session.commit()
 
+            # Auto-add to daycare waitlist if customer expressed interest at registration
+            if current_user.interested_in_daycare:
+                from app.models import DaycareWaitlist
+                already = DaycareWaitlist.query.filter_by(user_id=current_user.id).first()
+                if not already:
+                    entry = DaycareWaitlist(
+                        first_name = current_user.first_name,
+                        last_name  = current_user.last_name,
+                        email      = current_user.email or '',
+                        phone      = current_user.phone or '',
+                        pet_name   = pet.name,
+                        breed      = pet.breed or '',
+                        user_id    = current_user.id,
+                    )
+                    db.session.add(entry)
+                    db.session.commit()
+
             flash(f'Welcome to Ruff Life Retreat! {pet.name} has been added to your account. Please bring vaccination records (Bordetella, Rabies, DHPP) to your first visit.', 'success')
             return redirect(url_for('customer.dashboard'))
             

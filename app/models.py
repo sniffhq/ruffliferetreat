@@ -28,6 +28,10 @@ class User(UserMixin, db.Model):
     # Waiver tracking
     waiver_accepted = db.Column(db.Boolean, default=False, nullable=False)
     waiver_accepted_at = db.Column(db.DateTime, nullable=True)
+
+    # Service interest (captured at registration)
+    interested_in_daycare  = db.Column(db.Boolean, default=False)
+    interested_in_boarding = db.Column(db.Boolean, default=False)
     
     created_at = db.Column(db.DateTime, default=datetime.now)
     archived_at = db.Column(db.DateTime)  # NEW: Track when archived
@@ -258,18 +262,23 @@ class DaycareWaitlist(db.Model):
     phone = db.Column(db.String(20), nullable=False)
     pet_name = db.Column(db.String(100), default='')
     breed = db.Column(db.String(100))
-    
+
+    # Link to registered user account (null for public waitlist form submissions)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    user    = db.relationship('User', foreign_keys=[user_id],
+                              backref=db.backref('waitlist_entries', lazy=True))
+
     # Days of interest
     monday = db.Column(db.Boolean, default=False)
     tuesday  = db.Column(db.Boolean, default=False)
     wednesday = db.Column(db.Boolean, default=False)
     thursday = db.Column(db.Boolean, default=False)
     friday = db.Column(db.Boolean, default=False)
-    
+
     additional_info = db.Column(db.Text)
     submitted_date = db.Column(db.DateTime, nullable=False, default=datetime.now)
     contacted = db.Column(db.Boolean, default=False)
-    
+
     def __repr__(self):
         return f'<DaycareWaitlist {self.last_name}, {self.first_name}>'
 

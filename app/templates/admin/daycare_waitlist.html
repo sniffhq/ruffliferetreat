@@ -13,42 +13,57 @@
         <span class="badge bg-warning text-dark fs-6 px-3 py-2">
             <i class="fas fa-clock me-1"></i>{{ pending|length }} Pending
         </span>
-        <span class="badge bg-success fs-6 px-3 py-2">
-            <i class="fas fa-check me-1"></i>{{ contacted|length }} Contacted
-        </span>
-        <span class="badge bg-secondary fs-6 px-3 py-2">
-            {{ (pending|length) + (contacted|length) }} Total
-        </span>
     </div>
 
     <!-- Pending -->
     <div class="card shadow-sm mb-4">
         <div class="card-header" style="background:#1a1a2e;">
-            <h5 class="mb-0 text-white"><i class="fas fa-clock me-2"></i>Pending — Not Yet Contacted ({{ pending|length }})</h5>
+            <h5 class="mb-0 text-white"><i class="fas fa-clock me-2"></i>Pending ({{ pending|length }})</h5>
         </div>
         <div class="card-body p-0">
             {% if pending %}
             <div class="table-responsive">
-                <table class="table table-hover mb-0">
+                <table class="table table-hover mb-0 align-middle">
                     <thead class="table-light">
                         <tr>
                             <th>Submitted</th>
-                            <th>Name</th>
+                            <th>Customer</th>
+                            <th>Pet</th>
                             <th>Contact</th>
                             <th>Days</th>
                             <th>Notes</th>
-                            <th></th>
+                            <th class="text-end">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for entry in pending %}
+                        {% set pets = entry_pets.get(entry.id, []) %}
+                        {% set pets_json %}[{% for p in pets %}{"id":{{ p.id }},"name":"{{ p.name|replace('"',"'") }}"}{% if not loop.last %},{% endif %}{% endfor %}]{% endset %}
                         <tr>
-                            <td class="text-muted small">{{ entry.submitted_date.strftime('%m/%d/%Y') }}<br>{{ entry.submitted_date.strftime('%I:%M %p') }}</td>
-                            <td><strong>{{ entry.first_name }} {{ entry.last_name }}</strong></td>
+                            <td class="text-muted small">
+                                {{ entry.submitted_date.strftime('%m/%d/%Y') }}<br>
+                                {{ entry.submitted_date.strftime('%I:%M %p') }}
+                                {% if entry.user_id %}
+                                <br><span class="badge bg-info text-dark mt-1" style="font-size:0.7rem;">Registered</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <strong>{{ entry.first_name }} {{ entry.last_name }}</strong>
+                                {% if entry.user_id %}
+                                <br><a href="{{ url_for('admin.customer_detail', customer_id=entry.user_id) }}"
+                                       class="small text-decoration-none text-muted">
+                                    <i class="fas fa-external-link-alt me-1"></i>View profile
+                                </a>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <strong>{{ entry.pet_name or '—' }}</strong>
+                                {% if entry.breed %}<br><small class="text-muted">{{ entry.breed }}</small>{% endif %}
+                            </td>
                             <td>
                                 <small>
-                                    <i class="fas fa-envelope me-1"></i>{{ entry.email }}<br>
-                                    <i class="fas fa-phone me-1"></i>{{ entry.phone }}
+                                    <i class="fas fa-envelope me-1 text-muted"></i>{{ entry.email }}<br>
+                                    <i class="fas fa-phone me-1 text-muted"></i>{{ entry.phone }}
                                 </small>
                             </td>
                             <td>
@@ -59,16 +74,22 @@
                                 </div>
                             </td>
                             <td><small class="text-muted">{{ entry.additional_info or '—' }}</small></td>
-                            <td class="text-nowrap">
-                                <form method="POST" action="{{ url_for('admin.mark_waitlist_contacted', entry_id=entry.id) }}" style="display:inline;">
-                                    <button type="submit" class="btn btn-sm btn-success" title="Mark as Contacted">
-                                        <i class="fas fa-check me-1"></i>Contacted
-                                    </button>
-                                </form>
+                            <td class="text-end text-nowrap">
+                                <!-- Approve -->
+                                <button type="button" class="btn btn-sm btn-success fw-bold me-1"
+                                        onclick="openApproveModal({{ entry.id }}, '{{ entry.first_name }} {{ entry.last_name }}', {{ pets_json }})">
+                                    <i class="fas fa-check me-1"></i>Approve
+                                </button>
+                                <!-- Contact -->
+                                <button type="button" class="btn btn-sm btn-primary me-1"
+                                        onclick="openContactModal({{ entry.id }}, '{{ entry.first_name }} {{ entry.last_name }}', '{{ entry.pet_name or '' }}')">
+                                    <i class="fas fa-sms me-1"></i>Contact
+                                </button>
+                                <!-- Delete -->
                                 <form method="POST" action="{{ url_for('admin.delete_waitlist_entry', entry_id=entry.id) }}"
                                       style="display:inline;"
-                                      onsubmit="return confirm('Delete {{ entry.first_name }} {{ entry.last_name }} from the waitlist?');">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger ms-1" title="Delete">
+                                      onsubmit="return confirm('Remove {{ entry.first_name }} {{ entry.last_name }} from the waitlist?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Remove">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </form>
@@ -79,79 +100,165 @@
                 </table>
             </div>
             {% else %}
-            <div class="text-center py-4 text-muted">
-                <i class="fas fa-check-circle fa-2x mb-2 d-block text-success opacity-50"></i>
-                All waitlist entries have been contacted.
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-check-circle fa-3x mb-3 d-block text-success opacity-50"></i>
+                <p class="mb-0">The waitlist is empty.</p>
             </div>
             {% endif %}
         </div>
     </div>
+</div>
 
-    <!-- Contacted -->
-    <div class="card shadow-sm">
-        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center"
-             data-bs-toggle="collapse" data-bs-target="#contactedSection" style="cursor:pointer;">
-            <h5 class="mb-0"><i class="fas fa-check-circle me-2"></i>Contacted ({{ contacted|length }})</h5>
-            <i class="fas fa-chevron-down"></i>
-        </div>
-        <div class="collapse show" id="contactedSection">
-            <div class="card-body p-0">
-                {% if contacted %}
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Submitted</th>
-                                <th>Name</th>
-                                <th>Contact</th>
-                                <th>Days</th>
-                                <th>Notes</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for entry in contacted %}
-                            <tr class="table-success">
-                                <td class="text-muted small">{{ entry.submitted_date.strftime('%m/%d/%Y') }}<br>{{ entry.submitted_date.strftime('%I:%M %p') }}</td>
-                                <td><strong>{{ entry.first_name }} {{ entry.last_name }}</strong></td>
-                                <td>
-                                    <small>
-                                        <i class="fas fa-envelope me-1"></i>{{ entry.email }}<br>
-                                        <i class="fas fa-phone me-1"></i>{{ entry.phone }}
-                                    </small>
-                                </td>
-                                <td>
-                                    <div class="d-flex gap-1 flex-wrap">
-                                        {% for day, label in [('monday','M'),('tuesday','T'),('wednesday','W'),('thursday','Th'),('friday','F')] %}
-                                        <span class="badge {% if entry[day] %}bg-primary{% else %}bg-light text-muted border{% endif %}" style="min-width:24px;">{{ label }}</span>
-                                        {% endfor %}
-                                    </div>
-                                </td>
-                                <td><small class="text-muted">{{ entry.additional_info or '—' }}</small></td>
-                                <td class="text-nowrap">
-                                    <form method="POST" action="{{ url_for('admin.mark_waitlist_contacted', entry_id=entry.id) }}" style="display:inline;">
-                                        <button type="submit" class="btn btn-sm btn-outline-secondary" title="Move back to Pending">
-                                            <i class="fas fa-undo me-1"></i>Undo
-                                        </button>
-                                    </form>
-                                    <form method="POST" action="{{ url_for('admin.delete_waitlist_entry', entry_id=entry.id) }}"
-                                          style="display:inline;"
-                                          onsubmit="return confirm('Delete {{ entry.first_name }} {{ entry.last_name }} from the waitlist?');">
-                                        <button type="submit" class="btn btn-sm btn-outline-danger ms-1" title="Delete">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </form>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+<!-- ── APPROVE MODAL ─────────────────────────────────────────────────────── -->
+<div class="modal fade" id="approveModal" tabindex="-1" aria-labelledby="approveModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="POST" id="approveForm">
+                <div class="modal-header" style="background:#1a1a2e;">
+                    <h5 class="modal-title text-white" id="approveModalLabel">
+                        <i class="fas fa-paw me-2" style="color:#B07A8E;"></i>Enroll in Daycare
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                {% else %}
-                <div class="text-center py-4 text-muted">No contacted entries yet.</div>
-                {% endif %}
-            </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3">Enrolling: <strong id="approveCustomerName"></strong></p>
+
+                    <!-- Pet selector -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Select Pet <span class="text-danger">*</span></label>
+                        <select name="pet_id" id="approvePetSelect" class="form-select" required>
+                            <option value="">— choose a pet —</option>
+                        </select>
+                        <div class="form-text" id="approvePetNote"></div>
+                    </div>
+
+                    <!-- Days -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Attendance Days <span class="text-danger">*</span></label>
+                        <div class="d-flex gap-3 flex-wrap mt-1">
+                            {% for val, label in [('monday','Monday'),('tuesday','Tuesday'),('wednesday','Wednesday'),('thursday','Thursday'),('friday','Friday')] %}
+                            <div class="form-check">
+                                <input class="form-check-input approve-day" type="checkbox"
+                                       name="{{ val }}" id="approve_{{ val }}" value="1">
+                                <label class="form-check-label" for="approve_{{ val }}">{{ label }}</label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Notes -->
+                    <div class="mb-2">
+                        <label class="form-label fw-bold">Notes</label>
+                        <textarea name="notes" class="form-control" rows="2"
+                                  placeholder="Any notes for this enrollment…"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success fw-bold">
+                        <i class="fas fa-check me-1"></i>Enroll &amp; Remove from Waitlist
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
+
+<!-- ── CONTACT MODAL ─────────────────────────────────────────────────────── -->
+<div class="modal fade" id="contactModal" tabindex="-1" aria-labelledby="contactModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" id="contactForm">
+                <div class="modal-header" style="background:#1a1a2e;">
+                    <h5 class="modal-title text-white" id="contactModalLabel">
+                        <i class="fas fa-sms me-2" style="color:#B07A8E;"></i>Send Message
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3">To: <strong id="contactCustomerName"></strong></p>
+
+                    <p class="fw-bold mb-2">Choose message type:</p>
+
+                    <!-- Standby option -->
+                    <div class="form-check mb-3 p-3 rounded border" style="background:#fff8f5;">
+                        <input class="form-check-input" type="radio" name="message_type"
+                               id="msgStandby" value="standby" checked>
+                        <label class="form-check-label" for="msgStandby">
+                            <strong>No Opening — Standby</strong>
+                            <div class="text-muted small mt-1" id="previewStandby"></div>
+                        </label>
+                    </div>
+
+                    <!-- Opening option -->
+                    <div class="form-check p-3 rounded border" style="background:#f0fff4;">
+                        <input class="form-check-input" type="radio" name="message_type"
+                               id="msgOpening" value="opening">
+                        <label class="form-check-label" for="msgOpening">
+                            <strong>Opening Available</strong>
+                            <div class="text-muted small mt-1" id="previewOpening"></div>
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary fw-bold">
+                        <i class="fas fa-paper-plane me-1"></i>Send SMS
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+const BUSINESS = "Ruff Life Retreat";
+
+function openApproveModal(entryId, customerName, pets) {
+    document.getElementById('approveCustomerName').textContent = customerName;
+    document.getElementById('approveForm').action = '/admin/daycare/waitlist/' + entryId + '/approve';
+
+    // Reset day checkboxes
+    document.querySelectorAll('.approve-day').forEach(cb => cb.checked = false);
+
+    // Populate pet dropdown
+    const sel = document.getElementById('approvePetSelect');
+    sel.innerHTML = '<option value="">— choose a pet —</option>';
+    if (pets.length === 0) {
+        sel.innerHTML += '<option disabled>No active pets found — add pets to the customer profile first</option>';
+        document.getElementById('approvePetNote').textContent =
+            'No active pets linked. Visit the customer profile to add pets first.';
+    } else {
+        pets.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = p.name;
+            sel.appendChild(opt);
+        });
+        if (pets.length === 1) sel.value = pets[0].id;
+        document.getElementById('approvePetNote').textContent = '';
+    }
+
+    new bootstrap.Modal(document.getElementById('approveModal')).show();
+}
+
+function openContactModal(entryId, customerName, petName) {
+    document.getElementById('contactCustomerName').textContent = customerName;
+    document.getElementById('contactForm').action = '/admin/daycare/waitlist/' + entryId + '/contact';
+
+    const pet = petName || 'your pup';
+
+    document.getElementById('previewStandby').textContent =
+        "Hi " + customerName.split(' ')[0] + "! Thank you for your interest in " + BUSINESS + " Doggy Daycare. " +
+        "We don't have an opening available at this time, but we've placed " + pet +
+        " on our standby list and will reach out as soon as a spot opens up! — " + BUSINESS;
+
+    document.getElementById('previewOpening').textContent =
+        "Hi " + customerName.split(' ')[0] + "! Great news — a spot has opened up in our Doggy Daycare program! " +
+        "We'd love to get " + pet + " enrolled. Please reply to this message or give us a call to get started. — " + BUSINESS;
+
+    document.getElementById('msgStandby').checked = true;
+    new bootstrap.Modal(document.getElementById('contactModal')).show();
+}
+</script>
 {% endblock %}
