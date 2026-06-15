@@ -556,25 +556,6 @@ def book_appointment():
                 flash('One or more selected pets could not be found on your account.', 'danger')
                 return redirect(url_for('customer.book_appointment'))
 
-            pets_non_compliant = []
-            for p in selected_pets:
-                records = VaccinationRecord.query.filter_by(pet_id=p.id).all()
-                if not records:
-                    pets_non_compliant.append(f'{p.name} (no records on file)')
-                else:
-                    valid = [r for r in records if r.expiration_date and r.expiration_date >= today_check]
-                    if not valid:
-                        pets_non_compliant.append(f'{p.name} (all records expired)')
-
-            if pets_non_compliant:
-                issues = ', '.join(pets_non_compliant)
-                flash(
-                    f'Booking could not be submitted — {issues}. '
-                    f'Please contact us to upload current vaccination records before booking.',
-                    'danger'
-                )
-                return redirect(url_for('customer.book_appointment'))
-
             # For boarding — store check-out date+time in end_time
             end_datetime = None
             if checkout_date_str:
@@ -880,23 +861,6 @@ def edit_appointment(appt_id):
                         flash(f'Your stay includes {d.strftime("%B %d")}, which falls within a scheduled closure.', 'danger')
                         return redirect(url_for('customer.edit_appointment', appt_id=appt_id))
                     d += timedelta(days=1)
-
-            # Vaccination check
-            today_check = date_type.today()
-            pets_nc = []
-            for pid in pet_ids:
-                p = Pet.query.get(int(pid))
-                if p:
-                    records = VaccinationRecord.query.filter_by(pet_id=p.id).all()
-                    if not records:
-                        pets_nc.append(f'{p.name} (no records on file)')
-                    else:
-                        valid = [r for r in records if r.expiration_date and r.expiration_date >= today_check]
-                        if not valid:
-                            pets_nc.append(f'{p.name} (all records expired)')
-            if pets_nc:
-                flash(f'Booking could not be updated — {", ".join(pets_nc)}.', 'danger')
-                return redirect(url_for('customer.edit_appointment', appt_id=appt_id))
 
             appointment_time = datetime.strptime(time_str, '%H:%M').time()
             start_datetime   = datetime.combine(appointment_date, appointment_time)
