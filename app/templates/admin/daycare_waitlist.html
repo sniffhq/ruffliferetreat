@@ -1,100 +1,157 @@
-﻿{% extends "base.html" %}
-
+{% extends "base.html" %}
 {% block content %}
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="fas fa-clipboard-list"></i> Daycare Waitlist</h2>
-        <a href="{{ url_for('admin.daycare_dashboard') }}" class="btn btn-secondary">
-            <i class="fas fa-arrow-left"></i> Back to Daycare Dashboard
+        <h2><i class="fas fa-clipboard-list me-2"></i>Daycare Waitlist</h2>
+        <a href="{{ url_for('admin.daycare_dashboard') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-arrow-left me-1"></i> Daycare Dashboard
         </a>
     </div>
 
-    <div class="card">
-        <div class="card-header bg-warning text-dark">
-            <h4 class="mb-0">Waitlist Entries ({{ entries|length }})</h4>
+    <!-- Summary pills -->
+    <div class="d-flex gap-3 mb-4">
+        <span class="badge bg-warning text-dark fs-6 px-3 py-2">
+            <i class="fas fa-clock me-1"></i>{{ pending|length }} Pending
+        </span>
+        <span class="badge bg-success fs-6 px-3 py-2">
+            <i class="fas fa-check me-1"></i>{{ contacted|length }} Contacted
+        </span>
+        <span class="badge bg-secondary fs-6 px-3 py-2">
+            {{ (pending|length) + (contacted|length) }} Total
+        </span>
+    </div>
+
+    <!-- Pending -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header" style="background:#1a1a2e;">
+            <h5 class="mb-0 text-white"><i class="fas fa-clock me-2"></i>Pending — Not Yet Contacted ({{ pending|length }})</h5>
         </div>
-        <div class="card-body">
-            {% if entries %}
+        <div class="card-body p-0">
+            {% if pending %}
             <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
                         <tr>
                             <th>Submitted</th>
                             <th>Name</th>
                             <th>Contact</th>
-                            <th>Days Interested</th>
-                            <th>Status</th>
-                            <th>Actions</th>
+                            <th>Days</th>
+                            <th>Notes</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for entry in entries %}
-                        <tr class="{% if entry.contacted %}table-success{% endif %}">
-                            <td>{{ entry.submitted_date.strftime('%m/%d/%Y %I:%M %p') }}</td>
-                            <td>
-                                <strong>{{ entry.first_name }} {{ entry.last_name }}</strong>
-                            </td>
+                        {% for entry in pending %}
+                        <tr>
+                            <td class="text-muted small">{{ entry.submitted_date.strftime('%m/%d/%Y') }}<br>{{ entry.submitted_date.strftime('%I:%M %p') }}</td>
+                            <td><strong>{{ entry.first_name }} {{ entry.last_name }}</strong></td>
                             <td>
                                 <small>
-                                    <i class="fas fa-envelope"></i> {{ entry.email }}<br>
-                                    <i class="fas fa-phone"></i> {{ entry.phone }}
+                                    <i class="fas fa-envelope me-1"></i>{{ entry.email }}<br>
+                                    <i class="fas fa-phone me-1"></i>{{ entry.phone }}
                                 </small>
                             </td>
                             <td>
-                                <span class="badge bg-primary">
-                                    {% if entry.monday %}M{% endif %}{% if entry.wednesday %}{% if entry.monday %} {% endif %}W{% endif %}{% if entry.friday %}{% if entry.monday or entry.wednesday %} {% endif %}F{% endif %}
-                                </span>
+                                <div class="d-flex gap-1 flex-wrap">
+                                    {% for day, label in [('monday','M'),('tuesday','T'),('wednesday','W'),('thursday','Th'),('friday','F')] %}
+                                    <span class="badge {% if entry[day] %}bg-primary{% else %}bg-light text-muted border{% endif %}" style="min-width:24px;">{{ label }}</span>
+                                    {% endfor %}
+                                </div>
                             </td>
-                            <td>
-                                {% if entry.contacted %}
-                                <span class="badge bg-success">Contacted</span>
-                                {% else %}
-                                <span class="badge bg-warning text-dark">Pending</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <form method="POST" action="{{ url_for('admin.mark_waitlist_contacted', entry_id=entry.id) }}" style="display: inline;">
-                                    <button type="submit" class="btn btn-sm btn-{% if entry.contacted %}secondary{% else %}success{% endif %}" 
-                                            title="{% if entry.contacted %}Mark as Not Contacted{% else %}Mark as Contacted{% endif %}">
-                                        <i class="fas fa-{% if entry.contacted %}undo{% else %}check{% endif %}"></i>
+                            <td><small class="text-muted">{{ entry.additional_info or '—' }}</small></td>
+                            <td class="text-nowrap">
+                                <form method="POST" action="{{ url_for('admin.mark_waitlist_contacted', entry_id=entry.id) }}" style="display:inline;">
+                                    <button type="submit" class="btn btn-sm btn-success" title="Mark as Contacted">
+                                        <i class="fas fa-check me-1"></i>Contacted
                                     </button>
                                 </form>
-                                <form method="POST" action="{{ url_for('admin.delete_waitlist_entry', entry_id=entry.id) }}" 
-                                      style="display: inline;" 
-                                      onsubmit="return confirm('Delete this waitlist entry?');">
-                                    <button type="submit" class="btn btn-sm btn-danger" title="Delete Entry">
+                                <form method="POST" action="{{ url_for('admin.delete_waitlist_entry', entry_id=entry.id) }}"
+                                      style="display:inline;"
+                                      onsubmit="return confirm('Delete {{ entry.first_name }} {{ entry.last_name }} from the waitlist?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger ms-1" title="Delete">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </form>
                             </td>
                         </tr>
-                        {% if entry.additional_info %}
-                        <tr class="{% if entry.contacted %}table-success{% endif %}">
-                            <td colspan="6">
-                                <small><strong>Additional Info:</strong> {{ entry.additional_info }}</small>
-                            </td>
-                        </tr>
-                        {% endif %}
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
             {% else %}
-            <p class="text-center text-muted my-4">No waitlist entries yet.</p>
+            <div class="text-center py-4 text-muted">
+                <i class="fas fa-check-circle fa-2x mb-2 d-block text-success opacity-50"></i>
+                All waitlist entries have been contacted.
+            </div>
             {% endif %}
         </div>
     </div>
+
+    <!-- Contacted -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center"
+             data-bs-toggle="collapse" data-bs-target="#contactedSection" style="cursor:pointer;">
+            <h5 class="mb-0"><i class="fas fa-check-circle me-2"></i>Contacted ({{ contacted|length }})</h5>
+            <i class="fas fa-chevron-down"></i>
+        </div>
+        <div class="collapse show" id="contactedSection">
+            <div class="card-body p-0">
+                {% if contacted %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Submitted</th>
+                                <th>Name</th>
+                                <th>Contact</th>
+                                <th>Days</th>
+                                <th>Notes</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for entry in contacted %}
+                            <tr class="table-success">
+                                <td class="text-muted small">{{ entry.submitted_date.strftime('%m/%d/%Y') }}<br>{{ entry.submitted_date.strftime('%I:%M %p') }}</td>
+                                <td><strong>{{ entry.first_name }} {{ entry.last_name }}</strong></td>
+                                <td>
+                                    <small>
+                                        <i class="fas fa-envelope me-1"></i>{{ entry.email }}<br>
+                                        <i class="fas fa-phone me-1"></i>{{ entry.phone }}
+                                    </small>
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-1 flex-wrap">
+                                        {% for day, label in [('monday','M'),('tuesday','T'),('wednesday','W'),('thursday','Th'),('friday','F')] %}
+                                        <span class="badge {% if entry[day] %}bg-primary{% else %}bg-light text-muted border{% endif %}" style="min-width:24px;">{{ label }}</span>
+                                        {% endfor %}
+                                    </div>
+                                </td>
+                                <td><small class="text-muted">{{ entry.additional_info or '—' }}</small></td>
+                                <td class="text-nowrap">
+                                    <form method="POST" action="{{ url_for('admin.mark_waitlist_contacted', entry_id=entry.id) }}" style="display:inline;">
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary" title="Move back to Pending">
+                                            <i class="fas fa-undo me-1"></i>Undo
+                                        </button>
+                                    </form>
+                                    <form method="POST" action="{{ url_for('admin.delete_waitlist_entry', entry_id=entry.id) }}"
+                                          style="display:inline;"
+                                          onsubmit="return confirm('Delete {{ entry.first_name }} {{ entry.last_name }} from the waitlist?');">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger ms-1" title="Delete">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4 text-muted">No contacted entries yet.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
 </div>
-
-<style>
-.card {
-    border-radius: 10px;
-    border: none;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-.card-header {
-    border-radius: 10px 10px 0 0;
-}
-</style>
 {% endblock %}
-
