@@ -46,16 +46,10 @@
                                 <input class="form-check-input pet-checkbox" type="checkbox"
                                        name="pet_ids" value="{{ pet.id }}"
                                        id="pet{{ pet.id }}"
-                                       {% if not has_any or not has_valid %}disabled{% endif %}
                                        {% if pet.id == appt.pet_id %}checked{% endif %}>
                                 <label class="form-check-label" for="pet{{ pet.id }}">
                                     <strong>{{ pet.name }}</strong>
                                     <span class="text-muted small">— {{ pet.breed or 'Mixed' }}</span>
-                                    {% if not has_any %}
-                                    <span class="badge bg-danger ms-1" style="font-size:0.65rem;">No Vaccinations</span>
-                                    {% elif not has_valid %}
-                                    <span class="badge bg-warning text-dark ms-1" style="font-size:0.65rem;">Vaccinations Expired</span>
-                                    {% endif %}
                                 </label>
                             </div>
                             {% endfor %}

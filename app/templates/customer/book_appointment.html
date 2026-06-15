@@ -40,31 +40,13 @@
                                 <input class="form-check-input pet-checkbox" type="checkbox"
                                        name="pet_ids" value="{{ pet.id }}"
                                        id="pet{{ pet.id }}"
-                                       {% if not has_any or not has_valid %}disabled{% endif %}>
+                                       >
                                 <label class="form-check-label" for="pet{{ pet.id }}">
                                     <strong>{{ pet.name }}</strong>
                                     <span class="text-muted small">— {{ pet.breed or 'Mixed' }}</span>
-                                    {% if not has_any %}
-                                    <span class="badge bg-danger ms-1" style="font-size:0.65rem;">
-                                        <i class="fas fa-exclamation-triangle me-1"></i>No Vaccinations
-                                    </span>
-                                    {% elif not has_valid %}
-                                    <span class="badge bg-warning text-dark ms-1" style="font-size:0.65rem;">
-                                        <i class="fas fa-exclamation-triangle me-1"></i>Vaccinations Expired
-                                    </span>
-                                    {% endif %}
                                 </label>
                             </div>
                             {% endfor %}
-                            {% set pets_blocked = pets|selectattr('vaccination_records', 'equalto', [])|list %}
-                            {% if pets_blocked %}
-                            <div class="alert alert-danger py-2 px-3 mt-2 mb-0" style="font-size:0.82rem;">
-                                <i class="fas fa-exclamation-triangle me-2"></i>
-                                <strong>Booking unavailable</strong> — {{ pets_blocked|map(attribute='name')|join(', ') }}
-                                {{ 'has' if pets_blocked|length == 1 else 'have' }} no vaccination records on file.
-                                Please contact us to add records before booking.
-                            </div>
-                            {% endif %}
                         </div>
                         <div class="form-text">Select one or more pets to book together.</div>
                         {% else %}
