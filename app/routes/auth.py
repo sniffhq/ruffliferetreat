@@ -29,9 +29,11 @@ def login():
         if user and user.check_password(password):
             login_user(user, remember=True)
             flash('Welcome back!', 'success')
-            # Customers who haven't signed the waiver go there first
-            if user.role == 'customer' and not getattr(user, 'waiver_accepted', False):
-                return redirect(url_for('customer.waiver'))
+            if user.role == 'customer':
+                if not user.onboarding_complete:
+                    return redirect(url_for('customer.onboarding'))
+                if not getattr(user, 'waiver_accepted', False):
+                    return redirect(url_for('customer.waiver'))
             return redirect(url_for('public.index'))
         
         flash('Invalid email or password', 'danger')
@@ -117,7 +119,13 @@ def register():
             phone=request.form.get('phone')
         )
         user.set_password(password)
-        
+
+        # Save waiver acceptance if signed during registration
+        if request.form.get('waiver_accepted') == '1':
+            from datetime import datetime
+            user.waiver_accepted    = True
+            user.waiver_accepted_at = datetime.now()
+
         db.session.add(user)
         db.session.commit()
         
