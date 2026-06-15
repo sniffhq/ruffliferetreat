@@ -539,6 +539,22 @@ def daycare_dashboard():
             .order_by(ServiceBlock.start_date.asc())
             .limit(10).all())
 
+    # Weekly schedule calendar (Mon–Fri of current week)
+    monday_of_week = today - timedelta(days=today.weekday())
+    week_schedule = []
+    for i, (label, field) in enumerate([
+        ('Mon', 'monday'), ('Tue', 'tuesday'), ('Wed', 'wednesday'),
+        ('Thu', 'thursday'), ('Fri', 'friday')
+    ]):
+        day_date = monday_of_week + timedelta(days=i)
+        day_pets = [e for e in enrollments if getattr(e, field)]
+        week_schedule.append({
+            'date': day_date,
+            'label': label,
+            'pets': day_pets,
+            'is_today': day_date == today,
+        })
+
     return render_template('admin/daycare_dashboard.html',
                          enrollments=enrollments,
                          checked_in=checked_in,
@@ -549,6 +565,7 @@ def daycare_dashboard():
                          contacted_waitlist=contacted_waitlist,
                          all_waitlist=all_waitlist,
                          upcoming_blocks=upcoming_blocks,
+                         week_schedule=week_schedule,
                          now=datetime.now(),
                          today=today)
 

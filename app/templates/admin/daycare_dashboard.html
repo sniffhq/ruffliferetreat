@@ -26,6 +26,52 @@
         </a>
     </div>
 
+    <!-- Weekly Schedule Calendar -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center" style="background:#1a1a2e;">
+            <h4 class="mb-0 text-white">
+                <i class="fas fa-calendar-week me-2"></i>Weekly Schedule
+            </h4>
+            <small class="text-white-50">Week of {{ week_schedule[0].date.strftime('%b %d') }}</small>
+        </div>
+        <div class="card-body p-2">
+            <div class="row g-2">
+                {% for day in week_schedule %}
+                <div class="col">
+                    <div class="border rounded p-2 h-100{% if day.is_today %} border-primary{% endif %}"
+                         style="min-height:110px;{% if day.is_today %}background:#eef2ff;border-width:2px !important;{% else %}background:#fafafa;{% endif %}">
+                        <div class="d-flex justify-content-between align-items-start mb-1">
+                            <div>
+                                <div class="fw-bold {% if day.is_today %}text-primary{% endif %}" style="font-size:0.88rem;">
+                                    {{ day.label }}
+                                </div>
+                                <div class="text-muted" style="font-size:0.7rem;">{{ day.date.strftime('%m/%d') }}</div>
+                            </div>
+                            <span class="badge {% if day.is_today %}bg-primary{% else %}bg-secondary{% endif %}"
+                                  style="font-size:0.65rem;">{{ day.pets|length }}</span>
+                        </div>
+                        {% if day.is_today %}
+                        <div class="mb-1"><span class="badge bg-primary" style="font-size:0.58rem;letter-spacing:0.03em;">TODAY</span></div>
+                        {% endif %}
+                        {% for enrollment in day.pets %}
+                        <div class="d-flex align-items-center mb-1" style="line-height:1.2;">
+                            {% if day.is_today and enrollment.id in checked_in_by_enrollment %}
+                            <span class="text-success me-1" style="font-size:0.6rem;" title="Checked in">●</span>
+                            {% else %}
+                            <span class="me-1" style="font-size:0.6rem;color:#dee2e6;">●</span>
+                            {% endif %}
+                            <span style="font-size:0.78rem;">{{ enrollment.pet.name }}</span>
+                        </div>
+                        {% else %}
+                        <span class="text-muted" style="font-size:0.78rem;">—</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
     <!-- Currently Checked In -->
     <div class="card mb-4">
         <div class="card-header bg-primary text-white">
