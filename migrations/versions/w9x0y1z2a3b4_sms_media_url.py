@@ -1,15 +1,15 @@
 """Add media_url to sms_message for MMS support
 
-Revision ID: w9x0y1z2a3b4
-Revises: v8w9x0y1z2a3
+Revision ID: x2y3z4a5b6c7
+Revises: w9x0y1z2a3b4
 Create Date: 2026-06-15
 
 """
 from alembic import op
 import sqlalchemy as sa
 
-revision      = 'w9x0y1z2a3b4'
-down_revision = 'v8w9x0y1z2a3'
+revision      = 'x2y3z4a5b6c7'
+down_revision = 'w9x0y1z2a3b4'
 branch_labels = None
 depends_on    = None
 
