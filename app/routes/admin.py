@@ -3957,6 +3957,28 @@ def delete_vaccination(rec_id):
     return redirect(url_for('admin.pet_detail', pet_id=pet_id))
 
 
+@bp.route('/pet/<int:pet_id>/acknowledge-vacc-alert', methods=['POST'])
+@login_required
+def acknowledge_vacc_alert(pet_id):
+    """Staff acknowledges a vaccination expiry alert for a pet."""
+    from app.models import Pet
+    from datetime import datetime
+    pet = Pet.query.get_or_404(pet_id)
+    reset = request.args.get('reset') == '1'
+    if reset:
+        pet.vacc_alert_acknowledged = False
+        pet.vacc_alert_ack_at = None
+        pet.vacc_alert_ack_by = None
+        flash(f'Vaccination alert for {pet.name} has been reset.', 'info')
+    else:
+        pet.vacc_alert_acknowledged = True
+        pet.vacc_alert_ack_at = datetime.now()
+        pet.vacc_alert_ack_by = f'{current_user.first_name} {current_user.last_name}'
+        flash(f'Vaccination alert for {pet.name} acknowledged.', 'success')
+    db.session.commit()
+    return redirect(url_for('admin.pet_detail', pet_id=pet_id))
+
+
 # ============================================================
 # GALLERY
 # ============================================================

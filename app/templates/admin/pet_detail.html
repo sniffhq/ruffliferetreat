@@ -460,6 +460,27 @@ document.addEventListener('DOMContentLoaded', function() {
                         {% endif %}
                     </div>
                     {% endif %}
+                    {% if pet.vacc_expiring_soon %}
+                    <div class="alert alert-warning d-flex align-items-center justify-content-between mb-3" role="alert">
+                        <div>
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Vaccination expiring within 60 days</strong> —
+                            {% for r in pet.vacc_expiring_records %}{{ r.vaccine_name }} ({{ r.days_until_expiration }}d){% if not loop.last %}, {% endif %}{% endfor %}
+                        </div>
+                        <form method="POST" action="{{ url_for('admin.acknowledge_vacc_alert', pet_id=pet.id) }}" class="ms-3 mb-0">
+                            <button type="submit" class="btn btn-sm btn-warning fw-bold">
+                                <i class="fas fa-check me-1"></i>Acknowledge
+                            </button>
+                        </form>
+                    </div>
+                    {% elif pet.vacc_alert_acknowledged %}
+                    <div class="alert alert-secondary d-flex align-items-center justify-content-between mb-3 py-2" role="alert" style="font-size:0.85rem;">
+                        <div><i class="fas fa-check-circle me-2 text-success"></i>Acknowledged by <strong>{{ pet.vacc_alert_ack_by }}</strong> on {{ pet.vacc_alert_ack_at.strftime('%m/%d/%Y') if pet.vacc_alert_ack_at else '—' }}</div>
+                        <form method="POST" action="{{ url_for('admin.acknowledge_vacc_alert', pet_id=pet.id) }}?reset=1" class="ms-3 mb-0">
+                            <button type="submit" class="btn btn-sm btn-outline-secondary py-0">Reset</button>
+                        </form>
+                    </div>
+                    {% endif %}
                     {% if pet.vaccination_records %}
                     <table class="table table-hover mb-0" style="font-size:0.875rem;">
                         <thead class="table-light">
@@ -479,7 +500,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <td>
                                     {% if days_left < 0 %}
                                         <span class="badge bg-danger">Expired</span>
-                                    {% elif days_left <= 30 %}
+                                    {% elif days_left <= 60 %}
                                         <span class="badge bg-warning text-dark">Expiring Soon</span>
                                     {% else %}
                                         <span class="badge bg-success">Current</span>

@@ -107,6 +107,11 @@ class Pet(db.Model):
     # Tags — comma-separated list of labels
     pet_tags = db.Column(db.Text, nullable=True)
 
+    # Vaccination expiry alert acknowledgement
+    vacc_alert_acknowledged = db.Column(db.Boolean, default=False, nullable=False, server_default='0')
+    vacc_alert_ack_at       = db.Column(db.DateTime, nullable=True)
+    vacc_alert_ack_by       = db.Column(db.String(100), nullable=True)
+
     @property
     def tags_list(self):
         """Return tags as a sorted list, empty list if none."""
@@ -121,7 +126,25 @@ class Pet(db.Model):
                     'Escape Artist', 'Dominant', 'Requires Separate Kennel',
                     'Needs Medication', 'Diabetic', 'Post-Surgery'}
         return bool(warnings & set(self.tags_list))
-    
+
+    @property
+    def vacc_expiring_soon(self):
+        """True if any active vaccination expires within 60 days and alert hasn't been acknowledged."""
+        if self.vacc_alert_acknowledged:
+            return False
+        today = datetime.now().date()
+        for rec in self.vaccination_records:
+            if not rec.is_expired and rec.days_until_expiration <= 60:
+                return True
+        return False
+
+    @property
+    def vacc_expiring_records(self):
+        """Return vaccination records expiring within 60 days (not yet expired)."""
+        today = datetime.now().date()
+        return [r for r in self.vaccination_records
+                if not r.is_expired and r.days_until_expiration <= 60]
+
     # Relationships
     owner = db.relationship('User', back_populates='pets')
     appointments = db.relationship('Appointment', back_populates='pet', lazy=True, cascade='all, delete-orphan')

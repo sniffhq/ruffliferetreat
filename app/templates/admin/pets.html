@@ -65,6 +65,9 @@
                         <!-- Name -->
                         <td>
                             <strong>{{ pet.name }}</strong>
+                            {% if pet.vacc_expiring_soon %}
+                            <span class="badge bg-warning text-dark ms-1" title="Vaccination expiring within 60 days"><i class="fas fa-exclamation-triangle"></i> Vacc</span>
+                            {% endif %}
                             <div class="text-muted small">ID: #{{ pet.id }}</div>
                         </td>
 
