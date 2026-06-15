@@ -249,6 +249,17 @@
                         </td>
                         <td><small class="text-muted">{{ p.notes or '—' }}</small></td>
                         <td>
+                            {% if p.service_type %}
+                                {% if 'board' in p.service_type.lower() %}
+                                    <a href="{{ url_for('admin.customer_invoice', customer_id=customer.id, type='boarding') }}" class="btn btn-sm btn-outline-info me-1" target="_blank" title="View Invoice">
+                                        <i class="fas fa-file-invoice me-1"></i>Invoice
+                                    </a>
+                                {% elif 'daycare' in p.service_type.lower() or 'day care' in p.service_type.lower() %}
+                                    <a href="{{ url_for('admin.customer_invoice', customer_id=customer.id, type='daycare') }}" class="btn btn-sm btn-outline-info me-1" target="_blank" title="View Invoice">
+                                        <i class="fas fa-file-invoice me-1"></i>Invoice
+                                    </a>
+                                {% endif %}
+                            {% endif %}
                             <form method="POST" action="{{ url_for('admin.delete_payment', payment_id=p.id) }}" class="d-inline">
                                 <button type="submit" class="btn btn-sm btn-outline-danger"
                                     onclick="return confirm('Delete this payment?')">
