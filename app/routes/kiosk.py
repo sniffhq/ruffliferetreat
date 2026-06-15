@@ -66,6 +66,42 @@ def index():
     return render_template('kiosk/index.html')
 
 
+@bp.route('/lookup-pets')
+def lookup_pets():
+    """AJAX: return daycare-enrolled pets for a given phone number."""
+    import re
+    from flask import jsonify
+
+    phone = request.args.get('phone', '').strip()
+    phone_digits = re.sub(r'\D', '', phone)
+
+    if len(phone_digits) < 10:
+        return jsonify({'error': 'Enter a full phone number', 'pets': []})
+
+    all_users = User.query.filter(User.phone.isnot(None)).all()
+    owner = None
+    for u in all_users:
+        if re.sub(r'\D', '', u.phone or '') == phone_digits:
+            owner = u
+            break
+
+    if not owner:
+        return jsonify({'error': 'No account found for that number', 'pets': []})
+
+    enrollments = (DaycareEnrollment.query
+        .filter_by(active=True)
+        .join(Pet, DaycareEnrollment.pet_id == Pet.id)
+        .filter(Pet.user_id == owner.id, Pet.is_active == True)
+        .all())
+
+    pets = [{'name': e.pet.name} for e in enrollments]
+
+    if not pets:
+        return jsonify({'error': f'No enrolled pets found for {owner.first_name}', 'pets': []})
+
+    return jsonify({'owner': owner.first_name, 'pets': pets})
+
+
 @bp.route('/dashboard')
 def dashboard():
     """Redirect old kiosk.dashboard references to admin daycare dashboard"""

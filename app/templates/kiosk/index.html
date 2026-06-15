@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -18,13 +18,13 @@
         .kiosk-card {
             background: white;
             border-radius: 24px;
-            padding: 48px 40px;
+            padding: 44px 40px;
             width: 100%;
-            max-width: 480px;
+            max-width: 500px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.4);
         }
         .kiosk-input {
-            font-size: 1.1rem;
+            font-size: 1.15rem;
             padding: 14px 18px;
             border-radius: 12px;
             border: 2px solid #dee2e6;
@@ -33,13 +33,49 @@
         .kiosk-input:focus {
             border-color: #FFC107;
             box-shadow: 0 0 0 3px rgba(255,193,7,0.2);
+            outline: none;
+        }
+        .btn-lookup {
+            background: #FFC107;
+            color: #1a1a2e;
+            font-size: 1rem;
+            font-weight: 800;
+            padding: 14px 20px;
+            border-radius: 0 12px 12px 0;
+            border: none;
+            white-space: nowrap;
+            transition: background 0.2s;
+        }
+        .btn-lookup:hover { background: #e0a800; }
+        .btn-lookup:disabled { opacity: 0.6; cursor: not-allowed; }
+        .pet-btn {
+            width: 100%;
+            padding: 18px 24px;
+            border-radius: 14px;
+            border: 3px solid #dee2e6;
+            background: white;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #1a1a2e;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.15s;
+        }
+        .pet-btn:hover {
+            border-color: #FFC107;
+            background: #fffbf0;
+        }
+        .pet-btn.selected {
+            border-color: #198754;
+            background: #d1e7dd;
+            color: #0a3622;
         }
         .btn-checkin {
             background: #198754;
             color: white;
             font-size: 1.1rem;
             font-weight: 800;
-            padding: 14px;
+            padding: 16px;
             border-radius: 12px;
             border: none;
             width: 100%;
@@ -51,7 +87,7 @@
             color: #FFC107;
             font-size: 1.1rem;
             font-weight: 800;
-            padding: 14px;
+            padding: 16px;
             border-radius: 12px;
             border: none;
             width: 100%;
@@ -59,8 +95,33 @@
         }
         .btn-checkout:hover { background: #0f3460; color: #FFC107; }
         .alert { border-radius: 12px; }
-        /* Number pad style for phone input on tablets */
         input[type=tel] { -webkit-appearance: none; }
+        .divider {
+            border: none;
+            border-top: 2px dashed #dee2e6;
+            margin: 24px 0;
+        }
+        /* Phone input + button as one unit */
+        .phone-group {
+            display: flex;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid #dee2e6;
+            transition: border-color 0.2s;
+        }
+        .phone-group:focus-within {
+            border-color: #FFC107;
+            box-shadow: 0 0 0 3px rgba(255,193,7,0.2);
+        }
+        .phone-group .kiosk-input {
+            border: none !important;
+            border-radius: 0;
+            box-shadow: none !important;
+            flex: 1;
+        }
+        .phone-group .btn-lookup {
+            border-radius: 0;
+        }
     </style>
 </head>
 <body>
@@ -69,7 +130,7 @@
 
     <!-- Logo -->
     <div class="text-center mb-4">
-        <div style="font-size:2.8rem; margin-bottom:8px;">🐾</div>
+        <div style="font-size:2.6rem; margin-bottom:6px;">🐾</div>
         <h2 style="font-weight:800; color:#1a1a2e; margin-bottom:4px;">Ruff Life Retreat</h2>
         <div style="color:#888; font-size:0.9rem;">Daycare Check-In / Check-Out</div>
     </div>
@@ -86,35 +147,59 @@
     {% endwith %}
 
     <!-- Form -->
-    <form method="POST" action="{{ url_for('kiosk.index') }}" id="kiosk-form">
+    <form method="POST" action="{{ url_for('kiosk.index') }}" id="kiosk-form"
+          onsubmit="return validateForm()">
 
-        <div class="mb-3">
+        <!-- Hidden pet name — set by JS when pet button is tapped -->
+        <input type="hidden" name="pet_name" id="selected-pet-name" value="">
+
+        <!-- ── Step 1: Phone number ── -->
+        <div id="step-phone" class="mb-3">
             <label class="form-label fw-bold" style="font-size:1rem;">
                 <i class="fas fa-phone me-2 text-warning"></i>Phone Number
             </label>
-            <input type="tel" name="phone" id="phone" class="form-control kiosk-input"
-                   placeholder="(912) 555-1234"
-                   autocomplete="off" autocorrect="off" spellcheck="false"
-                   inputmode="numeric" autofocus required>
+            <div class="phone-group">
+                <input type="tel" name="phone" id="phone" class="kiosk-input"
+                       placeholder="(912) 555-1234"
+                       autocomplete="off" autocorrect="off" spellcheck="false"
+                       inputmode="numeric" autofocus>
+                <button type="button" id="lookup-btn" class="btn-lookup"
+                        onclick="lookupPets()">
+                    <i class="fas fa-search me-1"></i> Find Pets
+                </button>
+            </div>
+            <div id="phone-msg" class="mt-2 small" style="display:none;"></div>
         </div>
 
-        <div class="mb-4">
-            <label class="form-label fw-bold" style="font-size:1rem;">
-                <i class="fas fa-paw me-2 text-warning"></i>Pet Name
-            </label>
-            <input type="text" name="pet_name" id="pet_name" class="form-control kiosk-input"
-                   placeholder="e.g. Buddy"
-                   autocomplete="off" autocorrect="off" spellcheck="false"
-                   autocapitalize="words" required>
+        <!-- ── Step 2: Pet selection (shown after lookup) ── -->
+        <div id="step-pets" style="display:none;">
+            <hr class="divider">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div id="owner-greeting"
+                     style="font-size:1.15rem; font-weight:800; color:#1a1a2e;"></div>
+                <button type="button" class="btn btn-sm btn-outline-secondary"
+                        onclick="resetPhone()">
+                    <i class="fas fa-times me-1"></i>Change
+                </button>
+            </div>
+            <div class="fw-bold mb-2 text-muted"
+                 style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em;">
+                Select your pet:
+            </div>
+            <div id="pet-buttons" class="d-grid gap-3"></div>
         </div>
 
-        <div class="d-grid gap-3">
-            <button type="submit" name="action" value="checkin" class="btn-checkin">
-                <i class="fas fa-sign-in-alt me-2"></i>Check In
-            </button>
-            <button type="submit" name="action" value="checkout" class="btn-checkout">
-                <i class="fas fa-sign-out-alt me-2"></i>Check Out
-            </button>
+        <!-- ── Step 3: Action buttons (shown after pet selected) ── -->
+        <div id="step-actions" style="display:none;">
+            <hr class="divider">
+            <div class="d-grid gap-3">
+                <button type="submit" name="action" value="checkin" class="btn-checkin">
+                    <i class="fas fa-sign-in-alt me-2"></i>Check In
+                </button>
+                <button type="submit" name="action" value="checkout" class="btn-checkout">
+                    <i class="fas fa-sign-out-alt me-2"></i>Check Out
+                </button>
+            </div>
         </div>
 
     </form>
@@ -126,19 +211,123 @@
 </div>
 
 <script>
-    // Auto-clear form after successful check-in/out (on page load with success flash)
+    // ── Auto-clear on success ──────────────────────────────────────────────
     {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
     {% for category, message in messages %}
     {% if category == 'success' %}
-    document.getElementById('phone').value = '';
-    document.getElementById('pet_name').value = '';
+    resetPhone();
     {% endif %}
     {% endfor %}
     {% endif %}
     {% endwith %}
+
+    // ── Auto-trigger lookup after 10 digits ───────────────────────────────
+    let lookupTimeout = null;
+    document.getElementById('phone').addEventListener('input', function () {
+        const digits = this.value.replace(/\D/g, '');
+        clearTimeout(lookupTimeout);
+        if (digits.length >= 10) {
+            lookupTimeout = setTimeout(lookupPets, 600);
+        } else {
+            // Reset pet section if phone is edited
+            hidePets();
+        }
+    });
+
+    // ── Lookup function ───────────────────────────────────────────────────
+    function lookupPets() {
+        const phone = document.getElementById('phone').value.trim();
+        if (!phone) return;
+
+        const btn  = document.getElementById('lookup-btn');
+        const msg  = document.getElementById('phone-msg');
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Looking up…';
+
+        fetch('/kiosk/lookup-pets?phone=' + encodeURIComponent(phone))
+            .then(r => r.json())
+            .then(data => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-search me-1"></i> Find Pets';
+
+                if (data.error) {
+                    msg.className = 'mt-2 small text-danger';
+                    msg.innerHTML = '<i class="fas fa-exclamation-circle me-1"></i>' + data.error;
+                    msg.style.display = '';
+                    hidePets();
+                    return;
+                }
+
+                // Hide any previous error
+                msg.style.display = 'none';
+
+                // Populate greeting + pet buttons
+                document.getElementById('owner-greeting').textContent =
+                    'Hi, ' + data.owner + '! 👋';
+
+                const container = document.getElementById('pet-buttons');
+                container.innerHTML = '';
+                data.pets.forEach(function (pet) {
+                    const el = document.createElement('button');
+                    el.type = 'button';
+                    el.className = 'pet-btn';
+                    el.innerHTML = '<i class="fas fa-paw me-2 text-warning"></i>' + pet.name;
+                    el.addEventListener('click', function () { selectPet(pet.name, el); });
+                    container.appendChild(el);
+                });
+
+                document.getElementById('step-pets').style.display = '';
+
+                // Auto-select single pet
+                if (data.pets.length === 1) {
+                    container.querySelector('.pet-btn').click();
+                }
+            })
+            .catch(function () {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-search me-1"></i> Find Pets';
+                msg.className = 'mt-2 small text-danger';
+                msg.innerHTML = '<i class="fas fa-exclamation-circle me-1"></i>Connection error. Please try again.';
+                msg.style.display = '';
+            });
+    }
+
+    // ── Pet selection ─────────────────────────────────────────────────────
+    function selectPet(name, buttonEl) {
+        document.querySelectorAll('.pet-btn').forEach(function (b) {
+            b.classList.remove('selected');
+        });
+        buttonEl.classList.add('selected');
+        document.getElementById('selected-pet-name').value = name;
+        document.getElementById('step-actions').style.display = '';
+    }
+
+    // ── Reset phone / start over ──────────────────────────────────────────
+    function resetPhone() {
+        document.getElementById('phone').value = '';
+        document.getElementById('selected-pet-name').value = '';
+        document.getElementById('phone-msg').style.display = 'none';
+        hidePets();
+        document.getElementById('phone').focus();
+    }
+
+    function hidePets() {
+        document.getElementById('step-pets').style.display = 'none';
+        document.getElementById('step-actions').style.display = 'none';
+        document.getElementById('selected-pet-name').value = '';
+    }
+
+    // ── Guard against empty pet on submit ─────────────────────────────────
+    function validateForm() {
+        if (!document.getElementById('selected-pet-name').value) {
+            alert('Please look up a phone number and select a pet first.');
+            return false;
+        }
+        return true;
+    }
 </script>
 
 </body>
 </html>
-
