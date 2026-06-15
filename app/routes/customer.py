@@ -11,9 +11,46 @@ logger = logging.getLogger(__name__)
 
 bp = Blueprint('customer', __name__, url_prefix='/customer')
 
+# ── Waiver gate ──────────────────────────────────────────────────────────────
+# Endpoints that do NOT require the waiver to be signed yet
+_WAIVER_EXEMPT = {'customer.waiver', 'customer.onboarding', 'static'}
+
+@bp.before_request
+def require_waiver():
+    """Redirect logged-in customers to the waiver page if they haven't signed."""
+    if not current_user.is_authenticated:
+        return
+    if current_user.role != 'customer':
+        return
+    if request.endpoint in _WAIVER_EXEMPT:
+        return
+    if not getattr(current_user, 'waiver_accepted', False):
+        return redirect(url_for('customer.waiver'))
+# ─────────────────────────────────────────────────────────────────────────────
+
 def allowed_file(filename):
     ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif'}
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@bp.route('/waiver', methods=['GET', 'POST'])
+@login_required
+def waiver():
+    """Show the waiver to customers who haven't yet signed it."""
+    # Already signed — nothing to do
+    if getattr(current_user, 'waiver_accepted', False):
+        return redirect(url_for('customer.dashboard'))
+
+    if request.method == 'POST':
+        if request.form.get('waiver_accepted') == '1':
+            current_user.waiver_accepted    = True
+            current_user.waiver_accepted_at = datetime.now()
+            db.session.commit()
+            flash('Thank you for signing the waiver! Welcome to Ruff Life Retreat.', 'success')
+            return redirect(url_for('customer.dashboard'))
+        flash('Please check the box to accept the waiver before continuing.', 'warning')
+
+    return render_template('customer/waiver.html')
+
 
 @bp.route('/onboarding', methods=['GET', 'POST'])
 @login_required

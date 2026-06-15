@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Waiver — Ruff Life Retreat{% endblock %}
+{% block content %}
+<div class="container mt-5" style="max-width:720px;">
+
+    <div class="text-center mb-4">
+        <div style="font-size:2.2rem;">🐾</div>
+        <h3 class="fw-bold mt-2" style="color:#1a1a2e;">One quick step, {{ current_user.first_name }}!</h3>
+        <p class="text-muted">Please read and sign the Ruff Life Retreat waiver before accessing your account.</p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ 'success' if category == 'success' else 'danger' if category == 'danger' else 'warning' }} mb-3">
+            {{ message }}
+        </div>
+        {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header text-white" style="background:#1a1a2e;">
+            <h5 class="mb-0">
+                <i class="fas fa-file-contract me-2" style="color:#B07A8E;"></i>
+                Ruff Life Retreat — Doggy Daycare &amp; Boarding Waiver
+            </h5>
+        </div>
+        <div class="card-body">
+
+            <!-- Waiver text -->
+            <div class="p-3 rounded mb-4"
+                 style="background:#f8f9fa; border-left:4px solid #B07A8E;
+                        max-height:320px; overflow-y:auto; font-size:0.88rem; line-height:1.65;">
+                <p>I understand that I am solely responsible for any harm caused by my dog(s) while my dog(s) is/are attending daycare/boarding at Ruff Life Retreat.</p>
+                <p>I also understand and agree that in admitting my dog(s), Ruff Life Retreat has relied upon my representation that my dog(s) is/are in good health and have not harmed or shown aggressive or threatening behavior towards any person or any other dog.</p>
+                <p>I further understand that due to the way that dogs interact with one another, cuts/scratches, bug bites/nature related risks, or accidents can occur even though the dogs are carefully supervised at all times. While my dog(s) is/are in the care and custody of Ruff Life Retreat, if I am unreachable in the event of an emergency, I hereby authorize Ruff Life Retreat, its agents, and/or representatives to seek immediate veterinary care for my dog. I understand that all costs in connection with, veterinary, medical or other shall be my responsibility.</p>
+                <p>I hereby release and agree to save and hold harmless, Ruff Life Retreat, it's directors, officers, shareholders, employees, assistants, members and agents from any and all liability, claims, suits, actions, loss, injury or damage of any nature or kind, or for any liability, claims, suits, actions, loss, injury or damage which I or my dog(s) may sustain or which may be caused in any way by my dog(s). I specifically, without limitation, agree to fully indemnify Ruff Life Retreat for any and all such liability, claims, suits, actions, losses, injury or damage.</p>
+                <p>I certify that I have read and understand the rules and regulations set forth herein and that I have read and understand this agreement. I agree to abide by the rules and regulations and accept all the terms, conditions and statements of this agreement and confirm the truthfulness of the contents of the Application form completed by me. Payment can be made through Zelle or cash.</p>
+                <p class="mb-0">Although we carefully screen all applicants, occasionally we discover that this is not an appropriate environment for every dog. Ruff Life Retreat reserves the right to permanently remove a dog from daycare at any time. In addition, Ruff Life Retreat reserves the right to disallow certain breeds to participate in the daycare.</p>
+            </div>
+
+            <form method="POST" action="{{ url_for('customer.waiver') }}">
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">
+                            Pet Name(s) <span class="text-muted fw-normal small">(for your records)</span>
+                        </label>
+                        <input type="text" class="form-control" name="waiver_pet_name"
+                               placeholder="e.g. Buddy, Max">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Date</label>
+                        <input type="text" class="form-control" id="waiver_date"
+                               name="waiver_date" readonly
+                               style="background:#f8f9fa; cursor:default;">
+                    </div>
+                </div>
+
+                <div class="form-check p-3 rounded mb-4"
+                     style="background:#fff8f5; border:1px solid #B07A8E;">
+                    <input class="form-check-input" type="checkbox"
+                           name="waiver_accepted" id="waiver_accepted" value="1" required>
+                    <label class="form-check-label fw-bold" for="waiver_accepted"
+                           style="color:#1a1a2e; font-size:0.9rem;">
+                        I have read, understood, and agree to all terms of the Ruff Life Retreat
+                        Doggy Daycare &amp; Boarding Waiver. I confirm this serves as my
+                        electronic signature.
+                    </label>
+                </div>
+
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-lg fw-bold text-white"
+                            style="background:#1a1a2e;">
+                        <i class="fas fa-signature me-2"></i>Sign Waiver &amp; Continue
+                    </button>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+    <p class="text-center text-muted small">
+        Questions? Contact us at
+        <a href="mailto:ruffliferetreat@gmail.com">ruffliferetreat@gmail.com</a>.
+    </p>
+
+</div>
+
+<script>
+document.getElementById('waiver_date').value =
+    new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+</script>
+{% endblock %}

@@ -29,6 +29,9 @@ def login():
         if user and user.check_password(password):
             login_user(user, remember=True)
             flash('Welcome back!', 'success')
+            # Customers who haven't signed the waiver go there first
+            if user.role == 'customer' and not getattr(user, 'waiver_accepted', False):
+                return redirect(url_for('customer.waiver'))
             return redirect(url_for('public.index'))
         
         flash('Invalid email or password', 'danger')

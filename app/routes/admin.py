@@ -6773,3 +6773,17 @@ def customer_waiver_reset(customer_id):
     flash(f'Waiver acceptance cleared for {customer.first_name} {customer.last_name}. '
           'They will need to re-sign the next time they log in.', 'success')
     return redirect(url_for('admin.customer_detail', customer_id=customer_id))
+
+
+@bp.route('/customer/<int:customer_id>/waiver-accept', methods=['POST'])
+@login_required
+@admin_required
+def customer_waiver_accept(customer_id):
+    """Mark a customer's waiver as accepted on behalf of staff (e.g. paper waiver collected)."""
+    from datetime import datetime as _dt
+    customer = User.query.get_or_404(customer_id)
+    customer.waiver_accepted    = True
+    customer.waiver_accepted_at = _dt.now()
+    db.session.commit()
+    flash(f'Waiver marked as accepted for {customer.first_name} {customer.last_name}.', 'success')
+    return redirect(url_for('admin.customer_detail', customer_id=customer_id))
