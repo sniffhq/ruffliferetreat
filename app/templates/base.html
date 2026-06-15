@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Ruff Life Retreat{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <style>
+        nav.ruff-navbar { background-color: #1a1a2e !important; }
+
+        /* ── Mauve brand colour utilities ─────────────────────────────── */
+        :root { --mauve: #B07A8E; --mauve-dark: #9A6070; --mauve-light: #C9A0AF; --mauve-pale: #F5EAF0; }
+
+        .text-mauve          { color: var(--mauve) !important; }
+        .bg-mauve            { background-color: var(--mauve) !important; }
+        .border-mauve        { border-color: var(--mauve) !important; }
+
+        .btn-mauve {
+            background-color: var(--mauve);
+            border-color: var(--mauve);
+            color: white;
+            font-weight: 600;
+        }
+        .btn-mauve:hover, .btn-mauve:focus {
+            background-color: var(--mauve-dark);
+            border-color: var(--mauve-dark);
+            color: white;
+        }
+        .btn-outline-mauve {
+            border: 1px solid var(--mauve);
+            color: var(--mauve);
+            background: transparent;
+        }
+        .btn-outline-mauve:hover {
+            background-color: var(--mauve);
+            color: white;
+        }
+
+        /* Badge */
+        .badge.bg-mauve { background-color: var(--mauve) !important; color: white; }
+
+        /* Nav active indicator */
+        .nav-link.active-mauve { border-bottom: 2px solid var(--mauve); color: var(--mauve) !important; }
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark ruff-navbar">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="{{ url_for('public.index') }}"
+               style="color:#B07A8E; letter-spacing:0.5px;">
+                <i class="fas fa-dog"></i> Ruff Life Retreat
+            </a>
+            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto align-items-lg-center gap-lg-1">
+                    {% if current_user.is_authenticated and current_user.is_admin %}
+
+                    <!-- Operations Dropdown -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle px-3 py-2 rounded" href="#"
+                           data-bs-toggle="dropdown" style="font-size:0.875rem;">
+                            <i class="fas fa-th-large me-1"></i> Operations
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-dark" style="background:#16213e; border:1px solid #333;">
+                            <li>
+                                <a class="dropdown-item py-2" href="{{ url_for('admin.daycare_dashboard') }}">
+                                    <i class="fas fa-paw me-2 text-mauve"></i> Daycare Dashboard
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item py-2" href="{{ url_for('admin.boarding_dashboard') }}">
+                                    <i class="fas fa-hotel me-2 text-mauve"></i> Boarding Dashboard
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider" style="border-color:#333;"></li>
+                            <li>
+                                <a class="dropdown-item py-2" href="{{ url_for('admin.report_cards') }}">
+                                    <i class="fas fa-clipboard-list me-2 text-mauve"></i> Report Cards
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider" style="border-color:#333;"></li>
+                            <li>
+                                <a class="dropdown-item py-2" href="{{ url_for('admin.play_groups') }}">
+                                    <i class="fas fa-dog me-2 text-mauve"></i> Play Groups
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider" style="border-color:#333;"></li>
+                            <li>
+                                <a class="dropdown-item py-2" href="{{ url_for('admin.invoice_audit') }}">
+                                    <i class="fas fa-file-invoice me-2 text-mauve"></i> Invoice Register
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider" style="border-color:#333;"></li>
+                            <li>
+                                <a class="dropdown-item py-2" href="{{ url_for('admin.daily_log') }}">
+                                    <i class="fas fa-clipboard-list me-2 text-mauve"></i> Daily Log
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider" style="border-color:#333;"></li>
+                            <li>
+                                <a class="dropdown-item py-2" href="{{ url_for('admin.grooming_report') }}">
+                                    <i class="fas fa-cut me-2 text-mauve"></i> Daily Grooming Report
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
+                    <!-- Reports -->
+                    <li class="nav-item">
+                        <a class="nav-link px-3 py-2 rounded" href="{{ url_for('reports.reports_dashboard') }}"
+                           style="font-size:0.875rem;">
+                            <i class="fas fa-chart-bar me-1"></i> Reports
+                        </a>
+                    </li>
+
+                    <!-- Inbox with badge -->
+                    <li class="nav-item">
+                        <a class="nav-link px-3 py-2 rounded position-relative" href="{{ url_for('admin.sms_inbox') }}"
+                           style="font-size:0.875rem;">
+                            <i class="fas fa-comments me-1"></i> Inbox
+                            {% if unread_sms_count > 0 %}
+                                <span class="badge bg-danger rounded-pill position-absolute"
+                                      id="inbox-badge"
+                                      style="top:4px; right:4px; font-size:0.65rem;">
+                                    {{ unread_sms_count }}
+                                </span>
+                            {% else %}
+                                <span class="badge bg-danger rounded-pill position-absolute"
+                                      id="inbox-badge"
+                                      style="top:4px; right:4px; font-size:0.65rem; display:none;">
+                                    0
+                                </span>
+                            {% endif %}
+                        </a>
+                    </li>
+
+                    <!-- Vaccinations -->
+                    <li class="nav-item">
+                        <a class="nav-link px-3 py-2 rounded" href="{{ url_for('reports.vaccination_status_report') }}"
+                           style="font-size:0.875rem;">
+                            <i class="fas fa-syringe me-1"></i> Vaccinations
+                        </a>
+                    </li>
+
+                    <!-- Knowledge Base -->
+                    <li class="nav-item">
+                        <a class="nav-link px-3 py-2 rounded" href="{{ url_for('admin.kb_index') }}"
+                           style="font-size:0.875rem;">
+                            <i class="fas fa-book me-1"></i> KB
+                        </a>
+                    </li>
+
+                    <!-- Support -->
+                    <li class="nav-item">
+                        <a class="nav-link px-3 py-2 rounded" href="{{ url_for('admin.support') }}"
+                           style="font-size:0.875rem;">
+                            <i class="fas fa-life-ring me-1"></i> Support
+                        </a>
+                    </li>
+
+                    {% else %}
+                    <!-- Public Navigation -->
+                    <li class="nav-item"><a class="nav-link px-3" href="{{ url_for('public.boarding') }}" style="font-size:0.875rem;">Boarding</a></li>
+                    <li class="nav-item"><a class="nav-link px-3" href="{{ url_for('public.grooming') }}" style="font-size:0.875rem;">Grooming</a></li>
+                    <li class="nav-item"><a class="nav-link px-3" href="{{ url_for('public.daycare') }}" style="font-size:0.875rem;">Daycare</a></li>
+                    <li class="nav-item"><a class="nav-link px-3" href="{{ url_for('public.gallery') }}" style="font-size:0.875rem;">Gallery</a></li>
+                    {% endif %}
+                </ul>
+
+                <!-- Right side -->
+                <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-1">
+                    {% if current_user.is_authenticated %}
+                        {% if not current_user.is_admin %}
+                            <li class="nav-item"><a class="nav-link px-3" href="{{ url_for('customer.dashboard') }}" style="font-size:0.875rem;">Dashboard</a></li>
+                            <li class="nav-item"><a class="nav-link px-3" href="{{ url_for('customer.pets') }}" style="font-size:0.875rem;">My Pets</a></li>
+                            <li class="nav-item"><a class="nav-link px-3" href="{{ url_for('customer.book_appointment') }}" style="font-size:0.875rem;">Book</a></li>
+                            <li class="nav-item"><a class="nav-link px-3" href="{{ url_for('customer.my_photos') }}" style="font-size:0.875rem;"><i class="fas fa-images me-1"></i>My Photos</a></li>
+                            <li class="nav-item"><a class="nav-link px-3" href="{{ url_for('customer.faq') }}" style="font-size:0.875rem;"><i class="fas fa-question-circle me-1"></i>FAQ</a></li>
+                        {% endif %}
+
+                        <!-- User dropdown -->
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle d-flex align-items-center gap-2 px-3 py-2 rounded"
+                               href="#" data-bs-toggle="dropdown" style="font-size:0.875rem;">
+                                <span class="d-inline-flex align-items-center justify-content-center rounded-circle fw-bold" style="width:30px;height:30px;font-size:0.75rem;background:#B07A8E;color:white;">
+                                    {{ current_user.first_name[0] }}{{ current_user.last_name[0] }}
+                                </span>
+                                <span class="d-none d-lg-inline">{{ current_user.first_name }}</span>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end"
+                                style="background:#16213e; border:1px solid #333;">
+                                <li>
+                                    <span class="dropdown-item-text small py-1" style="color:#adb5bd;">
+                                        {{ current_user.first_name }} {{ current_user.last_name }}
+                                    </span>
+                                </li>
+                                <li><hr class="dropdown-divider" style="border-color:#333;"></li>
+                                {% if current_user.is_admin %}
+                                <li>
+                                    <a class="dropdown-item py-2" href="{{ url_for('admin.dashboard') }}">
+                                        <i class="fas fa-tachometer-alt me-2 text-mauve"></i> Admin Dashboard
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider" style="border-color:#333;"></li>
+                                <li>
+                                    <a class="dropdown-item py-2" href="{{ url_for('admin.blocks') }}">
+                                        <i class="fas fa-shield-alt me-2 text-mauve"></i> Service Blocks
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item py-2" href="{{ url_for('admin.service_types') }}">
+                                        <i class="fas fa-tags me-2 text-mauve"></i> Service Types &amp; Pricing
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item py-2" href="{{ url_for('admin.incidents') }}">
+                                        <i class="fas fa-exclamation-triangle me-2 text-mauve"></i> Incidents
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item py-2" href="{{ url_for('admin.surveys') }}">
+                                        <i class="fas fa-star me-2 text-mauve"></i> Satisfaction
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item py-2" href="{{ url_for('admin.waiver_report') }}">
+                                        <i class="fas fa-file-signature me-2 text-mauve"></i> Waiver Report
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider" style="border-color:#333;"></li>
+                                {% endif %}
+                                <li>
+                                    <a class="dropdown-item py-2" href="{{ url_for('auth.logout') }}">
+                                        <i class="fas fa-sign-out-alt me-2 text-danger"></i> Logout
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                    {% else %}
+                        <li class="nav-item"><a class="nav-link px-3" href="{{ url_for('auth.login') }}" style="font-size:0.875rem;">Login</a></li>
+                        <li class="nav-item">
+                            <a class="btn btn-mauve btn-sm ms-2" href="{{ url_for('auth.register') }}">
+                                Register
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer class="bg-dark text-white text-center py-4 mt-5">
+        <p class="mb-1">&copy; 2026 Ruff Life Retreat. All rights reserved.</p>
+        <p class="mb-0" style="font-size:0.8rem;">
+            <a href="{{ url_for('public.privacy') }}" style="color:#C9A0AF;" class="text-decoration-none me-3">Privacy Policy</a>
+            <a href="{{ url_for('public.terms') }}" style="color:#C9A0AF;" class="text-decoration-none">Terms of Service</a>
+        </p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+    {% if current_user.is_authenticated and current_user.is_admin %}
+    <script>
+        // Poll for new inbox messages every 20 seconds and update the badge
+        function pollInbox() {
+            fetch("{{ url_for('admin.inbox_unread_count') }}")
+                .then(r => r.json())
+                .then(data => {
+                    const badge = document.getElementById('inbox-badge');
+                    if (!badge) return;
+                    if (data.unread > 0) {
+                        badge.textContent = data.unread;
+                        badge.style.display = 'inline-block';
+                        // Flash the tab title if user is not on the inbox page
+                        if (!window.location.pathname.includes('/inbox')) {
+                            document.title = '(' + data.unread + ') ' + document.title.replace(/^\(\d+\) /, '');
+                        }
+                    } else {
+                        badge.style.display = 'none';
+                        document.title = document.title.replace(/^\(\d+\) /, '');
+                    }
+                })
+                .catch(() => {}); // Silently fail if server is unreachable
+        }
+
+        // Run immediately then every 20 seconds
+        pollInbox();
+        setInterval(pollInbox, 20000);
+    </script>
+    {% endif %}
+    <!-- ── AI Chat Widget ──────────────────────────────────────────────── -->
+    {% if current_user.is_authenticated %}
+    <div id="chat-widget" style="position:fixed;bottom:24px;right:24px;z-index:9999;font-family:'Calibri',sans-serif;">
+
+        <!-- Chat bubble button -->
+        <button id="chat-toggle" onclick="toggleChat()"
+                style="width:56px;height:56px;border-radius:50%;border:none;cursor:pointer;
+                       background:#3DBDB5;color:white;box-shadow:0 4px 16px rgba(0,0,0,0.25);
+                       font-size:1.4rem;display:flex;align-items:center;justify-content:center;
+                       transition:all 0.2s;">
+            <i class="fas fa-comment-dots" id="chat-icon"></i>
+        </button>
+
+        <!-- Chat window -->
+        <div id="chat-window"
+             style="display:none;position:absolute;bottom:68px;right:0;
+                    width:420px;max-height:580px;background:white;
+                    border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.18);
+                    overflow:hidden;flex-direction:column;">
+
+            <!-- Header -->
+            <div style="background:#1B2D4F;color:white;padding:14px 16px;
+                        display:flex;align-items:center;justify-content:space-between;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div style="width:32px;height:32px;border-radius:50%;
+                                background:#3DBDB5;display:flex;align-items:center;
+                                justify-content:center;font-size:0.9rem;">
+                        <i class="fas fa-paw"></i>
+                    </div>
+                    <div>
+                        <div style="font-weight:700;font-size:0.9rem;">
+                            {% if current_user.is_admin %}Staff Assistant{% else %}Help & Support{% endif %}
+                        </div>
+                        <div style="font-size:0.72rem;opacity:0.75;">
+                            Powered by Sniffr, your AI friend
+                        </div>
+                    </div>
+                </div>
+                <button onclick="toggleChat()"
+                        style="background:none;border:none;color:white;cursor:pointer;
+                               font-size:1rem;opacity:0.7;padding:4px;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- Messages -->
+            <div id="chat-messages"
+                 style="flex:1;overflow-y:auto;padding:14px;
+                        display:flex;flex-direction:column;gap:10px;
+                        max-height:400px;min-height:280px;">
+                <div class="chat-msg assistant"
+                     style="background:#f0f9f9;border-radius:12px 12px 12px 2px;
+                            padding:10px 14px;font-size:0.85rem;max-width:85%;
+                            color:#1B2D4F;line-height:1.5;">
+                    {% if current_user.is_admin %}
+                    Hi! I can help you find answers from the knowledge base. What would you like to know?
+                    {% else %}
+                    Hi {{ current_user.first_name }}! 🐾 I can help answer questions about our services. What can I help you with?
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Input -->
+            <div style="padding:12px;border-top:1px solid #f0f0f0;
+                        display:flex;gap:8px;align-items:flex-end;">
+                <textarea id="chat-input"
+                          placeholder="Type your question..."
+                          rows="1"
+                          style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;
+                                 padding:8px 12px;font-size:0.85rem;resize:none;
+                                 outline:none;font-family:inherit;line-height:1.4;
+                                 max-height:80px;overflow-y:auto;"
+                          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"
+                          oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px';">
+                </textarea>
+                <button onclick="sendChat()"
+                        id="chat-send"
+                        style="width:36px;height:36px;border-radius:50%;border:none;
+                               background:#3DBDB5;color:white;cursor:pointer;
+                               display:flex;align-items:center;justify-content:center;
+                               flex-shrink:0;font-size:0.85rem;">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    var chatHistory = [];
+    var chatEndpoint = '{{ "/admin/chat" if current_user.is_admin else "/customer/chat" }}';
+    var chatOpen = false;
+
+    function toggleChat() {
+        chatOpen = !chatOpen;
+        const win  = document.getElementById('chat-window');
+        const icon = document.getElementById('chat-icon');
+        win.style.display  = chatOpen ? 'flex' : 'none';
+        icon.className     = chatOpen ? 'fas fa-times' : 'fas fa-comment-dots';
+        if (chatOpen) {
+            document.getElementById('chat-input').focus();
+            scrollChat();
+        }
+    }
+
+    function scrollChat() {
+        const msgs = document.getElementById('chat-messages');
+        msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    function addMessage(role, text) {
+        const msgs = document.getElementById('chat-messages');
+        const div  = document.createElement('div');
+        div.className = 'chat-msg ' + role;
+
+        const isAssistant = role === 'assistant';
+        div.style.cssText = `
+            background: ${isAssistant ? '#f0f9f9' : '#3DBDB5'};
+            color: ${isAssistant ? '#1B2D4F' : 'white'};
+            border-radius: ${isAssistant ? '12px 12px 12px 2px' : '12px 12px 2px 12px'};
+            padding: 10px 14px;
+            font-size: 0.85rem;
+            max-width: 85%;
+            line-height: 1.5;
+            ${isAssistant ? '' : 'align-self: flex-end;'}
+            white-space: pre-wrap;
+        `;
+        div.textContent = text;
+        msgs.appendChild(div);
+        scrollChat();
+    }
+
+    function addTyping() {
+        const msgs = document.getElementById('chat-messages');
+        const div  = document.createElement('div');
+        div.id = 'chat-typing';
+        div.style.cssText = `
+            background:#f0f9f9;border-radius:12px 12px 12px 2px;
+            padding:10px 14px;font-size:0.85rem;color:#888;
+            display:flex;gap:4px;align-items:center;
+        `;
+        div.innerHTML = '<span style="animation:bounce 0.8s infinite 0s">●</span><span style="animation:bounce 0.8s infinite 0.2s">●</span><span style="animation:bounce 0.8s infinite 0.4s">●</span>';
+        msgs.appendChild(div);
+        scrollChat();
+    }
+
+    function removeTyping() {
+        const t = document.getElementById('chat-typing');
+        if (t) t.remove();
+    }
+
+    async function sendChat() {
+        const input   = document.getElementById('chat-input');
+        const message = input.value.trim();
+        if (!message) return;
+
+        input.value = '';
+        input.style.height = 'auto';
+        document.getElementById('chat-send').disabled = true;
+
+        addMessage('user', message);
+        addTyping();
+
+        chatHistory.push({role: 'user', content: message});
+
+        try {
+            const resp = await fetch(chatEndpoint, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({message: message, history: chatHistory.slice(-10)})
+            });
+            const data = await resp.json();
+            removeTyping();
+
+            if (data.error) {
+                addMessage('assistant', 'Sorry, I ran into an issue. Please try again or contact us directly.');
+            } else {
+                addMessage('assistant', data.reply);
+                chatHistory.push({role: 'assistant', content: data.reply});
+            }
+        } catch (err) {
+            removeTyping();
+            addMessage('assistant', 'Sorry, I couldn\'t connect right now. Please try again in a moment.');
+        }
+
+        document.getElementById('chat-send').disabled = false;
+    }
+    </script>
+
+    <style>
+    @keyframes bounce {
+        0%, 100% { transform: translateY(0); opacity: 0.4; }
+        50%       { transform: translateY(-4px); opacity: 1; }
+    }
+    #chat-messages::-webkit-scrollbar { width: 4px; }
+    #chat-messages::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
+    #chat-toggle:hover { transform: scale(1.08); box-shadow: 0 6px 20px rgba(61,189,181,0.4); }
+    </style>
+    {% endif %}
+    <!-- ── End Chat Widget ──────────────────────────────────────────────── -->
+    {% block scripts %}{% endblock %}
+
+</body>
+</html>

@@ -1,0 +1,23 @@
+<!-- ═══════════════════════════════════════════════════════════════
+     KENNEL CAPACITY CARD — paste into boarding_dashboard.html
+     Suggested placement: top of page, after the page header / before
+     the Pending Requests section.
+═══════════════════════════════════════════════════════════════ -->
+<div class="card mb-3 border-0 shadow-sm">
+  <div class="card-body py-2 px-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-2">
+      <i class="fas fa-dog text-primary"></i>
+      <span class="fw-semibold">Kennel Capacity:</span>
+      <span class="badge bg-primary fs-6" id="capacity-badge">{{ kennel_capacity }}</span>
+    </div>
+    <form method="POST" action="{{ url_for('admin.save_kennel_capacity') }}"
+          class="d-flex align-items-center gap-2" id="capacity-form">
+      <input type="number" name="kennel_capacity" id="capacity-input"
+             value="{{ kennel_capacity }}" min="1" max="500"
+             class="form-control form-control-sm" style="width:80px;">
+      <button type="submit" class="btn btn-sm btn-primary">Save</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary"
+              onclick="document.getElementById('capacity-form').style.display='none'">Cancel</button>
+    </form>
+  </div>
+</div>

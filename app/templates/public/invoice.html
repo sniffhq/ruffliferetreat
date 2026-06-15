@@ -1,0 +1,253 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice — Ruff Life Retreat</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --inv-navy:       #1B2A4A;
+            --inv-mauve:      #FFC107;
+            --inv-mauve-light:#C9A0AF;
+            --inv-mauve-pale: #F5EAF0;
+            --inv-border:     #E4D4DC;
+        }
+        body { background:#f4f0f2; font-family: system-ui, sans-serif; }
+        .inv-wrap { max-width:820px; margin:30px auto; }
+        .inv-header {
+            background: var(--inv-navy);
+            padding: 28px 32px;
+            border-radius: 12px 12px 0 0;
+        }
+        .inv-brand { color: var(--inv-mauve-light); font-size:1.1rem; font-weight:800; letter-spacing:1px; }
+        .inv-sub   { color: rgba(192,160,175,0.7); font-size:0.82rem; }
+        .inv-body  { background:white; padding:32px; border-radius:0 0 12px 12px; }
+        .inv-label { color:var(--inv-mauve); font-size:0.7rem; text-transform:uppercase; letter-spacing:1px; }
+        .inv-pet-border { border-bottom: 2px solid var(--inv-navy); }
+        .inv-pet-label  { color: var(--inv-navy); font-weight:700; }
+        .inv-table thead th {
+            background: var(--inv-mauve-pale);
+            color: var(--inv-navy);
+            font-size:0.8rem;
+            text-transform:uppercase;
+            letter-spacing:0.5px;
+            border-bottom: 2px solid var(--inv-mauve) !important;
+        }
+        .inv-subtotal-row { background: var(--inv-mauve-pale) !important; font-weight:700; color:var(--inv-navy); }
+        .inv-balance-row  { background: var(--inv-navy) !important; color:white; }
+        .inv-balance-row td { color: var(--inv-mauve-light) !important; font-weight:700; }
+        .inv-addon-row td { color: var(--inv-mauve); font-size:0.82rem; }
+        .inv-balance-due   { color: #c0395a; }
+        .inv-balance-clear { color: #2e7d6f; }
+        .inv-footer { color:#6B7280; font-size:0.78rem; text-align:center; margin-top:24px; }
+        .inv-paid-badge {
+            background: var(--inv-navy);
+            color: var(--inv-mauve-light);
+            font-size: 0.75rem;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight:700;
+            letter-spacing:1px;
+        }
+        @media print {
+            body { background:white; }
+            .inv-wrap { margin:0; max-width:100%; }
+            .inv-header { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+            .inv-table thead th { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+            .inv-subtotal-row { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+            .inv-balance-row { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+            .no-print { display:none !important; }
+        }
+        @media (max-width: 576px) {
+            .inv-body { padding: 20px 16px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="inv-wrap">
+
+    <!-- Header -->
+    <div class="inv-header">
+        <div class="d-flex justify-content-between align-items-start">
+            <div>
+                <div class="inv-brand">RUFF LIFE RETREAT</div>
+                <div class="inv-sub">2945 Midland Rd., Guyton, GA 31312</div>
+                <div class="inv-sub">(912) 648-2295 &nbsp;|&nbsp; rufflife.app</div>
+            </div>
+            <div class="text-end">
+                <div class="inv-sub text-uppercase" style="letter-spacing:1px;">Invoice</div>
+                <div class="fw-bold" style="color:white;">{{ today.strftime('%B %d, %Y') }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Body -->
+    <div class="inv-body shadow-sm">
+
+        <!-- Bill To / Summary -->
+        <div class="row mb-4">
+            <div class="col-sm-6">
+                <div class="inv-label mb-1">Bill To</div>
+                <div class="fw-bold fs-5">{{ customer.first_name }} {{ customer.last_name }}</div>
+                {% if customer.address %}<div class="text-muted small">{{ customer.address }}</div>{% endif %}
+                {% if customer.city or customer.state %}
+                <div class="text-muted small">
+                    {{ customer.city or '' }}{% if customer.city and customer.state %}, {% endif %}{{ customer.state or '' }} {{ customer.zip_code or '' }}
+                </div>
+                {% endif %}
+                <div class="text-muted small">{{ customer.email }}</div>
+            </div>
+            <div class="col-sm-6 text-sm-end mt-3 mt-sm-0">
+                <div class="inv-label mb-1">Summary</div>
+                <div class="fs-3 fw-bold {% if true_balance > 0 %}inv-balance-due{% else %}inv-balance-clear{% endif %}">
+                    ${{ "%.2f"|format(true_balance) }}
+                </div>
+                <div class="text-muted small">
+                    {% if true_balance > 0 %}Balance Due{% else %}Paid in Full ✓{% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% if pet_sections %}
+
+        {% for section in pet_sections %}
+        <div class="mb-4">
+            <div class="d-flex align-items-center mb-2 pb-1 inv-pet-border">
+                <i class="fas fa-paw text-warning me-2"></i>
+                <span class="inv-pet-label">{{ section.pet.name }}</span>
+                <span class="text-muted small ms-2">— {{ section.pet.breed or section.pet.species or 'Dog' }}</span>
+            </div>
+            <table class="table table-sm mb-0 inv-table" style="font-size:0.9rem;">
+                <thead>
+                    <tr>
+                        <th style="width:40%">Service</th>
+                        <th class="text-muted">Detail</th>
+                        <th class="text-end">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for line in section.lines %}
+                    <tr>
+                        <td class="fw-bold">{{ line.description }}</td>
+                        <td class="text-muted">{{ line.detail }}</td>
+                        <td class="text-end">${{ "%.2f"|format(line.amount) }}</td>
+                    </tr>
+                    {% if line.addons %}
+                    {% for addon in line.addons %}
+                    <tr class="inv-addon-row">
+                        <td class="ps-4 fst-italic" colspan="2">
+                            <i class="fas fa-plus-circle text-warning me-1"></i>{{ addon }}
+                        </td>
+                        <td class="text-end">${{ "%.2f"|format(line.addon_total / line.addons|length) }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% endif %}
+                {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="inv-subtotal-row">
+                        <td colspan="2" class="text-end">{{ section.pet.name }}'s Subtotal</td>
+                        <td class="text-end">${{ "%.2f"|format(section.subtotal) }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        {% endfor %}
+
+        <!-- Totals -->
+        <div style="border-top:2px solid var(--inv-mauve-pale);" class="pt-3 mt-2">
+            <div class="row justify-content-end">
+                <div class="col-sm-5">
+                    <table class="table table-sm mb-0" style="font-size:0.9rem;">
+                        <tr>
+                            <td class="text-muted">Services Total</td>
+                            <td class="text-end fw-bold">${{ "%.2f"|format(grand_total) }}</td>
+                        </tr>
+                        {% if total_paid > 0 %}
+                        <tr>
+                            <td class="text-muted">Amount Paid</td>
+                            <td class="text-end text-success">−${{ "%.2f"|format(total_paid) }}</td>
+                        </tr>
+                        {% endif %}
+                        <tr class="inv-balance-row">
+                            <td>Balance Due</td>
+                            <td class="text-end">
+                                {% if true_balance > 0 %}
+                                    ${{ "%.2f"|format(true_balance) }}
+                                {% else %}
+                                    <span class="inv-paid-badge">PAID IN FULL</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fas fa-check-circle fa-3x mb-3 d-block text-success opacity-50"></i>
+            <h5>No Outstanding Services</h5>
+            <p class="mb-0">All completed services have been paid. Thank you!</p>
+        </div>
+        {% endif %}
+
+        <!-- Payment methods -->
+        <div class="mt-4 p-3 rounded" style="background:var(--inv-mauve-pale);font-size:0.82rem;">
+            <div class="fw-bold mb-1" style="color:var(--inv-navy);">
+                <i class="fas fa-credit-card me-2"></i>We Accept
+            </div>
+            <div class="text-muted">Cash &nbsp;&middot;&nbsp; Zelle</div>
+            <div class="mt-1 text-muted">
+                Please make Zelle payments to <strong style="color:var(--inv-navy);">912-648-2295</strong>
+            </div>
+        </div>
+
+        {% if payments %}
+        <div class="mt-4 pt-3" style="border-top:1px solid var(--inv-border);">
+            <div class="inv-label mb-2">Payment History</div>
+            <table class="table table-sm" style="font-size:0.85rem;">
+                <thead class="table-light">
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Method</th>
+                        <th class="text-end">Amount</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for p in payments %}
+                <tr>
+                    <td>{{ p.payment_date.strftime('%m/%d/%Y') }}</td>
+                    <td class="text-muted">{{ p.service_type or p.notes or '—' }}</td>
+                    <td class="text-muted">{{ p.payment_method or '—' }}</td>
+                    <td class="text-end">${{ "%.2f"|format(p.amount) }}</td>
+                    <td>
+                        {% if p.status == 'paid' %}
+                        <span class="badge bg-success">Paid</span>
+                        {% else %}
+                        <span class="badge bg-danger">Outstanding</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <div class="inv-footer">
+            Thank you for trusting Ruff Life Retreat with your pet's care.<br>
+            Questions? Call (912) 648-2295 or visit rufflife.app
+        </div>
+
+    </div>
+</div>
+
+</body>
+</html>
+

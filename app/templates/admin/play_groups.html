@@ -1,0 +1,281 @@
+﻿{% extends "base.html" %}
+{% block title %}Play Groups — Ruff Life Retreat{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0"><i class="fas fa-dog me-2 text-warning"></i>Play Groups</h2>
+            <div class="text-muted small">Manage daycare play groups — size and temperament based</div>
+        </div>
+        <button class="btn btn-warning text-dark fw-bold"
+                data-bs-toggle="modal" data-bs-target="#createGroupModal">
+            <i class="fas fa-plus me-2"></i>New Play Group
+        </button>
+    </div>
+
+    <!-- Today's overview cards -->
+    {% if groups %}
+    <div class="row g-3 mb-4">
+        {% for group in groups if group.active %}
+        {% set today_att = today_by_group.get(group.id, []) %}
+        {% set pct = group.capacity_pct %}
+        {% set status = group.capacity_status %}
+        <div class="col-md-4 col-lg-3">
+            <div class="card shadow-sm h-100"
+                 style="border-top:4px solid {{ group.color }};">
+                <div class="card-body pb-2">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <div class="fw-bold" style="color:#1a1a2e;">{{ group.name }}</div>
+                            <div class="text-muted small">
+                                {{ group.size_category|title }} &bull; {{ group.temperament|title }}
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge {% if status == 'full' %}bg-danger{% elif status == 'warning' %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                                {{ today_att|length }}/{{ group.max_capacity }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Capacity bar -->
+                    <div class="bg-light rounded mb-3" style="height:6px;">
+                        <div style="width:{{ [pct,100]|min }}%;height:6px;border-radius:4px;
+                                    background:{% if status == 'full' %}#dc3545{% elif status == 'warning' %}#FFC107{% else %}{{ group.color }}{% endif %};
+                                    transition:width 0.3s;"></div>
+                    </div>
+
+                    {% if status == 'warning' %}
+                    <div class="alert alert-warning py-1 px-2 mb-2" style="font-size:0.75rem;">
+                        <i class="fas fa-exclamation-triangle me-1"></i>Near capacity
+                    </div>
+                    {% elif status == 'full' %}
+                    <div class="alert alert-danger py-1 px-2 mb-2" style="font-size:0.75rem;">
+                        <i class="fas fa-ban me-1"></i>Group full
+                    </div>
+                    {% endif %}
+
+                    <!-- Today's pets -->
+                    {% if today_att %}
+                    <div style="font-size:0.78rem;">
+                        {% for att in today_att %}
+                        <div class="d-flex justify-content-between align-items-center py-1 border-top">
+                            <span>
+                                <i class="fas fa-paw me-1" style="color:{{ group.color }};"></i>
+                                {{ att.enrollment.pet.name }}
+                            </span>
+                            <!-- Quick reassign dropdown -->
+                            <div class="dropdown">
+                                <button class="btn btn-xs btn-outline-secondary py-0 px-1 dropdown-toggle"
+                                        style="font-size:0.65rem;"
+                                        data-bs-toggle="dropdown">Move</button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    {% for g in groups if g.active and g.id != group.id %}
+                                    <li>
+                                        <form method="POST"
+                                              action="{{ url_for('admin.reassign_play_group', attendance_id=att.id) }}">
+                                            <input type="hidden" name="play_group_id" value="{{ g.id }}">
+                                            <button type="submit" class="dropdown-item small">
+                                                <span style="display:inline-block;width:10px;height:10px;
+                                                             border-radius:50%;background:{{ g.color }};
+                                                             margin-right:6px;"></span>
+                                                {{ g.name }}
+                                            </button>
+                                        </form>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-muted text-center py-2" style="font-size:0.78rem;">
+                        No pets checked in
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer bg-white border-top py-2 d-flex justify-content-end gap-2">
+                    <button class="btn btn-xs btn-outline-secondary py-0 px-2"
+                            data-bs-toggle="modal"
+                            data-bs-target="#editGroupModal{{ group.id }}"
+                            style="font-size:0.72rem;">
+                        <i class="fas fa-pencil-alt"></i> Edit
+                    </button>
+                    <form method="POST"
+                          action="{{ url_for('admin.delete_play_group', group_id=group.id) }}"
+                          onsubmit="return confirm('Delete {{ group.name }}?');">
+                        <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-2"
+                                style="font-size:0.72rem;">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Size guide -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light fw-bold">
+            <i class="fas fa-info-circle text-primary me-2"></i>Auto-Assignment Size Guide
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-sm mb-0 text-center" style="font-size:0.85rem;">
+                <thead class="table-light">
+                    <tr><th>Size Category</th><th>Weight Range</th><th>Assigned To</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><strong>Small</strong></td><td>Under 25 lbs</td><td>First active Small group matching pet temperament</td></tr>
+                    <tr class="table-light"><td><strong>Medium</strong></td><td>25 – 50 lbs</td><td>First active Medium group matching pet temperament</td></tr>
+                    <tr><td><strong>Large</strong></td><td>Over 50 lbs</td><td>First active Large group matching pet temperament</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- Empty state -->
+    <div class="text-center py-5">
+        <i class="fas fa-dog fa-3x mb-3 d-block text-warning opacity-50"></i>
+        <h5 class="text-muted">No Play Groups Configured</h5>
+        <p class="text-muted small">Create play groups to automatically organize daycare pets by size and temperament.</p>
+        <button class="btn btn-warning text-dark fw-bold"
+                data-bs-toggle="modal" data-bs-target="#createGroupModal">
+            <i class="fas fa-plus me-2"></i>Create First Group
+        </button>
+    </div>
+    {% endif %}
+
+</div>
+
+<!-- ── CREATE MODAL ──────────────────────────────────────────────────────── -->
+<div class="modal fade" id="createGroupModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#1a1a2e;">
+                <h5 class="modal-title text-white">
+                    <i class="fas fa-plus me-2"></i>New Play Group
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.create_play_group') }}">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Group Name <span class="text-danger">*</span></label>
+                            <input type="text" name="name" class="form-control"
+                                   placeholder="e.g. Small Calm, Large Energetic" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Size Category</label>
+                            <select name="size_category" class="form-select">
+                                <option value="small">Small (under 25 lbs)</option>
+                                <option value="medium" selected>Medium (25–50 lbs)</option>
+                                <option value="large">Large (over 50 lbs)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Temperament</label>
+                            <select name="temperament" class="form-select">
+                                <option value="calm">Calm</option>
+                                <option value="energetic">Energetic</option>
+                                <option value="mixed">Mixed</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Max Capacity</label>
+                            <input type="number" name="max_capacity" class="form-control"
+                                   value="10" min="1" max="50">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Color</label>
+                            <input type="color" name="color" class="form-control form-control-color w-100"
+                                   value="#0d6efd">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning text-dark fw-bold">
+                        <i class="fas fa-plus me-1"></i>Create Group
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ── EDIT MODALS ───────────────────────────────────────────────────────── -->
+{% for group in groups %}
+<div class="modal fade" id="editGroupModal{{ group.id }}" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header" style="background:{{ group.color }};">
+                <h5 class="modal-title text-white">Edit — {{ group.name }}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.edit_play_group', group_id=group.id) }}">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Group Name</label>
+                            <input type="text" name="name" class="form-control"
+                                   value="{{ group.name }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Size Category</label>
+                            <select name="size_category" class="form-select">
+                                {% for s in ['small','medium','large'] %}
+                                <option value="{{ s }}" {% if group.size_category == s %}selected{% endif %}>
+                                    {{ s|title }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Temperament</label>
+                            <select name="temperament" class="form-select">
+                                {% for t in ['calm','energetic','mixed'] %}
+                                <option value="{{ t }}" {% if group.temperament == t %}selected{% endif %}>
+                                    {{ t|title }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Max Capacity</label>
+                            <input type="number" name="max_capacity" class="form-control"
+                                   value="{{ group.max_capacity }}" min="1" max="50">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Color</label>
+                            <input type="color" name="color" class="form-control form-control-color w-100"
+                                   value="{{ group.color }}">
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="active"
+                                       id="active{{ group.id }}" value="1"
+                                       {% if group.active %}checked{% endif %}>
+                                <label class="form-check-label" for="active{{ group.id }}">
+                                    Group is active
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning text-dark fw-bold">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% endblock %}
+

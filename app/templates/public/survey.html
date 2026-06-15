@@ -1,0 +1,149 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Did We Do? — Ruff Life Retreat</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background:#f0f2f5; font-family:Arial,sans-serif; }
+        .survey-wrap { max-width:480px; margin:30px auto; padding:0 12px 60px; }
+        .star-row { display:flex; gap:8px; font-size:2rem; justify-content:center; margin:12px 0; }
+        .star-btn { background:none; border:none; cursor:pointer; color:#ddd; transition:color 0.15s; font-size:2rem; padding:0; }
+        .star-btn.active, .star-btn:hover, .star-btn.hover { color:#FFC107; }
+        .rec-group { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin:12px 0; }
+        .rec-label { cursor:pointer; }
+        .rec-label input { display:none; }
+        .rec-pill { display:inline-block; padding:10px 24px; border-radius:50px; border:2px solid #dee2e6;
+                    font-weight:700; font-size:0.9rem; transition:all 0.15s; background:white; }
+        .rec-label input:checked + .rec-pill { border-color:#1a1a2e; background:#1a1a2e; color:white; }
+    </style>
+</head>
+<body>
+<div class="survey-wrap">
+
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#1a1a2e,#0f3460);border-radius:20px;
+                padding:32px 24px;text-align:center;color:white;margin-bottom:20px;">
+        <div style="font-size:2.5rem;margin-bottom:8px;">🐾</div>
+        <h2 style="font-weight:800;color:#FFC107;margin-bottom:4px;">How Did We Do?</h2>
+        <div style="color:rgba(255,255,255,0.7);font-size:0.9rem;">
+            Hi {{ survey.user.first_name }}! Your feedback helps us take better care of every pet.
+        </div>
+        {% if survey.service_type %}
+        <div style="margin-top:10px;">
+            <span style="background:rgba(255,193,7,0.2);border:1px solid #FFC107;color:#FFC107;
+                         padding:4px 16px;border-radius:50px;font-size:0.78rem;">
+                {{ survey.service_type }}
+            </span>
+        </div>
+        {% endif %}
+    </div>
+
+    <form method="POST" id="survey-form">
+
+        <!-- Overall Rating -->
+        <div style="background:white;border-radius:14px;padding:20px 24px;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+            <div style="font-weight:700;color:#1a1a2e;margin-bottom:4px;">Overall Experience</div>
+            <div class="text-muted small mb-2">How would you rate your overall experience?</div>
+            <div class="star-row" id="overall-stars">
+                {% for i in range(1,6) %}
+                <button type="button" class="star-btn" data-val="{{ i }}" data-group="overall">★</button>
+                {% endfor %}
+            </div>
+            <input type="hidden" name="overall_rating" id="overall_rating" required>
+            <div id="overall-label" style="text-align:center;font-size:0.85rem;color:#888;min-height:20px;"></div>
+        </div>
+
+        <!-- Communication Rating -->
+        <div style="background:white;border-radius:14px;padding:20px 24px;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+            <div style="font-weight:700;color:#1a1a2e;margin-bottom:4px;">Communication</div>
+            <div class="text-muted small mb-2">How was our communication — updates, reminders, and responses?</div>
+            <div class="star-row" id="comm-stars">
+                {% for i in range(1,6) %}
+                <button type="button" class="star-btn" data-val="{{ i }}" data-group="comm">★</button>
+                {% endfor %}
+            </div>
+            <input type="hidden" name="comm_rating" id="comm_rating" required>
+        </div>
+
+        <!-- Recommend -->
+        <div style="background:white;border-radius:14px;padding:20px 24px;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+            <div style="font-weight:700;color:#1a1a2e;margin-bottom:4px;">Would You Recommend Us?</div>
+            <div class="text-muted small mb-3">Would you recommend Ruff Life Retreat to another pet owner?</div>
+            <div class="rec-group">
+                <label class="rec-label">
+                    <input type="radio" name="recommend" value="yes" required>
+                    <span class="rec-pill">😊 Yes, definitely!</span>
+                </label>
+                <label class="rec-label">
+                    <input type="radio" name="recommend" value="maybe">
+                    <span class="rec-pill">🤔 Maybe</span>
+                </label>
+                <label class="rec-label">
+                    <input type="radio" name="recommend" value="no">
+                    <span class="rec-pill">😕 Probably not</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Comments -->
+        <div style="background:white;border-radius:14px;padding:20px 24px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+            <div style="font-weight:700;color:#1a1a2e;margin-bottom:4px;">Any Comments? <span style="font-weight:400;color:#888;">(optional)</span></div>
+            <textarea name="comments" class="form-control" rows="3"
+                      placeholder="Tell us what we did well or how we can improve..."
+                      style="resize:none;"></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-warning text-dark fw-bold w-100 py-3" style="font-size:1.05rem;border-radius:12px;">
+            Submit Feedback 🐾
+        </button>
+
+    </form>
+
+    <div style="text-align:center;color:#aaa;font-size:0.78rem;margin-top:20px;">
+        Ruff Life Retreat &nbsp;|&nbsp; 2945 Midland Rd, Guyton, GA 31312<br>
+        (912) 648-2295 &nbsp;|&nbsp; rufflife.app
+    </div>
+</div>
+
+<script>
+const labels = {1:'😞 Poor', 2:'😐 Fair', 3:'🙂 Good', 4:'😊 Great', 5:'🤩 Excellent!'};
+
+function setupStars(groupId, inputId, labelId) {
+    const container = document.getElementById(groupId);
+    const input     = document.getElementById(inputId);
+    const label     = labelId ? document.getElementById(labelId) : null;
+    const btns      = container.querySelectorAll('.star-btn');
+
+    btns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const val = parseInt(btn.getAttribute('data-val'));
+            input.value = val;
+            btns.forEach((b, i) => b.classList.toggle('active', i < val));
+            if (label) label.textContent = labels[val] || '';
+        });
+        btn.addEventListener('mouseenter', () => {
+            const val = parseInt(btn.getAttribute('data-val'));
+            btns.forEach((b, i) => b.classList.toggle('hover', i < val));
+        });
+        btn.addEventListener('mouseleave', () => {
+            btns.forEach(b => b.classList.remove('hover'));
+        });
+    });
+}
+
+setupStars('overall-stars', 'overall_rating', 'overall-label');
+setupStars('comm-stars',    'comm_rating',    null);
+
+document.getElementById('survey-form').addEventListener('submit', function(e) {
+    if (!document.getElementById('overall_rating').value ||
+        !document.getElementById('comm_rating').value) {
+        e.preventDefault();
+        alert('Please rate both the overall experience and communication before submitting.');
+    }
+});
+</script>
+</body>
+</html>
+

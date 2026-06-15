@@ -1,0 +1,412 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card shadow-lg">
+            <div class="card-header bg-primary text-white">
+                <h3><i class="fas fa-edit"></i> Edit {{ pet.name }}</h3>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST" enctype="multipart/form-data">
+                    <!-- Basic Information -->
+                    <div class="section-header">
+                        <h5><i class="fas fa-paw"></i> Basic Information</h5>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="name" class="form-label">Pet's Name *</label>
+                            <input type="text" class="form-control" id="name" name="name" value="{{ pet.name }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="breed" class="form-label">Breed *</label>
+                            <input type="text" class="form-control" id="breed" name="breed" value="{{ pet.breed }}" required>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="age" class="form-label">Age (years) *</label>
+                            <input type="number" class="form-control" id="age" name="age" value="{{ pet.age }}" min="0" max="30" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="weight" class="form-label">Weight (lbs) *</label>
+                            <input type="number" class="form-control" id="weight" name="weight" value="{{ pet.weight }}" min="0" step="0.1" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="gender" class="form-label">Sex *</label>
+                            <select class="form-select" id="gender" name="gender" required>
+                                <option value="">Select...</option>
+                                <option value="Male" {% if pet.gender == 'Male' %}selected{% endif %}>Male</option>
+                                <option value="Female" {% if pet.gender == 'Female' %}selected{% endif %}>Female</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Spayed/Neutered Status -->
+                    <div class="mb-3">
+                        <label class="form-label">Spayed/Neutered Status *</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="spayed_neutered" id="spayed_yes" value="yes" {% if pet.spayed_neutered %}checked{% endif %} required>
+                            <label class="btn btn-outline-primary" for="spayed_yes">
+                                <i class="fas fa-check-circle"></i> Yes, Spayed/Neutered
+                            </label>
+                            
+                            <input type="radio" class="btn-check" name="spayed_neutered" id="spayed_no" value="no" {% if not pet.spayed_neutered %}checked{% endif %}>
+                            <label class="btn btn-outline-primary" for="spayed_no">
+                                <i class="fas fa-times-circle"></i> No, Not Fixed
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Microchip Status -->
+                    <div class="mb-3">
+                        <label class="form-label">Microchipped? *</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="microchipped" id="microchip_yes" value="yes" {% if pet.microchipped %}checked{% endif %} onchange="toggleMicrochipNumber(true)">
+                            <label class="btn btn-outline-primary" for="microchip_yes">
+                                <i class="fas fa-check-circle"></i> Yes, Microchipped
+                            </label>
+                            
+                            <input type="radio" class="btn-check" name="microchipped" id="microchip_no" value="no" {% if not pet.microchipped %}checked{% endif %} onchange="toggleMicrochipNumber(false)">
+                            <label class="btn btn-outline-primary" for="microchip_no">
+                                <i class="fas fa-times-circle"></i> No Microchip
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mb-3" id="microchip_number_field" style="{% if not pet.microchipped %}display: none;{% endif %}">
+                        <label for="microchip_number" class="form-label">Microchip Number</label>
+                        <input type="text" class="form-control" id="microchip_number" name="microchip_number" value="{{ pet.microchip_number or '' }}" placeholder="15-digit microchip number">
+                    </div>
+
+                    <!-- Photos and Records -->
+                    <div class="section-header mt-4">
+                        <h5><i class="fas fa-camera"></i> Photos & Records</h5>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="photo" class="form-label">Pet Photo</label>
+                            {% if pet.photo_path %}
+                            <div class="mb-2">
+                                <img src="{{ url_for('static', filename='uploads/' + pet.photo_path) }}" class="img-thumbnail" style="max-width: 200px;">
+                                <p class="text-muted mb-0"><small>Current photo</small></p>
+                            </div>
+                            {% endif %}
+                            <input type="file" class="form-control" id="photo" name="photo" accept="image/*">
+                            <small class="text-muted">Upload new to replace</small>
+                        </div>
+                    </div>
+
+                    <!-- Vaccination Records -->
+                    <div class="section-header mt-4">
+                        <h5><i class="fas fa-syringe"></i> Vaccination Records</h5>
+                    </div>
+
+                    <!-- Existing records -->
+                    {% if pet.vaccination_records %}
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Current Records on File</label>
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Vaccine</th>
+                                    <th>Date Given</th>
+                                    <th>Expires</th>
+                                    <th>Vet</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            {% for v in pet.vaccination_records %}
+                            <tr>
+                                <td>{{ v.vaccine_name }}</td>
+                                <td>{{ v.date_administered.strftime('%m/%d/%Y') if v.date_administered else '—' }}</td>
+                                <td class="{% if v.expiration_date and v.expiration_date < today %}text-danger fw-bold{% endif %}">
+                                    {{ v.expiration_date.strftime('%m/%d/%Y') if v.expiration_date else '—' }}
+                                </td>
+                                <td>{{ v.administered_by or '—' }}</td>
+                            </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endif %}
+
+                    <!-- Add new vaccination records -->
+                    <label class="form-label fw-bold">Add New Vaccination Record(s)</label>
+
+                    <!-- OCR Upload -->
+                    <div class="card mb-3 border-0" style="background:#EAF8F7;">
+                        <div class="card-body py-3 px-3">
+                            <div class="d-flex align-items-center gap-3">
+                                <div>
+                                    <label class="form-label fw-bold mb-1" style="font-size:0.88rem;">
+                                        <i class="fas fa-magic me-1" style="color:#3DBDB5;"></i>
+                                        Auto-fill from document
+                                    </label>
+                                    <div class="text-muted" style="font-size:0.78rem;">
+                                        Upload a vaccination record and we'll try to read it automatically.
+                                    </div>
+                                </div>
+                                <div class="ms-auto d-flex gap-2 align-items-center">
+                                    <input type="file" id="ocrFileInput" class="form-control form-control-sm"
+                                           accept=".pdf,.jpg,.jpeg,.png" style="max-width:220px;">
+                                    <button type="button" class="btn btn-sm fw-bold"
+                                            style="background:#3DBDB5;color:white;white-space:nowrap;"
+                                            onclick="runOCR({{ pet.id }})">
+                                        <i class="fas fa-search me-1"></i>Scan
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="ocrStatus" class="mt-2" style="font-size:0.82rem;display:none;"></div>
+                        </div>
+                    </div>
+                    <div id="vaccination-records-container">
+                        <div class="vaccination-record card mb-3 border-primary">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h6 class="mb-0 text-primary"><i class="fas fa-syringe me-2"></i>New Record</h6>
+                                    <button type="button" class="btn btn-sm btn-outline-danger remove-vaccine" style="display:none;">
+                                        <i class="fas fa-times"></i> Remove
+                                    </button>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-4 mb-2">
+                                        <label class="form-label">Vaccine Name *</label>
+                                        <select class="form-select vaccine-name-select" name="vaccine_name[]" onchange="toggleOtherVaccine(this)">
+                                            <option value="">— Select —</option>
+                                            <option value="Rabies">Rabies</option>
+                                            <option value="DHPP">DHPP (Distemper/Parvo)</option>
+                                            <option value="Bordetella">Bordetella (Kennel Cough)</option>
+                                            <option value="Leptospirosis">Leptospirosis</option>
+                                            <option value="Lyme">Lyme Disease</option>
+                                            <option value="Influenza">Canine Influenza</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                        <input type="text" class="form-control mt-1 other-vaccine-name" name="other_vaccine_name[]"
+                                               placeholder="Specify vaccine name" style="display:none;">
+                                    </div>
+                                    <div class="col-md-4 mb-2">
+                                        <label class="form-label">Date Administered *</label>
+                                        <input type="date" class="form-control" name="vaccination_date[]">
+                                    </div>
+                                    <div class="col-md-4 mb-2">
+                                        <label class="form-label">Expiration Date *</label>
+                                        <input type="date" class="form-control" name="expiration_date[]">
+                                    </div>
+                                    <div class="col-md-4 mb-2">
+                                        <label class="form-label">Veterinarian</label>
+                                        <input type="text" class="form-control" name="veterinarian[]" placeholder="Dr. Smith">
+                                    </div>
+                                    <div class="col-md-4 mb-2">
+                                        <label class="form-label">Clinic Name</label>
+                                        <input type="text" class="form-control" name="clinic_name[]" placeholder="Animal Care Clinic">
+                                    </div>
+                                    <div class="col-md-4 mb-2">
+                                        <label class="form-label">Lot Number</label>
+                                        <input type="text" class="form-control" name="lot_number[]" placeholder="Optional">
+                                    </div>
+                                    <div class="col-12 mb-2">
+                                        <label class="form-label">Notes</label>
+                                        <textarea class="form-control" name="vaccine_notes[]" rows="2" placeholder="Any additional notes..."></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn btn-outline-primary btn-sm mb-3" onclick="addVaccinationRecord()">
+                        <i class="fas fa-plus me-1"></i>Add Another Vaccine
+                    </button>
+
+                    <!-- Veterinarian Information -->
+                    <div class="section-header mt-4">
+                        <h5><i class="fas fa-stethoscope"></i> Veterinarian Information</h5>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="vet_name" class="form-label">Veterinarian Name</label>
+                            <input type="text" class="form-control" id="vet_name" name="vet_name" value="{{ pet.vet_name or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="vet_phone" class="form-label">Veterinarian Phone</label>
+                            <input type="tel" class="form-control" id="vet_phone" name="vet_phone" value="{{ pet.vet_phone or '' }}">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="medical_notes" class="form-label">Medical Notes / Special Needs</label>
+                        <textarea class="form-control" id="medical_notes" name="medical_notes" rows="4">{{ pet.medical_notes or '' }}</textarea>
+                    </div>
+
+                    <!-- Submit Buttons -->
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Save Changes
+                        </button>
+                        <a href="{{ url_for('customer.pets') }}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.section-header {
+    border-bottom: 2px solid #6366f1;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+    margin-top: 20px;
+}
+
+.section-header h5 {
+    color: #6366f1;
+    margin: 0;
+}
+
+.btn-check:checked + .btn-outline-primary {
+    background-color: #6366f1;
+    border-color: #6366f1;
+}
+</style>
+
+<script>
+async function runOCR(petId) {
+    const fileInput = document.getElementById('ocrFileInput');
+    const status    = document.getElementById('ocrStatus');
+
+    if (!fileInput.files.length) {
+        status.innerHTML = '<span class="text-danger"><i class="fas fa-exclamation-triangle me-1"></i>Please select a file first.</span>';
+        status.style.display = 'block';
+        return;
+    }
+
+    status.innerHTML = '<span class="text-muted"><i class="fas fa-spinner fa-spin me-1"></i>Scanning document — this may take a few seconds...</span>';
+    status.style.display = 'block';
+
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+
+    try {
+        const resp = await fetch(`/customer/pets/${petId}/vaccinations/ocr`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await resp.json();
+
+        if (data.error) {
+            status.innerHTML = `<span class="text-danger"><i class="fas fa-times-circle me-1"></i>Scan failed: ${data.error}</span>`;
+            return;
+        }
+
+        if (!data.records || data.records.length === 0) {
+            status.innerHTML = '<span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>No vaccination data found. Please fill in the fields manually.</span>';
+            return;
+        }
+
+        // Save the template row before clearing
+        const container = document.getElementById('vaccination-records-container');
+        const templateRow = container.querySelector('.vaccination-record').cloneNode(true);
+
+        // Clear container and rebuild with scanned records
+        container.innerHTML = '';
+
+        data.records.forEach((rec, idx) => {
+            // Clone the template row
+            const clone = templateRow.cloneNode(true);
+            clone.querySelectorAll('input, textarea').forEach(el => el.value = '');
+            clone.querySelectorAll('select').forEach(el => el.selectedIndex = 0);
+            if (idx > 0) {
+                clone.querySelector('.remove-vaccine').style.display = 'inline-block';
+                clone.querySelector('.remove-vaccine').addEventListener('click', function() {
+                    clone.remove();
+                });
+            }
+            container.appendChild(clone);
+
+            const row = container.querySelectorAll('.vaccination-record')[idx];
+
+            // Fill in the fields
+            const nameSelect = row.querySelector('select[name="vaccine_name[]"]');
+            const dateInput  = row.querySelector('input[name="vaccination_date[]"]');
+            const expiryInput = row.querySelector('input[name="expiration_date[]"]');
+
+            // Try to match vaccine name to dropdown
+            if (rec.vaccine_name) {
+                const opts = Array.from(nameSelect.options);
+                const match = opts.find(o => o.value.toLowerCase() === rec.vaccine_name.toLowerCase());
+                if (match) {
+                    nameSelect.value = match.value;
+                } else {
+                    nameSelect.value = 'Other';
+                    toggleOtherVaccine(nameSelect);
+                    const otherInput = row.querySelector('.other-vaccine-name');
+                    if (otherInput) otherInput.value = rec.vaccine_name;
+                }
+            }
+
+            if (rec.vaccination_date) dateInput.value  = rec.vaccination_date;
+            if (rec.expiration_date)  expiryInput.value = rec.expiration_date;
+        });
+
+        const confidence = data.records.every(r => r.confidence === 'high') ? 'high' : 'low';
+        const msg = confidence === 'high'
+            ? `<span class="text-success"><i class="fas fa-check-circle me-1"></i>Found ${data.records.length} vaccination record(s). Please review and save.</span>`
+            : `<span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>Found ${data.records.length} record(s) but some details may be incomplete. Please review carefully before saving.</span>`;
+        status.innerHTML = msg;
+
+    } catch (err) {
+        status.innerHTML = `<span class="text-danger"><i class="fas fa-times-circle me-1"></i>Scan error: ${err.message} — please fill in the fields manually.</span>`;
+    }
+}
+
+function toggleMicrochipNumber(show) {
+    const field = document.getElementById('microchip_number_field');
+    const input = document.getElementById('microchip_number');
+    if (show) {
+        field.style.display = 'block';
+    } else {
+        field.style.display = 'none';
+        input.value = '';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const microchipYes = document.getElementById('microchip_yes');
+    if (microchipYes && microchipYes.checked) {
+        toggleMicrochipNumber(true);
+    }
+});
+
+function toggleOtherVaccine(select) {
+    const otherInput = select.closest('.card-body').querySelector('.other-vaccine-name');
+    otherInput.style.display = select.value === 'Other' ? 'block' : 'none';
+}
+
+function addVaccinationRecord() {
+    const container = document.getElementById('vaccination-records-container');
+    const first = container.querySelector('.vaccination-record');
+    if (!first) return; // nothing to clone yet
+    const clone = first.cloneNode(true);
+
+    // Clear values
+    clone.querySelectorAll('input, textarea, select').forEach(el => {
+        el.value = '';
+        if (el.classList.contains('other-vaccine-name')) el.style.display = 'none';
+    });
+
+    // Show remove button
+    clone.querySelector('.remove-vaccine').style.display = 'inline-block';
+    clone.querySelector('.remove-vaccine').addEventListener('click', function() {
+        clone.remove();
+    });
+
+    container.appendChild(clone);
+}
+</script>
+{% endblock %}

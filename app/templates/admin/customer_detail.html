@@ -1,0 +1,760 @@
+﻿{% extends "base.html" %}
+{% block title %}{{ customer.first_name }} {{ customer.last_name }} — Customer Detail{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-user me-2"></i>{{ customer.first_name }} {{ customer.last_name }}</h2>
+        <a href="{{ url_for('admin.customers') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i>Back to Customers
+        </a>
+    </div>
+    <!-- Outstanding Balance Alert -->
+    {% set outstanding_payments = customer.payments|selectattr('status','eq','outstanding')|list %}
+    {% set outstanding_total = outstanding_payments|sum(attribute='amount') %}
+    {% if outstanding_total > 0 %}
+    {% set oldest = outstanding_payments|sort(attribute='payment_date')|first %}
+    {% set days_overdue = (today - oldest.payment_date).days %}
+    <div class="alert alert-danger d-flex align-items-center justify-content-between mb-4 shadow-sm" role="alert">
+        <div class="d-flex align-items-center gap-3">
+            <i class="fas fa-exclamation-circle fa-2x text-danger"></i>
+            <div>
+                <div class="fw-bold fs-5">Outstanding Balance: ${{ "%.2f"|format(outstanding_total) }}</div>
+                <div class="small">
+                    {{ outstanding_payments|length }} unpaid invoice{{ 's' if outstanding_payments|length != 1 }}
+                    — oldest is <strong>{{ days_overdue }} day{{ 's' if days_overdue != 1 }}</strong> overdue
+                    ({{ oldest.payment_date.strftime('%b %d, %Y') }})
+                </div>
+            </div>
+        </div>
+        <form method="POST" action="{{ url_for('admin.send_balance_reminder', customer_id=customer.id) }}">
+            <button type="submit" class="btn btn-danger fw-bold"
+                    onclick="return confirm('Send balance reminder SMS to {{ customer.first_name }}?')">
+                <i class="fas fa-sms me-2"></i>Send Reminder
+            </button>
+        </form>
+    </div>
+    {% endif %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Customer Info</h5>
+            <button class="btn btn-sm btn-light fw-bold" data-bs-toggle="modal" data-bs-target="#editCustomerModal">
+                <i class="fas fa-pencil-alt me-1"></i>Edit
+            </button>
+        </div>
+        <div class="card-body">
+            <p><strong>Email:</strong> {{ customer.email }}</p>
+            <p><strong>Phone:</strong> {{ customer.phone or 'N/A' }}</p>
+            <p><strong>Address:</strong> {{ customer.address or 'N/A' }}, {{ customer.city or '' }}, {{ customer.state or '' }} {{ customer.zip_code or '' }}</p>
+            <p><strong>Emergency Contact:</strong> {{ customer.emergency_contact_name or 'N/A' }} {{ customer.emergency_contact_phone or '' }}</p>
+            <p><strong>Member Since:</strong> {{ customer.created_at.strftime('%B %d, %Y') if customer.created_at else 'N/A' }}</p>
+        </div>
+    </div>
+    <div class="card shadow-sm">
+        <div class="card-header bg-success text-white"><h5 class="mb-0">Pets</h5></div>
+        <div class="card-body p-0">
+            {% if customer.pets %}
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr><th>Name</th><th>Breed</th><th>Species</th><th></th></tr>
+                </thead>
+                <tbody>
+                    {% for pet in customer.pets %}
+                    <tr>
+                        <td><strong>{{ pet.name }}</strong></td>
+                        <td>{{ pet.breed or 'Mixed' }}</td>
+                        <td>{{ pet.species or 'Dog' }}</td>
+                        <td>
+                            <a href="{{ url_for('admin.pet_detail', pet_id=pet.id) }}" class="btn btn-sm btn-primary me-1">
+                                <i class="fas fa-eye me-1"></i>View
+                            </a>
+                            <form method="POST" action="{{ url_for('admin.delete_pet', pet_id=pet.id) }}"
+                                  style="display:inline;"
+                                  onsubmit="return confirm('Permanently delete {{ pet.name }}? This will remove all their records.');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="text-center py-4 text-muted">
+                <i class="fas fa-paw fa-2x mb-2 d-block opacity-25"></i>
+                No pets on file.
+                <div class="mt-2">
+                    <a href="{{ url_for('admin.admin_add_pet', customer_id=customer.id) }}" class="btn btn-sm btn-warning text-dark fw-bold">
+                        <i class="fas fa-plus me-1"></i>Add Pet Now
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% if customer.pets %}
+        <div class="card-footer bg-white">
+            <a href="{{ url_for('admin.admin_add_pet', customer_id=customer.id) }}" class="btn btn-sm btn-warning text-dark fw-bold">
+                <i class="fas fa-plus me-1"></i>Add Pet
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+    <!-- Custom Pricing -->
+    <div class="container mt-4">
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center" style="background:#1B2A4A;">
+            <span class="fw-bold text-white">
+                <i class="fas fa-tag me-2" style="color:#B07A8E;"></i>Custom Pricing
+            </span>
+            {% if customer.custom_boarding_rate or customer.custom_daycare_rate or customer.custom_addon_spa_bath_nails %}
+            <span class="badge bg-warning text-dark"><i class="fas fa-star me-1"></i>Custom Rates Active</span>
+            {% else %}
+            <span class="text-muted" style="font-size:0.8rem;">Using facility defaults</span>
+            {% endif %}
+        </div>
+        <div class="card-body p-4">
+            <p class="text-muted mb-3" style="font-size:0.85rem;">
+                Set customer-specific rates below. Leave blank to use the facility default.
+            </p>
+            <form method="POST" action="{{ url_for('admin.update_customer_rates', customer_id=customer.id) }}">
+                <h6 class="fw-bold mb-3" style="color:#1B2A4A;"><i class="fas fa-hotel me-2" style="color:#B07A8E;"></i>Boarding</h6>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">First Pet (per night)</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <input type="number" name="custom_boarding_rate" class="form-control"
+                                   step="0.01" min="0" placeholder="{{ '%.2f'|format(default_rates.boarding) }}"
+                                   value="{{ '%.2f'|format(customer.custom_boarding_rate|float) if customer.custom_boarding_rate else '' }}">
+                        </div>
+                        <div class="form-text">Default: ${{ '%.2f'|format(default_rates.boarding) }}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Additional Pet (per night)</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <input type="number" name="custom_boarding_rate_additional" class="form-control"
+                                   step="0.01" min="0" placeholder="{{ '%.2f'|format(default_rates.boarding_add) }}"
+                                   value="{{ '%.2f'|format(customer.custom_boarding_rate_additional|float) if customer.custom_boarding_rate_additional else '' }}">
+                        </div>
+                        <div class="form-text">Default: ${{ '%.2f'|format(default_rates.boarding_add) }}</div>
+                    </div>
+                </div>
+                <h6 class="fw-bold mb-3" style="color:#1B2A4A;"><i class="fas fa-paw me-2" style="color:#B07A8E;"></i>Daycare</h6>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Daily Rate</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <input type="number" name="custom_daycare_rate" class="form-control"
+                                   step="0.01" min="0" placeholder="{{ '%.2f'|format(default_rates.daycare) }}"
+                                   value="{{ '%.2f'|format(customer.custom_daycare_rate|float) if customer.custom_daycare_rate else '' }}">
+                        </div>
+                        <div class="form-text">Default: ${{ '%.2f'|format(default_rates.daycare) }}</div>
+                    </div>
+                </div>
+                <h6 class="fw-bold mb-3" style="color:#1B2A4A;"><i class="fas fa-cut me-2" style="color:#B07A8E;"></i>Grooming Add-Ons</h6>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Spa Bath + Nail Trim</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <input type="number" name="custom_addon_spa_bath_nails" class="form-control"
+                                   step="0.01" min="0" placeholder="{{ '%.2f'|format(default_rates.addon_spa_bath_nails) }}"
+                                   value="{{ '%.2f'|format(customer.custom_addon_spa_bath_nails|float) if customer.custom_addon_spa_bath_nails else '' }}">
+                        </div>
+                        <div class="form-text">Default: ${{ '%.2f'|format(default_rates.addon_spa_bath_nails) }}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Spa Bath Only</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <input type="number" name="custom_addon_spa_bath" class="form-control"
+                                   step="0.01" min="0" placeholder="{{ '%.2f'|format(default_rates.addon_spa_bath) }}"
+                                   value="{{ '%.2f'|format(customer.custom_addon_spa_bath|float) if customer.custom_addon_spa_bath else '' }}">
+                        </div>
+                        <div class="form-text">Default: ${{ '%.2f'|format(default_rates.addon_spa_bath) }}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Nail Trim Only</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <input type="number" name="custom_addon_nail_trim" class="form-control"
+                                   step="0.01" min="0" placeholder="{{ '%.2f'|format(default_rates.addon_nail_trim) }}"
+                                   value="{{ '%.2f'|format(customer.custom_addon_nail_trim|float) if customer.custom_addon_nail_trim else '' }}">
+                        </div>
+                        <div class="form-text">Default: ${{ '%.2f'|format(default_rates.addon_nail_trim) }}</div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">
+                        <i class="fas fa-sticky-note me-1"></i>Rate Note
+                        <span class="text-muted fw-normal">(reason for custom pricing)</span>
+                    </label>
+                    <input type="text" name="custom_rate_note" class="form-control form-control-sm"
+                           placeholder="e.g. Military discount, long-term client, staff family..."
+                           value="{{ customer.custom_rate_note or '' }}" maxlength="255">
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm fw-bold">
+                        <i class="fas fa-save me-1"></i>Save Custom Rates
+                    </button>
+                    {% if customer.custom_boarding_rate or customer.custom_daycare_rate or customer.custom_addon_spa_bath_nails %}
+                    <button type="submit" name="clear_rates" value="1" class="btn btn-outline-secondary btn-sm"
+                            onclick="return confirm('Clear all custom rates and return to facility defaults?');">
+                        <i class="fas fa-undo me-1"></i>Clear — Use Defaults
+                    </button>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+    </div>
+    <!-- Payments Section -->
+    <div class="card shadow-sm mt-4">
+        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-dollar-sign me-2"></i>Payment History</h5>
+            <div>
+                <a href="{{ url_for('admin.customer_invoice', customer_id=customer.id, type='boarding') }}" class="btn btn-sm btn-light me-1" target="_blank">
+                    <i class="fas fa-hotel me-1"></i>Boarding Invoice
+                </a>
+                <a href="{{ url_for('admin.customer_invoice', customer_id=customer.id, type='daycare') }}" class="btn btn-sm btn-outline-light me-2" target="_blank">
+                    <i class="fas fa-paw me-1"></i>Daycare Invoice
+                </a>
+                <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#addPaymentModal">
+                    <i class="fas fa-plus me-1"></i>Add Payment
+                </button>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            {% if customer.payments %}
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr><th>Date</th><th>Service</th><th>Method</th><th>Amount</th><th>Status</th><th>Notes</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                    {% for p in customer.payments|sort(attribute='payment_date', reverse=True) %}
+                    <tr>
+                        <td>{{ p.payment_date.strftime('%b %d, %Y') }}</td>
+                        <td>{{ p.service_type or '—' }}</td>
+                        <td>{{ p.payment_method or '—' }}</td>
+                        <td class="fw-bold">${{ "%.2f"|format(p.amount) }}</td>
+                        <td>
+                            {% if p.status == 'paid' %}
+                                <span class="badge bg-success">Paid</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">Outstanding</span>
+                            {% endif %}
+                        </td>
+                        <td><small class="text-muted">{{ p.notes or '—' }}</small></td>
+                        <td>
+                            <form method="POST" action="{{ url_for('admin.delete_payment', payment_id=p.id) }}" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-outline-danger"
+                                    onclick="return confirm('Delete this payment?')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-light">
+                    <tr>
+                        <td colspan="3" class="text-end fw-bold">Total Paid:</td>
+                        <td class="fw-bold text-success">${{ "%.2f"|format(customer.payments|selectattr('status','eq','paid')|sum(attribute='amount')) }}</td>
+                        <td colspan="3"></td>
+                    </tr>
+                    {% set outstanding = customer.payments|selectattr('status','eq','outstanding')|sum(attribute='amount') %}
+                    {% if outstanding > 0 %}
+                    <tr>
+                        <td colspan="3" class="text-end fw-bold">Outstanding:</td>
+                        <td class="fw-bold text-warning">${{ "%.2f"|format(outstanding) }}</td>
+                        <td colspan="3"></td>
+                    </tr>
+                    {% endif %}
+                </tfoot>
+            </table>
+            {% else %}
+                <div class="text-center py-4 text-muted">No payment records yet.</div>
+            {% endif %}
+        </div>
+    </div>
+    <!-- Add Payment Modal -->
+    <div class="modal fade" id="addPaymentModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="fas fa-plus-circle me-2"></i>Record Payment</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST" action="{{ url_for('admin.add_payment') }}">
+                    <input type="hidden" name="customer_id" value="{{ customer.id }}">
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Amount ($)</label>
+                                <input type="number" name="amount" class="form-control" step="0.01" min="0" required placeholder="0.00">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Date</label>
+                                <input type="date" name="payment_date" class="form-control" required id="paymentDateInput">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Service</label>
+                                <select name="service_type" class="form-select">
+                                    <option value="">-- Select --</option>
+                                    <option value="Boarding">Boarding</option>
+                                    <option value="Grooming">Grooming</option>
+                                    <option value="Daycare">Daycare</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Payment Method</label>
+                                <select name="payment_method" class="form-select">
+                                    <option value="">-- Select --</option>
+                                    <option value="Cash">Cash</option>
+                                    <option value="Credit Card">Credit Card</option>
+                                    <option value="Debit Card">Debit Card</option>
+                                    <option value="Check">Check</option>
+                                    <option value="Venmo">Venmo</option>
+                                    <option value="Zelle">Zelle</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Status</label>
+                            <select name="status" class="form-select">
+                                <option value="paid">Paid</option>
+                                <option value="outstanding">Outstanding</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Notes</label>
+                            <textarea name="notes" class="form-control" rows="2" placeholder="Optional notes..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success"><i class="fas fa-save me-1"></i>Record Payment</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!-- Daycare Enrollment -->
+    <div class="card shadow-sm mt-4">
+        <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-calendar-check me-2"></i>Daycare Enrollment</h5>
+            <a href="{{ url_for('admin.daycare_enroll') }}" class="btn btn-sm btn-dark">
+                <i class="fas fa-plus me-1"></i>Enroll a Pet
+            </a>
+        </div>
+        <div class="card-body">
+            {% set enrollments = [] %}
+            {% for pet in customer.pets %}
+                {% for enrollment in pet.daycare_enrollments if enrollment.active %}
+                    {% set _ = enrollments.append(enrollment) %}
+                {% endfor %}
+            {% endfor %}
+            {% if enrollments %}
+            <form method="POST" action="{{ url_for('admin.update_daycare_schedule', customer_id=customer.id) }}">
+                {% for enrollment in enrollments %}
+                <div class="border rounded p-3 mb-3">
+                    <div class="row align-items-center">
+                        <div class="col-md-3">
+                            <h6 class="text-primary mb-1"><i class="fas fa-paw me-1"></i>{{ enrollment.pet.name }}</h6>
+                            <small class="text-muted">Enrolled: {{ enrollment.enrollment_date.strftime('%m/%d/%Y') }}</small>
+                        </div>
+                        <div class="col-md-7">
+                            <div class="d-flex gap-4">
+                                {% for day in ['monday','wednesday','friday'] %}
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox"
+                                        name="enrollment_{{ enrollment.id }}_{{ day }}"
+                                        id="enrollment_{{ enrollment.id }}_{{ day }}"
+                                        {% if enrollment[day] %}checked{% endif %}>
+                                    <label class="form-check-label" for="enrollment_{{ enrollment.id }}_{{ day }}">
+                                        <strong>{{ day|capitalize }}</strong>
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-md-2 text-end">
+                            <form method="POST" action="{{ url_for('admin.deactivate_daycare_enrollment', enrollment_id=enrollment.id) }}" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-outline-danger"
+                                    onclick="return confirm('Remove {{ enrollment.pet.name }} from daycare?')">
+                                    <i class="fas fa-times"></i> Remove
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                <button type="submit" class="btn btn-warning"><i class="fas fa-save me-1"></i>Save Schedule</button>
+            </form>
+            {% else %}
+                <div class="text-center py-3 text-muted">
+                    <i class="fas fa-calendar-times fa-2x mb-2"></i>
+                    <p class="mb-0">No active daycare enrollments for this customer.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    <!-- Customer Photo Gallery -->
+    <div class="card shadow-sm mt-4 mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center" style="background:#1a1a2e;">
+            <strong class="text-white"><i class="fas fa-images me-2 text-warning"></i>Photo Gallery</strong>
+            <button class="btn btn-sm btn-warning text-dark fw-bold" data-bs-toggle="modal" data-bs-target="#uploadPhotoModal">
+                <i class="fas fa-upload me-1"></i>Upload Photo
+            </button>
+        </div>
+        <div class="card-body">
+            {% if customer.customer_photos %}
+            <div class="row g-3">
+                {% for photo in customer.customer_photos %}
+                <div class="col-6 col-md-4 col-lg-3">
+                    <div class="card h-100 shadow-sm">
+                        <a href="#" data-bs-toggle="modal" data-bs-target="#photoModal{{ photo.id }}">
+                            <img src="{{ url_for('static', filename='uploads/customers/' + customer.id|string + '/' + photo.filename) }}"
+                                 class="card-img-top" style="height:160px;object-fit:cover;"
+                                 alt="{{ photo.caption or 'Customer photo' }}">
+                        </a>
+                        {% if photo.caption %}
+                        <div class="card-body p-2"><small class="text-muted">{{ photo.caption }}</small></div>
+                        {% endif %}
+                        <div class="card-footer p-1 text-end bg-white border-0">
+                            <small class="text-muted me-2">{{ photo.uploaded_at.strftime('%b %d, %Y') }}</small>
+                            <form method="POST"
+                                  action="{{ url_for('admin.delete_customer_photo', customer_id=customer.id, photo_id=photo.id) }}"
+                                  style="display:inline;" onsubmit="return confirm('Delete this photo?');">
+                                <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1" style="font-size:0.7rem;">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-4 text-muted">
+                <i class="fas fa-camera fa-2x mb-2 d-block opacity-25"></i>
+                No photos uploaded yet. Click <strong>Upload Photo</strong> to add the first one.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    <!-- Upload Photo Modal -->
+    <div class="modal fade" id="uploadPhotoModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header" style="background:#1a1a2e;">
+                    <h5 class="modal-title text-white"><i class="fas fa-upload me-2 text-warning"></i>Upload Photo</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST" action="{{ url_for('admin.upload_customer_photo', customer_id=customer.id) }}"
+                      enctype="multipart/form-data">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Photo <span class="text-danger">*</span></label>
+                            <input type="file" name="photo" class="form-control" accept="image/*" required>
+                            <div class="form-text">JPG, PNG, WebP or GIF</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Caption <span class="text-muted">(optional)</span></label>
+                            <input type="text" name="caption" class="form-control"
+                                   placeholder="e.g. Waffles looking cute at daycare, May 2026">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-warning text-dark fw-bold">
+                            <i class="fas fa-upload me-1"></i>Upload
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!-- Lightbox Modals -->
+    {% for photo in customer.customer_photos %}
+    <div class="modal fade" id="photoModal{{ photo.id }}" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content bg-dark">
+                <div class="modal-header border-0 pb-0">
+                    <span class="text-white small">
+                        {% if photo.caption %}{{ photo.caption }} &bull; {% endif %}
+                        Uploaded {{ photo.uploaded_at.strftime('%b %d, %Y') }}
+                        {% if photo.uploader %} by {{ photo.uploader.first_name }}{% endif %}
+                    </span>
+                    <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center p-2">
+                    <img src="{{ url_for('static', filename='uploads/customers/' + customer.id|string + '/' + photo.filename) }}"
+                         class="img-fluid rounded" style="max-height:75vh;"
+                         alt="{{ photo.caption or 'Customer photo' }}">
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    <!-- Boarding Reservations -->
+    {% set all_res = current_boardings + upcoming_boardings + past_boardings %}
+    {% if all_res %}
+    <div class="card border-0 shadow-sm mt-4 mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center" style="background:#1B2A4A;">
+            <strong class="text-white"><i class="fas fa-hotel me-2 text-warning"></i>Boarding Reservations</strong>
+            <span class="badge bg-warning text-dark">{{ all_res|length }}</span>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0 align-middle" style="font-size:0.86rem;">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-3">Pet</th><th>Check-In</th><th>Check-Out</th>
+                        <th>Nights</th><th>Status</th><th>Kennel</th><th class="pe-3"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for b in current_boardings %}
+                    <tr style="background:#e8f5e9;">
+                        <td class="ps-3 fw-bold">{{ b.pet.name }}<div class="text-muted small">{{ b.pet.breed or 'Dog' }}</div></td>
+                        <td>{{ b.check_in_date.strftime('%m/%d/%Y') }}</td>
+                        <td>{{ b.check_out_date.strftime('%m/%d/%Y') }}</td>
+                        <td>{% set days = (b.check_out_date - b.check_in_date).days %}<span class="badge bg-success">{{ days }} day{{ 's' if days != 1 }}</span></td>
+                        <td><span class="badge bg-success">Checked In</span></td>
+                        <td class="text-muted small">{% if b.kennel_number %}{{ b.kennel_type|title }} #{{ b.kennel_number }}{% else %}—{% endif %}</td>
+                        <td class="pe-3 text-end"><a href="{{ url_for('admin.boarding_detail', booking_id=b.id) }}" class="btn btn-xs btn-outline-success py-0 px-2" style="font-size:0.75rem;"><i class="fas fa-eye me-1"></i>View</a></td>
+                    </tr>
+                    {% endfor %}
+                    {% for b in upcoming_boardings %}
+                    <tr>
+                        <td class="ps-3 fw-bold">{{ b.pet.name }}<div class="text-muted small">{{ b.pet.breed or 'Dog' }}</div></td>
+                        <td>{{ b.check_in_date.strftime('%m/%d/%Y') }}</td>
+                        <td>{{ b.check_out_date.strftime('%m/%d/%Y') }}</td>
+                        <td>{% set days = (b.check_out_date - b.check_in_date).days %}<span class="badge bg-primary">{{ days }} day{{ 's' if days != 1 }}</span></td>
+                        <td>{% if b.status == 'pending' %}<span class="badge bg-warning text-dark">Pending</span>{% else %}<span class="badge bg-primary">Upcoming</span>{% endif %}</td>
+                        <td class="text-muted small">{% if b.kennel_number %}{{ b.kennel_type|title }} #{{ b.kennel_number }}{% else %}—{% endif %}</td>
+                        <td class="pe-3 text-end"><a href="{{ url_for('admin.boarding_detail', booking_id=b.id) }}" class="btn btn-xs btn-outline-primary py-0 px-2" style="font-size:0.75rem;"><i class="fas fa-eye me-1"></i>View</a></td>
+                    </tr>
+                    {% endfor %}
+                    {% for b in past_boardings %}
+                    <tr style="opacity:0.75;">
+                        <td class="ps-3 fw-bold">{{ b.pet.name }}<div class="text-muted small">{{ b.pet.breed or 'Dog' }}</div></td>
+                        <td>{{ b.check_in_date.strftime('%m/%d/%Y') }}</td>
+                        <td>{{ b.check_out_date.strftime('%m/%d/%Y') }}</td>
+                        <td>{% set days = (b.check_out_date - b.check_in_date).days %}<span class="badge bg-secondary">{{ days }} day{{ 's' if days != 1 }}</span></td>
+                        <td><span class="badge bg-secondary">Completed</span></td>
+                        <td class="text-muted small">{% if b.kennel_number %}{{ b.kennel_type|title }} #{{ b.kennel_number }}{% else %}—{% endif %}</td>
+                        <td class="pe-3 text-end"><a href="{{ url_for('admin.boarding_detail', booking_id=b.id) }}" class="btn btn-xs btn-outline-secondary py-0 px-2" style="font-size:0.75rem;"><i class="fas fa-eye me-1"></i>View</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+    <!-- Invoice & Estimate History -->
+    {% if invoice_history %}
+    <div class="card border-0 shadow-sm mt-4 mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center" style="background:#1B2A4A;">
+            <strong class="text-white"><i class="fas fa-file-invoice me-2 text-warning"></i>Invoices & Estimates Sent</strong>
+            <span class="badge bg-warning text-dark">{{ invoice_history|length }}</span>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0 align-middle" style="font-size:0.88rem;">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-3" style="width:120px;">Type</th>
+                        <th>Sent</th><th>Preview</th><th class="text-end pe-3">View</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for msg in invoice_history %}
+                    {% set is_auto     = '[checkout-estimate]' in (msg.body or '') %}
+                    {% set is_estimate = 'rufflife.app/estimate/' in (msg.body or '') or is_auto %}
+                    <tr>
+                        <td class="ps-3">
+                            {% if is_estimate %}
+                            <span class="badge fw-bold" style="background:#FFC107;color:#1a1a2e;">
+                                {% if is_auto %}<i class="fas fa-robot me-1"></i>Auto {% endif %}Estimate
+                            </span>
+                            {% else %}
+                            <span class="badge bg-primary fw-bold">Invoice</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div>{{ msg.created_at.strftime('%m/%d/%Y') }}</div>
+                            <div class="text-muted" style="font-size:0.75rem;">{{ msg.created_at.strftime('%I:%M %p') }}</div>
+                        </td>
+                        <td>
+                            <div class="text-muted"
+                                 style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+                                 title="{{ msg.body }}">
+                                {{ msg.body[:100] }}{% if msg.body|length > 100 %}…{% endif %}
+                            </div>
+                        </td>
+                        <td class="text-end pe-3">
+                            {% if inv_token %}
+                            {% if is_estimate %}
+                            <a href="/estimate/{{ inv_token }}" target="_blank" class="btn btn-xs btn-outline-warning py-0 px-2" style="font-size:0.75rem;"><i class="fas fa-eye me-1"></i>View</a>
+                            {% else %}
+                            <a href="/invoice/{{ inv_token }}" target="_blank" class="btn btn-xs btn-outline-primary py-0 px-2" style="font-size:0.75rem;"><i class="fas fa-eye me-1"></i>View</a>
+                            {% endif %}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+<!-- Edit Customer Modal -->
+<div class="modal fade" id="editCustomerModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#1a1a2e;">
+                <h5 class="modal-title text-white fw-bold">
+                    <i class="fas fa-user-edit me-2"></i>Edit — {{ customer.first_name }} {{ customer.last_name }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.edit_customer', customer_id=customer.id) }}" id="editCustomerForm">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">First Name</label>
+                            <input type="text" name="first_name" class="form-control" value="{{ customer.first_name }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Last Name</label>
+                            <input type="text" name="last_name" class="form-control" value="{{ customer.last_name }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Email</label>
+                            <input type="email" name="email" class="form-control" value="{{ customer.email }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Phone</label>
+                            <input type="tel" name="phone" class="form-control" value="{{ customer.phone or '' }}">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Address</label>
+                            <input type="text" name="address" class="form-control" value="{{ customer.address or '' }}">
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label fw-bold">City</label>
+                            <input type="text" name="city" class="form-control" value="{{ customer.city or '' }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">State</label>
+                            <input type="text" name="state" class="form-control" value="{{ customer.state or '' }}" maxlength="2">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Zip</label>
+                            <input type="text" name="zip_code" class="form-control" value="{{ customer.zip_code or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Emergency Contact Name</label>
+                            <input type="text" name="emergency_contact_name" class="form-control" value="{{ customer.emergency_contact_name or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Emergency Contact Phone</label>
+                            <input type="tel" name="emergency_contact_phone" class="form-control" value="{{ customer.emergency_contact_phone or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">SMS Opt-In</label>
+                            <select name="sms_opt_in" class="form-select">
+                                <option value="0" {% if not customer.sms_opt_in %}selected{% endif %}>No</option>
+                                <option value="1" {% if customer.sms_opt_in %}selected{% endif %}>Yes</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Status</label>
+                            <select name="is_active" class="form-select">
+                                <option value="1" {% if customer.is_active %}selected{% endif %}>Active</option>
+                                <option value="0" {% if not customer.is_active %}selected{% endif %}>Archived</option>
+                            </select>
+                        </div>
+
+                        <!-- ── Change Password ── -->
+                        <div class="col-12">
+                            <hr class="my-1">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-lock me-1"></i>Set New Password
+                                <span class="text-muted fw-normal">(leave blank to keep current password)</span>
+                            </label>
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <input type="password" name="new_password" id="newPassword"
+                                           class="form-control" placeholder="New password"
+                                           autocomplete="new-password" minlength="8">
+                                </div>
+                                <div class="col-md-6">
+                                    <input type="password" name="confirm_password" id="confirmPassword"
+                                           class="form-control" placeholder="Confirm new password"
+                                           autocomplete="new-password">
+                                </div>
+                                <div class="col-12">
+                                    <div id="passwordMismatch" class="text-danger small d-none">
+                                        <i class="fas fa-exclamation-circle me-1"></i>Passwords do not match.
+                                    </div>
+                                    <div class="form-text">Minimum 8 characters. Leave both fields empty to keep the existing password.</div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- ── End Change Password ── -->
+
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning text-dark fw-bold">
+                        <i class="fas fa-save me-1"></i>Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('paymentDateInput').value = new Date().toISOString().split('T')[0];
+
+    // Password match validation for the Edit Customer modal
+    (function () {
+        var form = document.getElementById('editCustomerForm');
+        var p1   = document.getElementById('newPassword');
+        var p2   = document.getElementById('confirmPassword');
+        var msg  = document.getElementById('passwordMismatch');
+
+        function validate() {
+            if (p1.value && p2.value && p1.value !== p2.value) {
+                msg.classList.remove('d-none');
+                p2.setCustomValidity('Passwords do not match.');
+                return false;
+            }
+            msg.classList.add('d-none');
+            p2.setCustomValidity('');
+            return true;
+        }
+
+        p1.addEventListener('input', validate);
+        p2.addEventListener('input', validate);
+
+        form.addEventListener('submit', function (e) {
+            if (!validate()) {
+                e.preventDefault();
+            }
+        });
+    })();
+</script>
+
+{% endblock %}

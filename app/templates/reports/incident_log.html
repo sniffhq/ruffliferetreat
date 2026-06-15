@@ -1,0 +1,235 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Incident Log Report - Ruff Life Retreat{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="fas fa-exclamation-triangle"></i> Incident Log Report</h1>
+        <a href="{{ url_for('reports.reports_dashboard') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fas fa-filter"></i> Filters</h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('reports.incident_log_report') }}" class="row g-3">
+                <div class="col-md-3">
+                    <label for="start_date" class="form-label">Start Date</label>
+                    <input type="date" class="form-control" id="start_date" name="start_date" 
+                           value="{{ start_date }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="end_date" class="form-label">End Date</label>
+                    <input type="date" class="form-control" id="end_date" name="end_date" 
+                           value="{{ end_date }}">
+                </div>
+                <div class="col-md-2">
+                    <label for="incident_type" class="form-label">Incident Type</label>
+                    <select class="form-select" id="incident_type" name="incident_type">
+                        <option value="all" {% if incident_type == 'all' %}selected{% endif %}>All Types</option>
+                        <option value="injury" {% if incident_type == 'injury' %}selected{% endif %}>Injury</option>
+                        <option value="illness" {% if incident_type == 'illness' %}selected{% endif %}>Illness</option>
+                        <option value="escape" {% if incident_type == 'escape' %}selected{% endif %}>Escape</option>
+                        <option value="aggression" {% if incident_type == 'aggression' %}selected{% endif %}>Aggression</option>
+                        <option value="property_damage" {% if incident_type == 'property_damage' %}selected{% endif %}>Property Damage</option>
+                        <option value="other" {% if incident_type == 'other' %}selected{% endif %}>Other</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="severity" class="form-label">Severity</label>
+                    <select class="form-select" id="severity" name="severity">
+                        <option value="all" {% if severity == 'all' %}selected{% endif %}>All Levels</option>
+                        <option value="minor" {% if severity == 'minor' %}selected{% endif %}>Minor</option>
+                        <option value="moderate" {% if severity == 'moderate' %}selected{% endif %}>Moderate</option>
+                        <option value="serious" {% if severity == 'serious' %}selected{% endif %}>Serious</option>
+                        <option value="critical" {% if severity == 'critical' %}selected{% endif %}>Critical</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="resolved" class="form-label">Status</label>
+                    <select class="form-select" id="resolved" name="resolved">
+                        <option value="all" {% if resolved_filter == 'all' %}selected{% endif %}>All</option>
+                        <option value="resolved" {% if resolved_filter == 'resolved' %}selected{% endif %}>Resolved</option>
+                        <option value="unresolved" {% if resolved_filter == 'unresolved' %}selected{% endif %}>Unresolved</option>
+                    </select>
+                </div>
+                <div class="col-md-12">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search"></i> Apply Filters
+                    </button>
+                    <a href="{{ url_for('reports.incident_log_report') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-redo"></i> Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Summary Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center border-primary">
+                <div class="card-body">
+                    <h3 class="text-primary">{{ summary.total_incidents }}</h3>
+                    <p class="mb-0">Total Incidents</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center border-success">
+                <div class="card-body">
+                    <h3 class="text-success">{{ summary.resolved_count }}</h3>
+                    <p class="mb-0">Resolved</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center border-warning">
+                <div class="card-body">
+                    <h3 class="text-warning">{{ summary.unresolved_count }}</h3>
+                    <p class="mb-0">Unresolved</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center border-info">
+                <div class="card-body">
+                    <h3 class="text-info">
+                        {% if summary.total_incidents > 0 %}
+                        {{ "%.1f"|format((summary.resolved_count / summary.total_incidents * 100)) }}%
+                        {% else %}
+                        0%
+                        {% endif %}
+                    </h3>
+                    <p class="mb-0">Resolution Rate</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Options -->
+    <div class="mb-3">
+        <a href="{{ url_for('reports.export_incidents_csv', start_date=start_date, end_date=end_date) }}" 
+           class="btn btn-success">
+            <i class="fas fa-file-csv"></i> Export to CSV
+        </a>
+        <button class="btn btn-outline-success" onclick="window.print()">
+            <i class="fas fa-print"></i> Print Report
+        </button>
+    </div>
+
+    <!-- Incidents Table -->
+    <div class="card">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0">Incident Log Details</h5>
+        </div>
+        <div class="card-body">
+            {% if incidents %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Date/Time</th>
+                            <th>Type</th>
+                            <th>Severity</th>
+                            <th>Pet</th>
+                            <th>Owner</th>
+                            <th>Description</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for incident in incidents %}
+                        <tr class="
+                            {% if incident.severity == 'critical' %}table-danger
+                            {% elif incident.severity == 'serious' %}table-warning
+                            {% elif incident.severity == 'moderate' %}table-info
+                            {% endif %}">
+                            <td>
+                                <strong>{{ incident.incident_date.strftime('%m/%d/%Y') }}</strong><br>
+                                <small class="text-muted">{{ incident.incident_time.strftime('%I:%M %p') }}</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">
+                                    {{ incident.incident_type.replace('_', ' ').title() }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge 
+                                    {% if incident.severity == 'critical' %}bg-danger
+                                    {% elif incident.severity == 'serious' %}bg-warning text-dark
+                                    {% elif incident.severity == 'moderate' %}bg-info
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ incident.severity.title() }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if incident.pet %}
+                                <strong>{{ incident.pet.name }}</strong><br>
+                                <small class="text-muted">{{ incident.pet.breed or 'N/A' }}</small>
+                                {% else %}
+                                <span class="text-muted">Facility-wide</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if incident.pet and incident.owner %}
+                                {{ incident.owner.first_name }} {{ incident.owner.last_name }}
+                                {% else %}
+                                <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div style="max-width: 300px;">
+                                    {{ incident.description[:100] }}
+                                    {% if incident.description|length > 100 %}...{% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                {% if incident.resolved %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check-circle"></i> Resolved
+                                </span>
+                                {% else %}
+                                <span class="badge bg-warning text-dark">
+                                    <i class="fas fa-clock"></i> Open
+                                </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> No incidents found for the selected criteria.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+@media print {
+    .btn, .modal, nav, footer, .card-header {
+        display: none !important;
+    }
+    
+    .card {
+        border: 1px solid #000 !important;
+        page-break-inside: avoid;
+    }
+    
+    table {
+        font-size: 9pt;
+    }
+}
+</style>
+{% endblock %}
+
+

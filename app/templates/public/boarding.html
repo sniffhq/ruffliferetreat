@@ -1,0 +1,209 @@
+﻿{% extends "base.html" %}
+{% block title %}Boarding — Ruff Life Retreat{% endblock %}
+{% block content %}
+
+<!-- Hero -->
+<div style="background:linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+            margin-top:-1.5rem; padding: 90px 0 80px; position:relative; overflow:hidden;">
+    <div style="position:absolute;top:20px;right:80px;font-size:6rem;opacity:0.04;transform:rotate(15deg);">🐾</div>
+    <div style="position:absolute;bottom:10px;left:60px;font-size:8rem;opacity:0.04;transform:rotate(-10deg);">🐾</div>
+    <div class="container text-center text-white position-relative">
+        <div style="display:inline-block; background:rgba(255,193,7,0.15); border:1px solid rgba(255,193,7,0.3);
+                    border-radius:50px; padding:6px 20px; font-size:0.8rem; letter-spacing:2px;
+                    text-transform:uppercase; color:#FFC107; margin-bottom:20px;">
+            Premium Pet Boarding
+        </div>
+        <h1 style="font-size:clamp(2.2rem,5vw,3.8rem); font-weight:800; line-height:1.15; margin-bottom:18px;">
+            A Home Away<br>
+            <span style="color:#FFC107;">From Home</span>
+        </h1>
+        <p style="font-size:1.15rem; color:rgba(255,255,255,0.7); max-width:520px; margin:0 auto 36px;">
+            Safe, comfortable, and caring overnight stays for your furry family member while you're away.
+        </p>
+        {% if current_user.is_authenticated %}
+            <a href="{{ url_for('customer.book_appointment') }}"
+               class="btn btn-warning btn-lg text-dark fw-bold px-5 me-3">
+                <i class="fas fa-calendar-plus me-2"></i>Book Now
+            </a>
+            <a href="{{ url_for('customer.dashboard') }}"
+               class="btn btn-outline-light btn-lg px-4">Dashboard</a>
+        {% else %}
+            <a href="{{ url_for('auth.register') }}"
+               class="btn btn-warning btn-lg text-dark fw-bold px-5 me-3">
+                <i class="fas fa-user-plus me-2"></i>Register Now
+            </a>
+            <a href="{{ url_for('auth.login') }}"
+               class="btn btn-outline-light btn-lg px-4">Login</a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Stats bar -->
+<div style="background:#FFC107;">
+    <div class="container">
+        <div class="row text-center g-0">
+            {% for stat, label in [('24/7','Monitoring'),('Daily','Exercise'),('Premium','Meals'),('Vet','On Call')] %}
+            <div class="col-6 col-md-3" style="padding:18px 10px; border-right:1px solid rgba(0,0,0,0.1);">
+                <div style="font-size:1.1rem; font-weight:800; color:#1a1a2e;">{{ stat }}</div>
+                <div style="font-size:0.75rem; letter-spacing:1px; text-transform:uppercase; color:rgba(0,0,0,0.6);">{{ label }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Features -->
+<div class="container" style="padding:70px 15px;">
+    <div class="text-center mb-5">
+        <h2 style="font-size:2rem; font-weight:800; color:#1a1a2e;">Why Choose Our Boarding?</h2>
+        <p class="text-muted">Your pet's comfort and safety are our top priorities</p>
+    </div>
+    <div class="row g-4">
+        {% for icon, color, title, desc in [
+            ('fas fa-home','#0d6efd','Comfortable Accommodations','Spacious, climate-controlled suites with cozy bedding and plenty of natural light.'),
+            ('fas fa-heartbeat','#198754','24/7 Monitoring','Round-the-clock supervision by trained staff to ensure your pet\'s safety and wellbeing.'),
+            ('fas fa-running','#0dcaf0','Daily Exercise','Multiple play sessions and walks throughout the day in our secure outdoor areas.'),
+            ('fas fa-utensils','#FFC107','Premium Meals','Nutritious meals tailored to your pet\'s dietary needs and preferences.'),
+            ('fas fa-user-md','#dc3545','Veterinary Care','On-call veterinary support and medication administration if needed.'),
+            ('fas fa-camera','#6c757d','Photo Updates','Regular photo updates sent to you so you can see your pet enjoying their stay.')
+        ] %}
+        <div class="col-md-4 col-6">
+            <div style="padding:28px 24px; border-radius:16px; background:white;
+                        box-shadow:0 4px 20px rgba(0,0,0,0.07); height:100%; text-align:center;
+                        border-top:4px solid {{ color }}; transition:transform 0.2s;"
+                 onmouseover="this.style.transform='translateY(-6px)'"
+                 onmouseout="this.style.transform='translateY(0)'">
+                <div style="width:64px;height:64px;border-radius:50%;background:{{ color }};
+                            display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+                    <i class="{{ icon }} fa-2x text-white"></i>
+                </div>
+                <h5 style="font-weight:700; color:#1a1a2e; font-size:0.95rem;">{{ title }}</h5>
+                <p class="text-muted small mb-0">{{ desc }}</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- What's Included + Requirements -->
+<div style="background:#f8f9fa; margin-top:-1.5rem; padding:70px 0;">
+    <div class="container">
+        <div class="row g-5">
+            <div class="col-md-6">
+                <h3 style="font-weight:800; color:#1a1a2e; margin-bottom:24px;">
+                    <i class="fas fa-check-circle text-success me-2"></i>What's Included
+                </h3>
+                <ul style="list-style:none; padding:0;">
+                    {% for item in [
+                        'Private or shared suite options',
+                        'Comfortable bedding and toys',
+                        'Climate-controlled environment',
+                        'Multiple daily walks and playtime',
+                        'Feeding per your instructions',
+                        'Medication administration',
+                        'Daily health monitoring',
+                        'Emergency veterinary access'
+                    ] %}
+                    <li style="padding:10px 0; border-bottom:1px solid #e9ecef; font-size:0.95rem;">
+                        <i class="fas fa-check-circle text-success me-2"></i>{{ item }}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <h3 style="font-weight:800; color:#1a1a2e; margin-bottom:24px;">
+                    <i class="fas fa-clipboard-check text-primary me-2"></i>Requirements
+                </h3>
+                <ul style="list-style:none; padding:0;">
+                    {% for icon, item in [
+                        ('fas fa-syringe text-primary','Current vaccination records required'),
+                        ('fas fa-syringe text-primary','Rabies, DHPP, and Bordetella vaccines'),
+                        ('fas fa-notes-medical text-primary','Flea and tick prevention up to date'),
+                        ('fas fa-paw text-primary','All pets must be spayed/neutered'),
+                        ('fas fa-clipboard-check text-primary','Health check-in upon arrival'),
+                        ('fas fa-ban text-danger','Pets must be non-aggressive')
+                    ] %}
+                    <li style="padding:10px 0; border-bottom:1px solid #e9ecef; font-size:0.95rem;">
+                        <i class="{{ icon }} me-2"></i>{{ item }}
+                    </li>
+                    {% endfor %}
+                </ul>
+                <div class="alert alert-info mt-4" style="border-radius:12px;">
+                    <strong><i class="fas fa-info-circle me-1"></i>Note:</strong>
+                    All pets must pass a temperament evaluation before their first boarding stay.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pricing -->
+<div class="container" style="padding:70px 15px;">
+    <div class="text-center mb-5">
+        <h3 style="font-weight:800; color:#1a1a2e;">Boarding Rates</h3>
+        <p class="text-muted">Transparent pricing — no surprises</p>
+    </div>
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div style="border-radius:20px; overflow:hidden; box-shadow:0 8px 40px rgba(0,0,0,0.1);">
+                <div style="background:#1a1a2e; padding:28px; text-align:center;">
+                    <div style="color:#FFC107; font-size:2.4rem; font-weight:800;">$40<span style="font-size:1rem; font-weight:400; color:rgba(255,193,7,0.7);">/day per pet</span></div>
+                    <div style="color:rgba(255,255,255,0.6); font-size:0.9rem;">Flat rate — no size surcharges</div>
+                </div>
+                <div style="background:white; padding:28px;">
+                    <div style="display:flex; justify-content:space-between; padding:12px 0;
+                                border-bottom:1px solid #f0f0f0; font-size:0.95rem;">
+                        <span><i class="fas fa-paw text-warning me-2"></i>First pet</span>
+                        <strong>$40/night</strong>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; padding:12px 0;
+                                border-bottom:1px solid #f0f0f0; font-size:0.95rem;">
+                        <span><i class="fas fa-paw text-warning me-2"></i>Each additional pet</span>
+                        <strong>$25/night</strong>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; padding:12px 0;
+                                border-bottom:1px solid #f0f0f0; font-size:0.95rem;">
+                        <span><i class="fas fa-bath text-warning me-2"></i>Spa Bath + Nail Trim add-on</span>
+                        <strong>$20/pet</strong>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; padding:12px 0;
+                                border-bottom:1px solid #f0f0f0; font-size:0.95rem;">
+                        <span><i class="fas fa-bath text-warning me-2"></i>Spa Bath add-on</span>
+                        <strong>$15/pet</strong>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; padding:12px 0;
+                                border-bottom:1px solid #f0f0f0; font-size:0.95rem;">
+                        <span><i class="fas fa-cut text-warning me-2"></i>Nail Trim add-on</span>
+                        <strong>$10/pet</strong>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; padding:12px 0;
+                                border-bottom:1px solid #f0f0f0; font-size:0.95rem;">
+                        <span><i class="fas fa-gift text-success me-2"></i>7+ night stay</span>
+                        <strong class="text-success">Free Spa Bath</strong>
+                    </div>
+                    <div class="text-muted small text-center mt-3">
+                        Example: 2 pets for 3 days = $40 + $25 × 3 = <strong>$195</strong><br><span class="text-success">Checkout by 10:00 AM = no charge for that day</span>
+                    </div>
+                    <div class="text-center mt-4">
+                        {% if current_user.is_authenticated %}
+                            <a href="{{ url_for('customer.book_appointment') }}"
+                               class="btn btn-warning btn-lg text-dark fw-bold px-5">
+                                <i class="fas fa-calendar-plus me-2"></i>Book Boarding
+                            </a>
+                        {% else %}
+                            <a href="{{ url_for('auth.register') }}"
+                               class="btn btn-warning btn-lg text-dark fw-bold px-5">
+                                <i class="fas fa-user-plus me-2"></i>Register to Book
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+
+

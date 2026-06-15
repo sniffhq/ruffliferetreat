@@ -1,0 +1,456 @@
+﻿{% extends "base.html" %}
+{% block title %}Reports Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+    <!-- Page header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0" style="color:#1B2A4A;">
+                <i class="fas fa-chart-bar me-2 text-warning"></i>Reports & Analytics
+            </h2>
+            <p class="text-muted mb-0">As of {{ today.strftime('%B %d, %Y') if today else '' }}</p>
+        </div>
+        <button onclick="window.print()" class="btn btn-outline-secondary btn-sm no-print">
+            <i class="fas fa-print me-1"></i>Print
+        </button>
+    </div>
+
+    <!-- ── KPI TILES ──────────────────────────────────────────────── -->
+    {% if total_revenue is defined %}
+    <div class="row g-3 mb-4">
+        {% for icon, label, value, color in [
+            ('fas fa-dollar-sign',      'Total Revenue',     '$' ~ '%.2f'|format(total_revenue),       '#198754'),
+            ('fas fa-exclamation-circle','Outstanding',       '$' ~ '%.2f'|format(total_outstanding),   '#dc3545'),
+            ('fas fa-hotel',             'Stays Completed',   total_boardings,                           '#0d6efd'),
+            ('fas fa-users',             'Active Customers',  total_customers,                           '#6f42c1'),
+            ('fas fa-paw',               'Active Pets',       total_pets,                                '#fd7e14'),
+            ('fas fa-moon',              'Avg Stay',          avg_stay ~ ' days',                        '#20c997'),
+        ] %}
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="card border-0 shadow-sm h-100" style="border-left:4px solid {{ color }} !important;">
+                <div class="card-body py-3 px-3">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <i class="{{ icon }}" style="color:{{ color }};font-size:1.1rem;"></i>
+                        <span class="text-muted" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;">{{ label }}</span>
+                    </div>
+                    <div class="fw-bold" style="font-size:1.3rem;color:#1B2A4A;">{{ value }}</div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- ── ROW 1: Revenue + Outstanding ───────────────────────────── -->
+    <div class="row g-4 mb-4">
+        <div class="col-xl-8">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header border-0 bg-white pt-4 pb-0 px-4">
+                    <div class="fw-bold" style="color:#1B2A4A;font-size:0.95rem;">
+                        <i class="fas fa-chart-bar me-2 text-warning"></i>Monthly Revenue — Last 12 Months
+                    </div>
+                </div>
+                <div class="card-body px-4 pb-4">
+                    <canvas id="revenueChart" height="110"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header border-0 bg-white pt-4 pb-0 px-4">
+                    <div class="fw-bold" style="color:#1B2A4A;font-size:0.95rem;">
+                        <i class="fas fa-exclamation-circle me-2 text-danger"></i>Outstanding Balances — Top 10
+                    </div>
+                </div>
+                <div class="card-body px-4 pb-4">
+                    {% if outstanding_amounts and outstanding_amounts != '[]' %}
+                    <canvas id="outstandingChart" height="200"></canvas>
+                    {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="fas fa-check-circle fa-2x mb-2 d-block text-success"></i>No outstanding balances!
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── ROW 2: Top Customers + Add-on Rate ─────────────────────── -->
+    <div class="row g-4 mb-4">
+        <div class="col-xl-7">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header border-0 bg-white pt-4 pb-0 px-4">
+                    <div class="fw-bold" style="color:#1B2A4A;font-size:0.95rem;">
+                        <i class="fas fa-trophy me-2 text-warning"></i>Revenue per Customer — Top 10
+                    </div>
+                </div>
+                <div class="card-body px-4 pb-4">
+                    <canvas id="topCustomersChart" height="140"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-5">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header border-0 bg-white pt-4 pb-0 px-4">
+                    <div class="fw-bold" style="color:#1B2A4A;font-size:0.95rem;">
+                        <i class="fas fa-bath me-2 text-warning"></i>Add-On Attach Rate
+                    </div>
+                </div>
+                <div class="card-body px-4 pb-4">
+                    <div class="row align-items-center">
+                        <div class="col-5 text-center">
+                            <canvas id="attachRateChart"></canvas>
+                        </div>
+                        <div class="col-7">
+                            <div class="mb-3">
+                                <div class="text-muted small mb-1">Attach rate</div>
+                                <div class="fw-bold" style="font-size:2rem;color:#1B2A4A;">{{ attach_rate }}%</div>
+                                <div class="text-muted small">{{ addons_count }} of {{ total_boarding_appts }} reservations</div>
+                            </div>
+                            <div style="font-size:0.82rem;">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span><span class="d-inline-block me-1" style="width:10px;height:10px;border-radius:2px;background:#FFC107;"></span>Spa Bath + Nails</span>
+                                    <strong>{{ both_count }}</strong>
+                                </div>
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span><span class="d-inline-block me-1" style="width:10px;height:10px;border-radius:2px;background:#FFC107;"></span>Spa Bath only</span>
+                                    <strong>{{ spa_bath_count }}</strong>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span><span class="d-inline-block me-1" style="width:10px;height:10px;border-radius:2px;background:#dee2e6;"></span>No add-on</span>
+                                    <strong>{{ total_boarding_appts - addons_count }}</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── ROW 3: Occupancy ──────────────────────────────────────── -->
+    <div class="row g-4 mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header border-0 bg-white pt-4 pb-0 px-4">
+                    <div class="fw-bold" style="color:#1B2A4A;font-size:0.95rem;">
+                        <i class="fas fa-bed me-2 text-warning"></i>Occupancy Rate — Last 60 Days
+                        <span class="text-muted small fw-normal ms-2">({{ TOTAL_KENNELS }} kennel capacity)</span>
+                    </div>
+                </div>
+                <div class="card-body px-4 pb-4">
+                    <canvas id="occupancyChart" height="60"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── ROW 4: Stay Length + Daycare Heatmap ─────────────────── -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-5">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header border-0 bg-white pt-4 pb-0 px-4">
+                    <div class="fw-bold" style="color:#1B2A4A;font-size:0.95rem;">
+                        <i class="fas fa-ruler me-2 text-warning"></i>Average Length of Stay
+                    </div>
+                </div>
+                <div class="card-body px-4 pb-4">
+                    <canvas id="stayLengthChart" height="180"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-7">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header border-0 bg-white pt-4 pb-0 px-4">
+                    <div class="fw-bold" style="color:#1B2A4A;font-size:0.95rem;">
+                        <i class="fas fa-calendar-week me-2 text-warning"></i>Daycare — Avg Attendance by Day of Week
+                    </div>
+                </div>
+                <div class="card-body px-4 pb-4">
+                    <canvas id="heatmapChart" height="130"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── ROW 5: Growth + Retention ────────────────────────────── -->
+    <div class="row g-4 mb-5">
+        <div class="col-md-7">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header border-0 bg-white pt-4 pb-0 px-4">
+                    <div class="fw-bold" style="color:#1B2A4A;font-size:0.95rem;">
+                        <i class="fas fa-user-plus me-2 text-warning"></i>New Customer Growth — Last 12 Months
+                    </div>
+                </div>
+                <div class="card-body px-4 pb-4">
+                    <canvas id="growthChart" height="130"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-5">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header border-0 bg-white pt-4 pb-0 px-4">
+                    <div class="fw-bold" style="color:#1B2A4A;font-size:0.95rem;">
+                        <i class="fas fa-sync me-2 text-warning"></i>Customer Retention
+                    </div>
+                </div>
+                <div class="card-body px-4 pb-4">
+                    <div class="row align-items-center">
+                        <div class="col-5"><canvas id="retentionChart"></canvas></div>
+                        <div class="col-7">
+                            {% for color, count, label in [
+                                ('#198754', active_count,  'Active (last 90 days)'),
+                                ('#FFC107', at_risk_count, 'At risk (90–180 days)'),
+                                ('#dc3545', churned_count, 'Churned / never booked'),
+                            ] %}
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <span class="d-inline-block rounded-circle flex-shrink-0"
+                                      style="width:12px;height:12px;background:{{ color }};"></span>
+                                <div>
+                                    <div class="fw-bold" style="color:{{ color }};">{{ count }}</div>
+                                    <div class="text-muted" style="font-size:0.75rem;">{{ label }}</div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+    const NAVY='#1B2A4A',MAUVE='#FFC107',GOLD='#FFC107',GREEN='#198754',RED='#dc3545',BLUE='#0d6efd',PURPLE='#6f42c1',TEAL='#20c997';
+    Chart.defaults.font.family="'Segoe UI',system-ui,sans-serif";
+    Chart.defaults.font.size=11;
+    Chart.defaults.color='#6B7280';
+
+    new Chart(document.getElementById('revenueChart'),{type:'bar',data:{labels:{{ revenue_months|safe }},datasets:[
+        {label:'Boarding',data:{{ revenue_boarding|safe }},backgroundColor:NAVY,borderRadius:4,stack:'r'},
+        {label:'Daycare', data:{{ revenue_daycare|safe }}, backgroundColor:MAUVE,borderRadius:4,stack:'r'},
+        {label:'Add-ons', data:{{ revenue_addons|safe }},  backgroundColor:GOLD, borderRadius:4,stack:'r'},
+    ]},options:{responsive:true,plugins:{legend:{position:'top'}},scales:{x:{grid:{display:false}},y:{ticks:{callback:v=>'$'+v}}}}});
+
+    {% if outstanding_amounts and outstanding_amounts != '[]' %}
+    new Chart(document.getElementById('outstandingChart'),{type:'bar',data:{labels:{{ outstanding_labels|safe }},datasets:[{data:{{ outstanding_amounts|safe }},backgroundColor:RED,borderRadius:4}]},options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{callback:v=>'$'+v}},y:{grid:{display:false}}}}});
+    {% endif %}
+
+    new Chart(document.getElementById('topCustomersChart'),{type:'bar',data:{labels:{{ top_customer_labels|safe }},datasets:[{data:{{ top_customer_amounts|safe }},backgroundColor:[NAVY,MAUVE,GOLD,BLUE,GREEN,PURPLE,TEAL,RED,'#fd7e14','#adb5bd'],borderRadius:4}]},options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{callback:v=>'$'+v}},y:{grid:{display:false}}}}});
+
+    new Chart(document.getElementById('attachRateChart'),{type:'doughnut',data:{labels:['With add-on','Without'],datasets:[{data:[{{ addons_count }},{{ total_boarding_appts - addons_count }}],backgroundColor:[GOLD,'#e9ecef'],borderWidth:0}]},options:{cutout:'72%',responsive:true,plugins:{legend:{display:false}}}});
+
+    new Chart(document.getElementById('occupancyChart'),{type:'line',data:{labels:{{ occ_labels|safe }},datasets:[{label:'Occupancy %',data:{{ occ_values|safe }},borderColor:NAVY,backgroundColor:'rgba(27,42,74,0.08)',fill:true,tension:0.3,pointRadius:0,borderWidth:2}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{maxTicksLimit:12}},y:{min:0,max:100,ticks:{callback:v=>v+'%'}}}}});
+
+    new Chart(document.getElementById('stayLengthChart'),{type:'bar',data:{labels:{{ stay_buckets|safe }},datasets:[{data:{{ stay_values|safe }},backgroundColor:[MAUVE,NAVY,GOLD,BLUE,TEAL],borderRadius:4}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{ticks:{stepSize:1}}}}});
+
+    new Chart(document.getElementById('heatmapChart'),{type:'bar',data:{labels:{{ heatmap_labels|safe }},datasets:[{label:'Avg pets/week',data:{{ heatmap_values|safe }},backgroundColor:ctx=>{const max=Math.max(...{{ heatmap_values|safe }});const v=ctx.raw/max;return `rgba(27,42,74,${0.25+v*0.75})`;},borderRadius:6}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{ticks:{stepSize:1}}}}});
+
+    new Chart(document.getElementById('growthChart'),{type:'line',data:{labels:{{ growth_months|safe }},datasets:[{label:'New customers',data:{{ growth_values|safe }},borderColor:GREEN,backgroundColor:'rgba(25,135,84,0.1)',fill:true,tension:0.4,pointRadius:4,pointBackgroundColor:GREEN,borderWidth:2}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{ticks:{stepSize:1},min:0}}}});
+
+    new Chart(document.getElementById('retentionChart'),{type:'doughnut',data:{labels:['Active','At risk','Churned'],datasets:[{data:[{{ active_count }},{{ at_risk_count }},{{ churned_count }}],backgroundColor:[GREEN,GOLD,RED],borderWidth:0}]},options:{cutout:'68%',responsive:true,plugins:{legend:{display:false}}}});
+    </script>
+
+    <hr class="my-5">
+    {% endif %}
+
+    <!-- ── EXISTING REPORT CARDS (unchanged) ──────────────────────── -->
+
+    <!-- State Audit & Compliance Reports -->
+    <div class="card mb-4">
+        <div class="card-header bg-danger text-white">
+            <h4 class="mb-0"><i class="fas fa-clipboard-check"></i> State Audit & Compliance Reports</h4>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="fas fa-syringe text-primary"></i> Vaccination Status</h5>
+                            <p class="card-text">Track vaccination records, expiration dates, and compliance status for all pets.</p>
+                            <a href="{{ url_for('reports.vaccination_status_report') }}" class="btn btn-primary">
+                                <i class="fas fa-chart-line"></i> View Report
+                            </a>
+                            <a href="{{ url_for('reports.export_vaccination_csv') }}" class="btn btn-success ms-2">
+                                <i class="fas fa-file-csv"></i> Export CSV
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="fas fa-users text-warning"></i> Capacity Compliance</h5>
+                            <p class="card-text">Monitor facility capacity limits and occupancy compliance over time.</p>
+                            <a href="{{ url_for('reports.capacity_compliance_report') }}" class="btn btn-primary">
+                                <i class="fas fa-chart-line"></i> View Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="fas fa-exclamation-triangle text-danger"></i> Incident Log</h5>
+                            <p class="card-text">Review all facility incidents, actions taken, and resolution status.</p>
+                            <a href="{{ url_for('reports.incident_log_report') }}" class="btn btn-primary">
+                                <i class="fas fa-chart-line"></i> View Report
+                            </a>
+                            <a href="{{ url_for('reports.export_incidents_csv') }}" class="btn btn-success ms-2">
+                                <i class="fas fa-file-csv"></i> Export CSV
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="fas fa-heartbeat text-success"></i> Health Checks</h5>
+                            <p class="card-text">Track daily health assessments and pets requiring attention.</p>
+                            <a href="{{ url_for('reports.health_check_report') }}" class="btn btn-primary">
+                                <i class="fas fa-chart-line"></i> View Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Operational Reports -->
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h4 class="mb-0"><i class="fas fa-chart-pie"></i> Operational Reports</h4>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="fas fa-building text-info"></i> Occupancy Report</h5>
+                            <p class="card-text">View facility utilization trends, daily attendance, and capacity metrics.</p>
+                            <a href="{{ url_for('reports.occupancy_report') }}" class="btn btn-primary">
+                                <i class="fas fa-chart-line"></i> View Report
+                            </a>
+                            <a href="{{ url_for('reports.export_occupancy_csv') }}" class="btn btn-success ms-2">
+                                <i class="fas fa-file-csv"></i> Export CSV
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="fas fa-dollar-sign text-success"></i> Revenue Report</h5>
+                            <p class="card-text">Analyze revenue by service type, booking trends, and monthly performance.</p>
+                            <a href="{{ url_for('reports.revenue_report') }}" class="btn btn-primary">
+                                <i class="fas fa-chart-line"></i> View Report
+                            </a>
+                            <a href="{{ url_for('reports.export_revenue_csv') }}" class="btn btn-success ms-2">
+                                <i class="fas fa-file-csv"></i> Export CSV
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100 border-primary">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="fas fa-clipboard-check text-primary"></i> Daycare Attendance
+                                <span class="badge bg-primary">New</span>
+                            </h5>
+                            <p class="card-text">Track daycare check-ins, check-outs, visit durations, and daily attendance patterns.</p>
+                            <a href="{{ url_for('reports.daycare_attendance_report') }}" class="btn btn-primary">
+                                <i class="fas fa-chart-line"></i> View Report
+                            </a>
+                            <a href="{{ url_for('reports.export_daycare_attendance_csv') }}" class="btn btn-success ms-2">
+                                <i class="fas fa-file-csv"></i> Export CSV
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="fas fa-hotel text-dark"></i> Boarding Occupancy</h5>
+                            <p class="card-text">Daily drop-off and pick-up schedule with kennel assignments for any date range.</p>
+                            <a href="{{ url_for('admin.boarding_occupancy_report') }}" class="btn btn-primary">
+                                <i class="fas fa-chart-line"></i> View Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Customer Reports -->
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h4 class="mb-0"><i class="fas fa-user-friends"></i> Customer Reports</h4>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="fas fa-history text-primary"></i> Visit History</h5>
+                            <p class="card-text">Track customer engagement, service usage, and visit patterns by customer or pet.</p>
+                            <a href="{{ url_for('reports.customer_visit_history') }}" class="btn btn-primary">
+                                <i class="fas fa-chart-line"></i> View Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats Card -->
+    <div class="card">
+        <div class="card-header bg-secondary text-white">
+            <h4 class="mb-0"><i class="fas fa-info-circle"></i> Report Information</h4>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>Report Features:</h5>
+                    <ul>
+                        <li>Date range filtering for historical analysis</li>
+                        <li>Export to CSV for further analysis in Excel</li>
+                        <li>Real-time data from operational systems</li>
+                        <li>Summary statistics and trend analysis</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h5>State Audit Compliance:</h5>
+                    <ul>
+                        <li>Vaccination tracking with expiration alerts</li>
+                        <li>Facility capacity monitoring</li>
+                        <li>Incident documentation and tracking</li>
+                        <li>Health check records with owner notifications</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card { transition: box-shadow 0.3s ease; }
+.card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+.border-primary { border: 2px solid #0d6efd !important; }
+@media print {
+    .no-print, nav, .navbar { display: none !important; }
+    .card { box-shadow: none !important; border: 1px solid #dee2e6 !important; }
+}
+</style>
+{% endblock %}
+

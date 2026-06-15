@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% block title %}Audit Log{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4 px-4">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h3 class="mb-1 fw-bold" style="color:#1B2D4F;">
+                <i class="fas fa-shield-alt me-2" style="color:#3DBDB5;"></i>Audit Log
+            </h3>
+            <div class="text-muted" style="font-size:0.85rem;">
+                Complete activity trail &bull; {{ total }} entries
+                {% if filtered %}<span class="badge bg-warning text-dark ms-2">Filtered</span>{% endif %}
+            </div>
+        </div>
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            <a href="{{ url_for('admin.audit_log_export') }}" class="btn btn-sm btn-outline-secondary fw-bold">
+                <i class="fas fa-file-csv me-1"></i>Export CSV
+            </a>
+            <button onclick="window.print()" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-print me-1"></i>Print
+            </button>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body py-3">
+            <form method="GET" class="row g-2 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label mb-1" style="font-size:0.8rem;font-weight:600;">From</label>
+                    <input type="date" name="from" class="form-control form-control-sm"
+                           value="{{ filters.from or '' }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label mb-1" style="font-size:0.8rem;font-weight:600;">To</label>
+                    <input type="date" name="to" class="form-control form-control-sm"
+                           value="{{ filters.to or '' }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label mb-1" style="font-size:0.8rem;font-weight:600;">User</label>
+                    <select name="user" class="form-select form-select-sm">
+                        <option value="">All users</option>
+                        {% for u in users %}
+                        <option value="{{ u.id }}"
+                            {% if filters.user == u.id|string %}selected{% endif %}>
+                            {{ u.first_name }} {{ u.last_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label mb-1" style="font-size:0.8rem;font-weight:600;">Entity</label>
+                    <select name="entity" class="form-select form-select-sm">
+                        <option value="">All types</option>
+                        {% for e in entity_types %}
+                        <option value="{{ e }}"
+                            {% if filters.entity == e %}selected{% endif %}>
+                            {{ e.title() }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label mb-1" style="font-size:0.8rem;font-weight:600;">Search</label>
+                    <input type="text" name="q" class="form-control form-control-sm"
+                           placeholder="Pet name, customer, action…"
+                           value="{{ filters.q or '' }}">
+                </div>
+                <div class="col-md-1 d-flex gap-1">
+                    <button type="submit" class="btn btn-sm btn-primary fw-bold flex-fill">Go</button>
+                    <a href="{{ url_for('admin.audit_log') }}" class="btn btn-sm btn-outline-secondary">✕</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Log table -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            {% if entries %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" style="font-size:0.83rem;">
+                    <thead style="background:#1B2D4F;color:white;">
+                        <tr>
+                            <th class="px-3 py-2" style="width:160px;">Timestamp</th>
+                            <th class="px-3 py-2" style="width:140px;">User</th>
+                            <th class="px-3 py-2" style="width:160px;">Action</th>
+                            <th class="px-3 py-2" style="width:100px;">Entity</th>
+                            <th class="px-3 py-2">Description</th>
+                            <th class="px-3 py-2" style="width:120px;">IP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for e in entries %}
+                        <tr {% if e.action.endswith('.deleted') or e.action.endswith('.cancelled') %}
+                            style="background:#fff5f5;"
+                            {% elif e.action.endswith('.created') or e.action.endswith('.approved') %}
+                            style="background:#f5fff8;"
+                            {% endif %}>
+                            <td class="px-3 py-2 text-muted" style="white-space:nowrap;">
+                                {{ e.timestamp.strftime('%m/%d/%y %I:%M:%S %p') }}
+                            </td>
+                            <td class="px-3 py-2">
+                                {% if e.user_name and e.user_name != 'System' %}
+                                <div class="fw-bold" style="color:#1B2D4F;">{{ e.user_name }}</div>
+                                <div class="text-muted" style="font-size:0.75rem;">{{ e.user_email }}</div>
+                                {% else %}
+                                <span class="text-muted fst-italic">System</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-2">
+                                <span class="badge bg-{{ e.action_color }} px-2"
+                                      style="font-size:0.75rem;font-weight:600;">
+                                    {{ e.action }}
+                                </span>
+                            </td>
+                            <td class="px-3 py-2">
+                                {% if e.entity_type %}
+                                <span class="text-muted" style="font-size:0.78rem;">
+                                    {{ e.entity_type.title() }}
+                                    {% if e.entity_id %}#{{ e.entity_id }}{% endif %}
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-2">
+                                <div>{{ e.description or '—' }}</div>
+                                {% if e.entity_name %}
+                                <div class="text-muted" style="font-size:0.75rem;">
+                                    <i class="fas fa-tag me-1" style="color:#3DBDB5;"></i>{{ e.entity_name }}
+                                </div>
+                                {% endif %}
+                                {% if e.extra %}
+                                <div class="mt-1">
+                                    {% for k, v in e.extra.items() %}
+                                    <span class="badge bg-light text-muted border me-1"
+                                          style="font-size:0.7rem;">{{ k }}: {{ v }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-2 text-muted" style="font-size:0.75rem;">
+                                {{ e.ip_address or '—' }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if pages > 1 %}
+            <div class="d-flex justify-content-between align-items-center px-3 py-3 border-top">
+                <div class="text-muted" style="font-size:0.83rem;">
+                    Page {{ page }} of {{ pages }} &bull; {{ total }} entries
+                </div>
+                <div class="d-flex gap-1">
+                    {% if page > 1 %}
+                    <a href="{{ url_for('admin.audit_log', page=page-1, **filters) }}"
+                       class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                    {% endif %}
+                    {% for p in range([1, page-2]|max, [pages+1, page+3]|min) %}
+                    <a href="{{ url_for('admin.audit_log', page=p, **filters) }}"
+                       class="btn btn-sm {% if p == page %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+                        {{ p }}
+                    </a>
+                    {% endfor %}
+                    {% if page < pages %}
+                    <a href="{{ url_for('admin.audit_log', page=page+1, **filters) }}"
+                       class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-shield-alt fa-3x mb-3 d-block opacity-25"></i>
+                No audit entries found for the selected filters.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+@media print {
+    .btn, form { display: none !important; }
+    .card { box-shadow: none !important; border: 1px solid #ddd !important; }
+}
+</style>
+{% endblock %}

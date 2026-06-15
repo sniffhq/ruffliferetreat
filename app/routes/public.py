@@ -427,7 +427,7 @@ def sms_webhook():
     except Exception as e:
         print(f'Failed to save inbound SMS: {e}')
 
-    # Notify configured staff of new inbound message
+    # Forward to staff disabled — staff do not require reply notifications
     forward_to_staff(customer_name, from_number, body)
 
     # Return empty TwiML — no auto-reply

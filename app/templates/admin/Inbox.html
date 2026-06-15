@@ -1,0 +1,346 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2><i class="fas fa-comments"></i> SMS Inbox
+                    {% if unread_sms_count > 0 %}
+                        <span class="badge bg-danger ms-2">{{ unread_sms_count }}</span>
+                    {% endif %}
+                </h2>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-success fw-bold" data-bs-toggle="modal" data-bs-target="#adhocModal">
+                        <i class="fas fa-paper-plane me-2"></i>New Message
+                    </button>
+                    <a href="{{ url_for('admin.sms_broadcast') }}" class="btn btn-warning text-dark fw-bold">
+                        <i class="fas fa-bullhorn me-2"></i>Broadcast SMS
+                    </a>
+                </div>
+            </div>
+
+            <!-- Search bar -->
+            <div class="mb-3">
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0">
+                        <i class="fas fa-search text-muted"></i>
+                    </span>
+                    <input type="text" id="inboxSearch" class="form-control border-start-0 ps-0"
+                           placeholder="Search by name, phone, or message…" autocomplete="off">
+                    <button class="btn btn-outline-secondary" type="button" id="inboxSearchClear" style="display:none;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div id="inboxSearchCount" class="text-muted small mt-1" style="display:none;"></div>
+            </div>
+
+            {% if threads %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                    <strong><i class="fas fa-users me-1"></i> Customer Conversations</strong>
+                    <span class="badge bg-dark" id="threadCount">{{ threads|length }}</span>
+                </div>
+                <div class="list-group list-group-flush" id="threadList">
+                    {% for thread in threads %}
+                    <div class="thread-item list-group-item d-flex justify-content-between align-items-center py-3
+                                {% if thread.unread_count > 0 %}list-group-item-warning{% endif %}"
+                         data-name="{{ thread.user.first_name }} {{ thread.user.last_name }}"
+                         data-phone="{{ thread.user.phone or '' }}"
+                         data-body="{{ thread.last_message.body if thread.last_message else '' }}">
+
+                        <!-- Customer info (clickable) -->
+                        <a href="{{ url_for('admin.sms_conversation', user_id=thread.user.id) }}"
+                           class="d-flex align-items-center gap-3 text-decoration-none text-dark flex-grow-1">
+                            <div class="rounded-circle bg-warning d-flex align-items-center justify-content-center"
+                                 style="width:42px;height:42px;min-width:42px;">
+                                <i class="fas fa-user text-dark"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold">
+                                    {{ thread.user.first_name }} {{ thread.user.last_name }}
+                                    {% if thread.unread_count > 0 %}
+                                        <span class="badge bg-danger ms-1">{{ thread.unread_count }} new</span>
+                                    {% endif %}
+                                </div>
+                                <div class="text-muted small">{{ thread.user.phone }}</div>
+                                {% if thread.last_message %}
+                                <div class="text-muted small text-truncate" style="max-width:350px;">
+                                    {% if thread.last_message.direction == 'inbound' %}
+                                        <i class="fas fa-arrow-left text-success"></i>
+                                    {% else %}
+                                        <i class="fas fa-arrow-right text-primary"></i>
+                                    {% endif %}
+                                    {{ thread.last_message.body }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </a>
+
+                        <!-- Timestamp + action buttons -->
+                        <div class="d-flex align-items-center gap-2 ms-3">
+                            <span class="text-muted small" style="min-width:85px;text-align:right;">
+                                {{ thread.last_at.strftime('%m/%d %I:%M %p') if thread.last_at else '' }}
+                            </span>
+                            <a href="{{ url_for('admin.sms_conversation', user_id=thread.user.id) }}"
+                               class="btn btn-sm btn-warning" title="Reply">
+                                <i class="fas fa-reply"></i>
+                            </a>
+                            <form method="POST"
+                                  action="{{ url_for('admin.sms_delete_thread', user_id=thread.user.id) }}"
+                                  onsubmit="return confirm('Delete all messages with {{ thread.user.first_name }} {{ thread.user.last_name }}? This cannot be undone.');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete conversation">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                    <!-- No results row (hidden by default) -->
+                    <div id="noResults" class="list-group-item text-center text-muted py-4" style="display:none;">
+                        <i class="fas fa-search fa-lg mb-2 d-block opacity-50"></i>
+                        No conversations match your search.
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> No conversations yet. Messages will appear here once customers start replying.
+            </div>
+            {% endif %}
+
+            {% if unknown_msgs %}
+            <div class="card shadow-sm">
+                <div class="card-header bg-secondary text-white">
+                    <strong><i class="fas fa-question-circle me-1"></i> Unknown Senders (no matching account)</strong>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for msg in unknown_msgs %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="fw-bold">{{ msg.from_number }}</span>
+                                <div class="text-muted small mt-1">{{ msg.body }}</div>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="text-muted small">{{ msg.created_at.strftime('%m/%d %I:%M %p') }}</span>
+                                <form method="POST"
+                                      action="{{ url_for('admin.sms_delete_unknown', msg_id=msg.id) }}"
+                                      onsubmit="return confirm('Delete this message from {{ msg.from_number }}?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+
+<!-- ── Ad-hoc Message Modal ── -->
+<div class="modal fade" id="adhocModal" tabindex="-1" aria-labelledby="adhocModalLabel">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#1a1a2e;">
+                <h5 class="modal-title text-white fw-bold" id="adhocModalLabel">
+                    <i class="fas fa-paper-plane me-2 text-success"></i>New Message
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.sms_adhoc') }}" id="adhocForm">
+                <div class="modal-body">
+
+                    <!-- Customer search / select -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">To <span class="text-danger">*</span></label>
+                        <input type="text" id="customerSearch" class="form-control mb-1"
+                               placeholder="Search by name or phone…" autocomplete="off">
+                        <div id="customerDropdown"
+                             class="border rounded bg-white shadow-sm"
+                             style="display:none;max-height:220px;overflow-y:auto;position:relative;z-index:9999;">
+                        </div>
+                        <!-- Hidden field that carries the real value -->
+                        <input type="hidden" name="user_id" id="selectedUserId" required>
+                        <div id="selectedCustomerBadge" class="mt-2" style="display:none;">
+                            <span class="badge bg-success fs-6 fw-normal px-3 py-2">
+                                <i class="fas fa-user me-1"></i>
+                                <span id="selectedCustomerName"></span>
+                                <button type="button" class="btn-close btn-close-white ms-2"
+                                        id="clearCustomer" style="font-size:0.65rem;"></button>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Message body -->
+                    <div class="mb-1">
+                        <label class="form-label fw-bold">Message <span class="text-danger">*</span></label>
+                        <textarea name="body" id="adhocBody" class="form-control" rows="4"
+                                  placeholder="Type your message…" maxlength="1600" required></textarea>
+                        <div class="d-flex justify-content-between mt-1">
+                            <div class="form-text text-muted">Max 1,600 characters.</div>
+                            <div class="form-text text-muted"><span id="charCount">0</span> / 1600</div>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success fw-bold" id="adhocSendBtn" disabled>
+                        <i class="fas fa-paper-plane me-1"></i>Send Message
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// ── Inbox search ────────────────────────────────────────────────────────────
+(function () {
+    var input     = document.getElementById('inboxSearch');
+    var clearBtn  = document.getElementById('inboxSearchClear');
+    var countEl   = document.getElementById('inboxSearchCount');
+    var threadCnt = document.getElementById('threadCount');
+    var noResults = document.getElementById('noResults');
+
+    if (!input) return;
+
+    input.addEventListener('input', function () {
+        var q     = this.value.trim().toLowerCase();
+        var items = document.querySelectorAll('.thread-item');
+        var shown = 0;
+
+        items.forEach(function (el) {
+            var name  = (el.dataset.name  || '').toLowerCase();
+            var phone = (el.dataset.phone || '').toLowerCase();
+            var body  = (el.dataset.body  || '').toLowerCase();
+            var match = !q || name.includes(q) || phone.includes(q) || body.includes(q);
+            if (match) { el.classList.remove('d-none'); } else { el.classList.add('d-none'); }
+            if (match) shown++;
+        });
+
+        clearBtn.style.display  = q ? '' : 'none';
+        noResults.style.display = (q && shown === 0) ? '' : 'none';
+
+        if (q) {
+            countEl.style.display = '';
+            countEl.textContent   = shown + ' conversation' + (shown !== 1 ? 's' : '') + ' found';
+            if (threadCnt) threadCnt.textContent = shown;
+        } else {
+            countEl.style.display = 'none';
+            if (threadCnt) threadCnt.textContent = items.length;
+        }
+    });
+
+    clearBtn.addEventListener('click', function () {
+        input.value = '';
+        input.dispatchEvent(new Event('input'));
+        input.focus();
+    });
+})();
+
+// ── Ad-hoc message modal ────────────────────────────────────────────────────
+(function () {
+    var searchInput  = document.getElementById('customerSearch');
+    var dropdown     = document.getElementById('customerDropdown');
+    var hiddenInput  = document.getElementById('selectedUserId');
+    var badge        = document.getElementById('selectedCustomerBadge');
+    var badgeName    = document.getElementById('selectedCustomerName');
+    var clearBtn     = document.getElementById('clearCustomer');
+    var sendBtn      = document.getElementById('adhocSendBtn');
+    var bodyTA       = document.getElementById('adhocBody');
+    var charCount    = document.getElementById('charCount');
+
+    // All customers passed from the template as JSON
+    var customers = {{ customers_json | safe }};
+
+    function updateSendBtn() {
+        sendBtn.disabled = !(hiddenInput.value && bodyTA.value.trim());
+    }
+
+    // Character counter
+    bodyTA.addEventListener('input', function () {
+        charCount.textContent = this.value.length;
+        updateSendBtn();
+    });
+
+    // Filter customers as user types
+    searchInput.addEventListener('input', function () {
+        var q = this.value.trim().toLowerCase();
+        if (!q) { dropdown.style.display = 'none'; return; }
+
+        var results = customers.filter(function (c) {
+            return c.name.toLowerCase().includes(q) || (c.phone && c.phone.includes(q));
+        }).slice(0, 10);
+
+        if (!results.length) {
+            dropdown.innerHTML = '<div class="px-3 py-2 text-muted small">No customers found.</div>';
+        } else {
+            dropdown.innerHTML = results.map(function (c) {
+                return '<div class="px-3 py-2 customer-option" style="cursor:pointer;" ' +
+                       'data-id="' + c.id + '" data-name="' + c.name + '">' +
+                       '<strong>' + c.name + '</strong>' +
+                       (c.phone ? '<span class="text-muted small ms-2">' + c.phone + '</span>' : '') +
+                       (c.sms_opt_in ? '' : ' <span class="badge bg-warning text-dark ms-1" style="font-size:0.65rem;">No SMS opt-in</span>') +
+                       '</div>';
+            }).join('');
+        }
+        dropdown.style.display = '';
+
+        // Hover highlight
+        dropdown.querySelectorAll('.customer-option').forEach(function (el) {
+            el.addEventListener('mouseenter', function () { this.style.background = '#f8f9fa'; });
+            el.addEventListener('mouseleave', function () { this.style.background = ''; });
+            el.addEventListener('click', function () {
+                selectCustomer(this.dataset.id, this.dataset.name);
+            });
+        });
+    });
+
+    function selectCustomer(id, name) {
+        hiddenInput.value        = id;
+        badgeName.textContent    = name;
+        badge.style.display      = '';
+        searchInput.style.display = 'none';
+        dropdown.style.display   = 'none';
+        updateSendBtn();
+    }
+
+    clearBtn.addEventListener('click', function () {
+        hiddenInput.value         = '';
+        searchInput.value         = '';
+        searchInput.style.display = '';
+        badge.style.display       = 'none';
+        searchInput.focus();
+        updateSendBtn();
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function (e) {
+        if (!dropdown.contains(e.target) && e.target !== searchInput) {
+            dropdown.style.display = 'none';
+        }
+    });
+
+    // Reset modal state when it closes
+    document.getElementById('adhocModal').addEventListener('hidden.bs.modal', function () {
+        hiddenInput.value         = '';
+        searchInput.value         = '';
+        searchInput.style.display = '';
+        badge.style.display       = 'none';
+        bodyTA.value              = '';
+        charCount.textContent     = '0';
+        dropdown.style.display    = 'none';
+        updateSendBtn();
+    });
+})();
+</script>
+
+{% endblock %}

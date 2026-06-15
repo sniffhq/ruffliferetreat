@@ -1,0 +1,369 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<!-- Hero Carousel Section -->
+<div id="daycareCarousel" class="carousel slide carousel-fade" data-bs-ride="carousel">
+    <div class="carousel-indicators">
+        <button type="button" data-bs-target="#daycareCarousel" data-bs-slide-to="0" class="active"></button>
+        <button type="button" data-bs-target="#daycareCarousel" data-bs-slide-to="1"></button>
+        <button type="button" data-bs-target="#daycareCarousel" data-bs-slide-to="2"></button>
+        <button type="button" data-bs-target="#daycareCarousel" data-bs-slide-to="3"></button>
+    </div>
+    <div class="carousel-inner">
+        <div class="carousel-item active">
+            <img src="{{ url_for('static', filename='img/daycare1.jpg') }}" class="d-block w-100" alt="Play Time">
+            <div class="carousel-overlay"></div>
+        </div>
+        <div class="carousel-item">
+            <img src="{{ url_for('static', filename='img/daycare2.jpg') }}" class="d-block w-100" alt="Group Play">
+            <div class="carousel-overlay"></div>
+        </div>
+        <div class="carousel-item">
+            <img src="{{ url_for('static', filename='img/daycare3.jpg') }}" class="d-block w-100" alt="Indoor Activities">
+            <div class="carousel-overlay"></div>
+        </div>
+        <div class="carousel-item">
+            <img src="{{ url_for('static', filename='img/daycare4.jpg') }}" class="d-block w-100" alt="Outdoor Fun">
+            <div class="carousel-overlay"></div>
+        </div>
+    </div>
+    
+    <!-- Hero Content Overlay -->
+    <div class="hero-content-overlay">
+        <div class="container text-center text-white">
+            <h1 class="display-3 fw-bold mb-4 hero-title">Dog Daycare</h1>
+            <p class="lead mb-4 hero-subtitle">Fun, safe, and supervised playtime for your pup</p>
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('customer.dashboard') }}" class="btn btn-light btn-lg me-3">
+                    <i class="fas fa-tachometer-alt"></i> Go to Dashboard
+                </a>
+                <a href="{{ url_for('customer.book_appointment') }}" class="btn btn-primary btn-lg">
+                    <i class="fas fa-calendar-plus"></i> Book Daycare
+                </a>
+            {% else %}
+                <a href="{{ url_for('auth.register') }}" class="btn btn-light btn-lg me-3">
+                    <i class="fas fa-user-plus"></i> Register Now
+                </a>
+                <a href="{{ url_for('auth.login') }}" class="btn btn-outline-light btn-lg">
+                    <i class="fas fa-sign-in-alt"></i> Login
+                </a>
+            {% endif %}
+        </div>
+    </div>
+    
+    <button class="carousel-control-prev" type="button" data-bs-target="#daycareCarousel" data-bs-slide="prev">
+        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+        <span class="visually-hidden">Previous</span>
+    </button>
+    <button class="carousel-control-next" type="button" data-bs-target="#daycareCarousel" data-bs-slide="next">
+        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+        <span class="visually-hidden">Next</span>
+    </button>
+</div>
+
+<!-- Benefits Section -->
+<div class="container my-5">
+    <div class="row text-center mb-5">
+        <div class="col">
+            <h2 class="display-5 mb-4">Why Daycare?</h2>
+            <p class="lead text-muted">More than just a place to play - it's a daily adventure!</p>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-md-3">
+            <div class="benefit-card">
+                <i class="fas fa-users fa-3x text-primary mb-3"></i>
+                <h4>Socialization</h4>
+                <p>Helps your dog develop healthy social skills with other dogs in a supervised environment</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="benefit-card">
+                <i class="fas fa-dumbbell fa-3x text-success mb-3"></i>
+                <h4>Exercise</h4>
+                <p>Active play sessions keep your dog physically fit and mentally stimulated throughout the day</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="benefit-card">
+                <i class="fas fa-brain fa-3x text-info mb-3"></i>
+                <h4>Mental Stimulation</h4>
+                <p>Prevents boredom and reduces destructive behaviors at home through engaging activities</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="benefit-card">
+                <i class="fas fa-smile-beam fa-3x text-warning mb-3"></i>
+                <h4>Happy Pet</h4>
+                <p>A tired dog is a happy dog! Your pup goes home content and well-exercised</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Daily Schedule -->
+<div class="bg-light py-5">
+    <div class="container">
+        <h3 class="text-center mb-5">A Day in the Life at Daycare</h3>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="schedule-card">
+                    <div class="time-badge">7:00 AM - 9:00 AM</div>
+                    <h5><i class="fas fa-door-open text-primary"></i> Morning Drop-off & Assessment</h5>
+                    <p>Health check and grouping by size and temperament</p>
+                </div>
+                <div class="schedule-card">
+                    <div class="time-badge">9:00 AM - 11:00 AM</div>
+                    <h5><i class="fas fa-running text-success"></i> Active Play Session</h5>
+                    <p>High-energy playtime in our indoor/outdoor play areas</p>
+                </div>
+                <div class="schedule-card">
+                    <div class="time-badge">11:00 AM - 12:00 PM</div>
+                    <h5><i class="fas fa-bed text-info"></i> Rest & Relaxation</h5>
+                    <p>Quiet time with soft music and individual rest areas</p>
+                </div>
+                <div class="schedule-card">
+                    <div class="time-badge">12:00 PM - 1:00 PM</div>
+                    <h5><i class="fas fa-bone text-warning"></i> Lunch & Treats</h5>
+                    <p>Optional meal service and healthy snack time</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="schedule-card">
+                    <div class="time-badge">1:00 PM - 3:00 PM</div>
+                    <h5><i class="fas fa-gamepad text-danger"></i> Enrichment Activities</h5>
+                    <p>Puzzle toys, training games, and structured play</p>
+                </div>
+                <div class="schedule-card">
+                    <div class="time-badge">3:00 PM - 5:00 PM</div>
+                    <h5><i class="fas fa-futbol text-primary"></i> Afternoon Play</h5>
+                    <p>Group play and individual attention from staff</p>
+                </div>
+                <div class="schedule-card">
+                    <div class="time-badge">5:00 PM - 6:00 PM</div>
+                    <h5><i class="fas fa-water text-info"></i> Cool Down</h5>
+                    <p>Calm activities, water breaks, and preparation for pickup</p>
+                </div>
+                <div class="schedule-card">
+                    <div class="time-badge">6:00 PM - 7:00 PM</div>
+                    <h5><i class="fas fa-home text-success"></i> Evening Pickup</h5>
+                    <p>Report card summary of your dog's day</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Safety & Requirements -->
+<div class="container my-5">
+    <div class="row">
+        <div class="col-md-6">
+            <h3 class="mb-4"><i class="fas fa-shield-alt text-primary"></i> Safety First</h3>
+            <ul class="safety-list">
+                <li><i class="fas fa-check-circle text-success"></i> Dogs grouped by size, age, and play style</li>
+                <li><i class="fas fa-check-circle text-success"></i> Trained staff supervising at all times</li>
+                <li><i class="fas fa-check-circle text-success"></i> Indoor and outdoor play areas</li>
+                <li><i class="fas fa-check-circle text-success"></i> Climate-controlled environment</li>
+                <li><i class="fas fa-check-circle text-success"></i> First aid certified staff on site</li>
+                <li><i class="fas fa-check-circle text-success"></i> Emergency vet partnership</li>
+                <li><i class="fas fa-check-circle text-success"></i> Secure fencing and double-gate entry</li>
+            </ul>
+        </div>
+        <div class="col-md-6">
+            <h3 class="mb-4"><i class="fas fa-clipboard-check text-info"></i> Requirements</h3>
+            <ul class="safety-list">
+                <li><i class="fas fa-syringe text-primary"></i> Current vaccinations (Rabies, DHPP, Bordetella)</li>
+                <li><i class="fas fa-notes-medical text-primary"></i> Flea and tick prevention</li>
+                <li><i class="fas fa-paw text-primary"></i> Spayed/neutered (6 months and older)</li>
+                <li><i class="fas fa-heartbeat text-primary"></i> Temperament evaluation required</li>
+                <li><i class="fas fa-birthday-cake text-primary"></i> Minimum age: 4 months old</li>
+                <li><i class="fas fa-ban text-primary"></i> Must be non-aggressive and social</li>
+            </ul>
+            <div class="alert alert-info mt-4">
+                <strong><i class="fas fa-info-circle"></i> First Timer?</strong> We offer a FREE trial day so your pup can make sure they love it here!
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pricing -->
+<div class="bg-primary text-white py-5">
+    <div class="container text-center">
+        <h3 class="mb-4">Daycare Pricing</h3>
+        <div class="row justify-content-center">
+            <div class="col-md-3">
+                <div class="pricing-box">
+                    <h4>Single Day</h4>
+                    <div class="price">$35</div>
+                    <p>Perfect for occasional visits</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="pricing-box featured">
+                    <div class="badge-popular">MOST POPULAR</div>
+                    <h4>5-Day Package</h4>
+                    <div class="price">$150</div>
+                    <p>Save $25!</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="pricing-box">
+                    <h4>10-Day Package</h4>
+                    <div class="price">$280</div>
+                    <p>Save $70!</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="pricing-box">
+                    <h4>Monthly Unlimited</h4>
+                    <div class="price">$500</div>
+                    <p>Best value for regulars!</p>
+                </div>
+            </div>
+        </div>
+        <div class="mt-4">
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('customer.book_appointment') }}" class="btn btn-light btn-lg">
+                    <i class="fas fa-calendar-plus"></i> Book Daycare
+                </a>
+            {% else %}
+                <a href="{{ url_for('auth.register') }}" class="btn btn-light btn-lg">
+                    <i class="fas fa-user-plus"></i> Get Started Today
+                </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.carousel {
+    height: 600px;
+    position: relative;
+}
+
+.carousel-item {
+    height: 600px;
+}
+
+.carousel-item img {
+    height: 600px;
+    object-fit: cover;
+    object-position: center;
+}
+
+.carousel-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 1;
+}
+
+.hero-content-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+    width: 100%;
+}
+
+.hero-title {
+    text-shadow: 2px 2px 8px rgba(0,0,0,0.8);
+}
+
+.hero-subtitle {
+    text-shadow: 1px 1px 4px rgba(0,0,0,0.8);
+}
+
+.carousel-control-prev,
+.carousel-control-next {
+    z-index: 11;
+}
+
+.benefit-card {
+    text-align: center;
+    padding: 30px;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    height: 100%;
+    transition: transform 0.3s ease;
+}
+
+.benefit-card:hover {
+    transform: translateY(-10px);
+}
+
+.schedule-card {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.time-badge {
+    display: inline-block;
+    background: #6366f1;
+    color: white;
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.safety-list {
+    list-style: none;
+    padding: 0;
+}
+
+.safety-list li {
+    padding: 10px 0;
+    font-size: 1.1rem;
+}
+
+.safety-list i {
+    margin-right: 10px;
+}
+
+.pricing-box {
+    background: white;
+    color: #333;
+    padding: 30px;
+    border-radius: 15px;
+    margin: 10px;
+    position: relative;
+}
+
+.pricing-box.featured {
+    background: #FFC107;
+    transform: scale(1.05);
+}
+
+.badge-popular {
+    position: absolute;
+    top: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #ff4444;
+    color: white;
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.pricing-box .price {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #6366f1;
+    margin: 20px 0;
+}
+</style>
+{% endblock %}
+
+

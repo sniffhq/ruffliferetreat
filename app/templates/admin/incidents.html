@@ -1,0 +1,252 @@
+﻿{% extends "base.html" %}
+{% block title %}Incidents — Ruff Life Retreat{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0"><i class="fas fa-exclamation-triangle me-2 text-danger"></i>Incident Log</h2>
+            <div class="text-muted small">Record and track incidents involving pets in care</div>
+        </div>
+        <button class="btn btn-danger fw-bold"
+                data-bs-toggle="modal" data-bs-target="#logIncidentModal">
+            <i class="fas fa-plus me-2"></i>Log Incident
+        </button>
+    </div>
+
+    <!-- Stats row -->
+    <div class="row g-3 mb-4">
+        {% set open_incidents = incidents|selectattr('status','eq','open')|list %}
+        {% set serious = incidents|selectattr('severity','in',['serious','critical'])|selectattr('status','eq','open')|list %}
+        <div class="col-md-3">
+            <div class="card shadow-sm text-center p-3">
+                <div class="fs-2 fw-bold text-danger">{{ open_incidents|length }}</div>
+                <div class="text-muted small">Open Incidents</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm text-center p-3">
+                <div class="fs-2 fw-bold text-dark">{{ serious|length }}</div>
+                <div class="text-muted small">Serious / Critical (Open)</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm text-center p-3">
+                <div class="fs-2 fw-bold text-secondary">{{ incidents|selectattr('status','eq','resolved')|list|length }}</div>
+                <div class="text-muted small">Resolved</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm text-center p-3">
+                <div class="fs-2 fw-bold text-primary">{{ incidents|length }}</div>
+                <div class="text-muted small">Total on Record</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body py-2">
+            <div class="d-flex gap-2 flex-wrap align-items-center">
+                <span class="text-muted small fw-bold me-1">Filter:</span>
+                <a href="{{ url_for('admin.incidents', status='all', severity=severity_filter) }}"
+                   class="btn btn-sm {% if status_filter == 'all' %}btn-dark{% else %}btn-outline-secondary{% endif %}">All</a>
+                <a href="{{ url_for('admin.incidents', status='open', severity=severity_filter) }}"
+                   class="btn btn-sm {% if status_filter == 'open' %}btn-danger{% else %}btn-outline-danger{% endif %}">Open</a>
+                <a href="{{ url_for('admin.incidents', status='resolved', severity=severity_filter) }}"
+                   class="btn btn-sm {% if status_filter == 'resolved' %}btn-success{% else %}btn-outline-success{% endif %}">Resolved</a>
+                <span class="text-muted mx-2">|</span>
+                <a href="{{ url_for('admin.incidents', status=status_filter, severity='all') }}"
+                   class="btn btn-sm {% if severity_filter == 'all' %}btn-dark{% else %}btn-outline-secondary{% endif %}">All Severities</a>
+                <a href="{{ url_for('admin.incidents', status=status_filter, severity='minor') }}"
+                   class="btn btn-sm {% if severity_filter == 'minor' %}btn-success{% else %}btn-outline-success{% endif %}">Minor</a>
+                <a href="{{ url_for('admin.incidents', status=status_filter, severity='moderate') }}"
+                   class="btn btn-sm {% if severity_filter == 'moderate' %}btn-warning text-dark{% else %}btn-outline-warning{% endif %}">Moderate</a>
+                <a href="{{ url_for('admin.incidents', status=status_filter, severity='serious') }}"
+                   class="btn btn-sm {% if severity_filter == 'serious' %}btn-danger{% else %}btn-outline-danger{% endif %}">Serious</a>
+                <a href="{{ url_for('admin.incidents', status=status_filter, severity='critical') }}"
+                   class="btn btn-sm {% if severity_filter == 'critical' %}btn-dark{% else %}btn-outline-dark{% endif %}">Critical</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Incidents table -->
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            {% if incidents %}
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-3">#</th>
+                        <th>Date & Time</th>
+                        <th>Pet</th>
+                        <th>Type</th>
+                        <th>Severity</th>
+                        <th>Reported By</th>
+                        <th>Owner Notified</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inc in incidents %}
+                    <tr class="{% if inc.severity in ['serious','critical'] and inc.status == 'open' %}table-danger{% endif %}">
+                        <td class="ps-3 text-muted small">#{{ inc.id }}</td>
+                        <td style="font-size:0.85rem;">
+                            {{ inc.incident_date.strftime('%b %d, %Y') }}<br>
+                            <span class="text-muted">{{ inc.incident_date.strftime('%I:%M %p') }}</span>
+                        </td>
+                        <td>
+                            <strong>{{ inc.pet.name }}</strong>
+                            <div class="text-muted small">{{ inc.pet.breed or 'Dog' }}</div>
+                        </td>
+                        <td>{{ inc.type_label }}</td>
+                        <td>
+                            <span class="badge bg-{{ inc.severity_color }}
+                                {% if inc.severity == 'moderate' %}text-dark{% endif %}">
+                                {{ inc.severity|title }}
+                            </span>
+                        </td>
+                        <td class="small">{{ inc.reporter.first_name ~ ' ' ~ inc.reporter.last_name if inc.reporter else '—' }}</td>
+                        <td class="text-center">
+                            {% if inc.owner_notified %}
+                            <i class="fas fa-check-circle text-success"></i>
+                            {% else %}
+                            <i class="fas fa-times-circle text-muted"></i>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge {% if inc.status == 'open' %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                                {{ inc.status|title }}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('admin.incident_detail', incident_id=inc.id) }}"
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-shield-alt fa-3x mb-3 d-block opacity-25"></i>
+                <p>No incidents on record{% if severity_filter != 'all' or status_filter != 'all' %} matching these filters{% endif %}.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Log Incident Modal -->
+<div class="modal fade" id="logIncidentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Log an Incident
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.log_incident') }}">
+                <div class="modal-body">
+                    <div class="row g-3">
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Pet <span class="text-danger">*</span></label>
+                            <select name="pet_id" class="form-select" required>
+                                <option value="">— Select pet —</option>
+                                {% for pet in all_pets %}
+                                <option value="{{ pet.id }}">
+                                    {{ pet.name }} ({{ pet.owner.first_name }} {{ pet.owner.last_name }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Incident Type <span class="text-danger">*</span></label>
+                            <select name="incident_type" class="form-select" required>
+                                <option value="">— Select type —</option>
+                                <option value="injury">Injury</option>
+                                <option value="fight">Fight / Altercation</option>
+                                <option value="escape_attempt">Escape Attempt</option>
+                                <option value="illness">Illness</option>
+                                <option value="medication_error">Medication Error</option>
+                                <option value="behavioral">Behavioral Issue</option>
+                                <option value="property_damage">Property Damage</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Severity <span class="text-danger">*</span></label>
+                            <select name="severity" class="form-select" required>
+                                <option value="minor">Minor</option>
+                                <option value="moderate">Moderate</option>
+                                <option value="serious">Serious</option>
+                                <option value="critical">Critical</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Date</label>
+                            <input type="date" name="incident_date" class="form-control"
+                                   value="{{ now.strftime('%Y-%m-%d') }}">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Time</label>
+                            <input type="time" name="incident_time" class="form-control"
+                                   value="{{ now.strftime('%H:%M') }}">
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Description <span class="text-danger">*</span></label>
+                            <textarea name="description" class="form-control" rows="3"
+                                      placeholder="Describe exactly what happened, where, and who was involved..."
+                                      required></textarea>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Action Taken</label>
+                            <textarea name="action_taken" class="form-control" rows="2"
+                                      placeholder="What steps were taken immediately after the incident?"></textarea>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox"
+                                       name="notify_owner" id="notify_owner" value="1">
+                                <label class="form-check-label" for="notify_owner">
+                                    <strong>Notify the pet owner via SMS</strong>
+                                    <span class="text-muted small d-block">
+                                        Sends an SMS to the owner describing the incident and severity.
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger fw-bold">
+                        <i class="fas fa-exclamation-triangle me-1"></i>Log Incident
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Pass now for default date/time
+</script>
+{% endblock %}
+

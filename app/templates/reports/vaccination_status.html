@@ -1,0 +1,231 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Vaccination Status Report - Ruff Life Retreat{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="fas fa-syringe"></i> Vaccination Status Report</h1>
+        <a href="{{ url_for('reports.reports_dashboard') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fas fa-filter"></i> Filters</h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('reports.vaccination_status_report') }}" class="row g-3">
+                <div class="col-md-3">
+                    <label for="start_date" class="form-label">Start Date</label>
+                    <input type="date" class="form-control" id="start_date" name="start_date" 
+                           value="{{ start_date }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="end_date" class="form-label">End Date</label>
+                    <input type="date" class="form-control" id="end_date" name="end_date" 
+                           value="{{ end_date }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="status" class="form-label">Status Filter</label>
+                    <select class="form-select" id="status" name="status">
+                        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Pets</option>
+                        <option value="expired" {% if status_filter == 'expired' %}selected{% endif %}>Expired Only</option>
+                        <option value="expiring" {% if status_filter == 'expiring' %}selected{% endif %}>Expiring Soon</option>
+                        <option value="current" {% if status_filter == 'current' %}selected{% endif %}>Current Only</option>
+                        <option value="missing" {% if status_filter == 'missing' %}selected{% endif %}>Missing Required</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="days" class="form-label">Days Threshold</label>
+                    <input type="number" class="form-control" id="days" name="days" 
+                           value="{{ days_threshold }}" min="1" max="365">
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search"></i> Filter
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Summary Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-primary">{{ summary.total_pets }}</h3>
+                    <p class="mb-0">Total Pets</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-danger">{{ summary.expired_count }}</h3>
+                    <p class="mb-0">Expired Vaccinations</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-warning">{{ summary.expiring_count }}</h3>
+                    <p class="mb-0">Expiring Soon</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-success">{{ summary.current_count }}</h3>
+                    <p class="mb-0">Current</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+<!-- Export Buttons Section -->
+<div class="row mb-3">
+    <div class="col">
+        <div class="btn-group" role="group">
+            <!-- Existing CSV export button -->
+            <a href="{{ url_for('reports.export_vaccination_csv') }}" 
+               class="btn btn-success">
+                <i class="fas fa-file-csv"></i> Export CSV
+            </a>
+            
+            <!-- NEW: Images export button -->
+            <a href="{{ url_for('reports.export_vaccination_images', status=status_filter, days=days_threshold) }}" 
+               class="btn btn-primary">
+                <i class="fas fa-file-archive"></i> Export Images (ZIP)
+            </a>
+        </div>
+        <small class="text-muted ms-3">
+            Exports respect your current filter selections
+        </small>
+    </div>
+</div>
+
+
+    <!-- Vaccination Records Table -->
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Vaccination Records</h5>
+        </div>
+        <div class="card-body">
+            {% if pet_vaccination_data %}
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Owner</th>
+                            <th>Pet Name</th>
+                            <th>Breed</th>
+                            <th>Vaccine</th>
+                            <th>Vaccination Date</th>
+                            <th>Expiration Date</th>
+                            <th>Days Until Expiration</th>
+                            <th>Status</th>
+                            <th>Veterinarian</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pet_id, data in pet_vaccination_data.items() %}
+                            {% set pet = data.pet %}
+                            {% set owner = data.owner %}
+                            {% set vaccinations = data.vaccinations %}
+                            
+                            {% if vaccinations %}
+                                {% for vax_data in vaccinations %}
+                                <tr class="
+                                    {% if vax_data.is_expired %}table-danger
+                                    {% elif vax_data.days_until_expiration <= days_threshold %}table-warning
+                                    {% else %}table-success{% endif %}">
+                                    <td>{{ owner.last_name }}, {{ owner.first_name }}</td>
+                                    <td><strong>{{ pet.name }}</strong></td>
+                                    <td>{{ pet.breed or 'N/A' }}</td>
+                                    <td>{{ vax_data.record.vaccine_name }}</td>
+                                    <td>{{ vax_data.record.vaccination_date.strftime('%m/%d/%Y') }}</td>
+                                    <td>{{ vax_data.record.expiration_date.strftime('%m/%d/%Y') }}</td>
+                                    <td>
+                                        {% if vax_data.is_expired %}
+                                            <span class="badge bg-danger">Expired</span>
+                                        {% else %}
+                                            {{ vax_data.days_until_expiration }} days
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if vax_data.is_expired %}
+                                            <span class="badge bg-danger">Expired</span>
+                                        {% elif vax_data.days_until_expiration <= days_threshold %}
+                                            <span class="badge bg-warning text-dark">Expiring Soon</span>
+                                        {% else %}
+                                            <span class="badge bg-success">Current</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ vax_data.record.veterinarian or 'N/A' }}</td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr class="table-secondary">
+                                    <td>{{ owner.last_name }}, {{ owner.first_name }}</td>
+                                    <td><strong>{{ pet.name }}</strong></td>
+                                    <td>{{ pet.breed or 'N/A' }}</td>
+                                    <td colspan="6">
+                                        <span class="badge bg-secondary">No Vaccination Records</span>
+                                        {% if data.missing_required %}
+                                            <span class="text-danger ms-2">
+                                                Missing: {{ data.missing_required|join(', ') }}
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> No vaccination records found for the selected criteria.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="card mt-3">
+        <div class="card-body">
+            <h6>Status Legend:</h6>
+            <span class="badge bg-danger me-2">Expired</span> Vaccination has expired
+            <span class="badge bg-warning text-dark me-2 ms-3">Expiring Soon</span> Expires within {{ days_threshold }} days
+            <span class="badge bg-success me-2 ms-3">Current</span> Vaccination is current
+            <span class="badge bg-secondary ms-3">No Records</span> No vaccination records on file
+        </div>
+    </div>
+</div>
+
+<style>
+@media print {
+    .btn, .card-header, nav, footer {
+        display: none !important;
+    }
+    
+    .card {
+        border: 1px solid #000 !important;
+        page-break-inside: avoid;
+    }
+    
+    table {
+        font-size: 10pt;
+    }
+}
+</style>
+{% endblock %}
+
+

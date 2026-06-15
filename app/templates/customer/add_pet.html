@@ -1,0 +1,51 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="card-title">Add New Pet</h2>
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Pet Name</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="breed" class="form-label">Breed</label>
+                            <input type="text" class="form-control" id="breed" name="breed">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="age" class="form-label">Age</label>
+                            <input type="number" class="form-control" id="age" name="age">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="weight" class="form-label">Weight (lbs)</label>
+                            <input type="number" class="form-control" id="weight" name="weight" step="0.1">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="photo" class="form-label">Photo</label>
+                        <input type="file" class="form-control" id="photo" name="photo" accept="image/*">
+                    </div>
+                    <h4 class="mt-4">Veterinarian Information</h4>
+                    <div class="mb-3">
+                        <label for="vet_name" class="form-label">Vet Name</label>
+                        <input type="text" class="form-control" id="vet_name" name="vet_name">
+                    </div>
+                    <div class="mb-3">
+                        <label for="vet_phone" class="form-label">Vet Phone</label>
+                        <input type="tel" class="form-control" id="vet_phone" name="vet_phone">
+                    </div>
+                    <div class="mb-3">
+                        <label for="medical_notes" class="form-label">Medical Notes</label>
+                        <textarea class="form-control" id="medical_notes" name="medical_notes" rows="3"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Pet</button>
+                    <a href="{{ url_for('customer.pets') }}" class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

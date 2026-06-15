@@ -1,0 +1,223 @@
+﻿{% extends "base.html" %}
+{% block title %}Satisfaction Surveys — Ruff Life Retreat{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0"><i class="fas fa-star me-2 text-warning"></i>Customer Satisfaction</h2>
+    </div>
+
+    <!-- Stats row -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card shadow-sm text-center h-100" style="border-top:4px solid #FFC107;">
+                <div class="card-body py-3">
+                    <div style="font-size:2rem;font-weight:800;color:#1a1a2e;">{{ avg_overall }}</div>
+                    <div class="text-warning" style="font-size:1.1rem;">
+                        {% for i in range(1,6) %}{% if i <= avg_overall|int %}★{% else %}☆{% endif %}{% endfor %}
+                    </div>
+                    <div class="text-muted small">Overall Rating</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card shadow-sm text-center h-100" style="border-top:4px solid #0d6efd;">
+                <div class="card-body py-3">
+                    <div style="font-size:2rem;font-weight:800;color:#1a1a2e;">{{ avg_comm }}</div>
+                    <div class="text-muted small mt-1">Communication Rating</div>
+                    <div class="text-muted small">Avg out of 5</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card shadow-sm text-center h-100" style="border-top:4px solid #198754;">
+                <div class="card-body py-3">
+                    <div style="font-size:2rem;font-weight:800;color:#1a1a2e;">{{ nps }}</div>
+                    <div class="text-muted small mt-1">Net Promoter Score</div>
+                    <div class="text-muted small">{{ promoters }} promoters, {{ detractors }} detractors</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card shadow-sm text-center h-100" style="border-top:4px solid #6c757d;">
+                <div class="card-body py-3">
+                    <div style="font-size:2rem;font-weight:800;color:#1a1a2e;">{{ total }}</div>
+                    <div class="text-muted small mt-1">Total Responses</div>
+                    <div class="text-muted small">{{ pending|length }} pending</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Left: Rating breakdown + by service -->
+        <div class="col-lg-4">
+
+            <!-- Rating breakdown -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light fw-bold">Rating Breakdown</div>
+                <div class="card-body">
+                    {% if total %}
+                    {% for i in range(5, 0, -1) %}
+                    {% set count = rating_counts.get(i, 0) %}
+                    {% set pct = ((count / total) * 100)|round|int %}
+                    <div class="d-flex align-items-center gap-2 mb-2" style="font-size:0.85rem;">
+                        <span style="min-width:16px;text-align:right;color:#888;">{{ i }}</span>
+                        <span class="text-warning">★</span>
+                        <div class="flex-grow-1 bg-light rounded" style="height:10px;">
+                            <div style="width:{{ pct }}%;height:10px;border-radius:4px;
+                                        background:{% if i >= 4 %}#198754{% elif i == 3 %}#FFC107{% else %}#dc3545{% endif %};"></div>
+                        </div>
+                        <span style="min-width:30px;color:#888;">{{ count }}</span>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <div class="text-muted text-center py-3 small">No responses yet.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- By service -->
+            {% if service_stats %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light fw-bold">By Service</div>
+                <div class="list-group list-group-flush">
+                    {% for svc, stats in service_stats.items() %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center py-2" style="font-size:0.85rem;">
+                        <span>{{ svc }}</span>
+                        <div class="text-end">
+                            <span class="text-warning">★</span>
+                            <strong>{{ stats.avg }}</strong>
+                            <span class="text-muted ms-1">({{ stats.count }})</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Customers not surveyed recently -->
+            {% if unsurveyed %}
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning text-dark fw-bold">
+                    <i class="fas fa-clock me-1"></i>Not Surveyed in 90+ Days
+                    <span class="badge bg-dark ms-1">{{ unsurveyed|length }}</span>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for u in unsurveyed[:8] %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center py-2" style="font-size:0.82rem;">
+                        <span>{{ u.first_name }} {{ u.last_name }}</span>
+                        <form method="POST" action="{{ url_for('admin.send_survey', user_id=u.id) }}">
+                            <input type="hidden" name="service_type" value="General">
+                            <button type="submit" class="btn btn-xs btn-outline-warning py-0 px-2"
+                                    style="font-size:0.72rem;">
+                                Send
+                            </button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                    {% if unsurveyed|length > 8 %}
+                    <div class="list-group-item text-muted small text-center py-2">
+                        +{{ unsurveyed|length - 8 }} more
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+
+        <!-- Right: Recent responses -->
+        <div class="col-lg-8">
+
+            <!-- Low rating alerts -->
+            {% set low_ratings = responses|selectattr('overall_rating', 'le', 2)|list %}
+            {% if low_ratings %}
+            <div class="card shadow-sm mb-4 border-danger">
+                <div class="card-header bg-danger text-white fw-bold">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Needs Attention — Low Ratings (1-2 Stars)
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for r in low_ratings[:5] %}
+                    <div class="list-group-item py-3">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="fw-bold">{{ r.user.first_name }} {{ r.user.last_name }}</div>
+                                <div class="text-muted small">
+                                    {{ r.service_type }} &bull; {{ r.submitted_at.strftime('%m/%d/%Y') }}
+                                </div>
+                                {% if r.comments %}
+                                <div class="mt-1" style="font-size:0.85rem;color:#555;">
+                                    "{{ r.comments }}"
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="text-end">
+                                <div style="color:#dc3545;font-size:1.1rem;">
+                                    {% for i in range(r.overall_rating) %}★{% endfor %}
+                                </div>
+                                <a href="{{ url_for('admin.customer_detail', customer_id=r.user_id) }}"
+                                   class="btn btn-sm btn-outline-danger mt-1 py-0" style="font-size:0.72rem;">
+                                    View Customer
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- All recent responses -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-light fw-bold">Recent Responses</div>
+                <div class="card-body p-0">
+                    {% if responses %}
+                    <div class="list-group list-group-flush">
+                        {% for r in responses[:15] %}
+                        <div class="list-group-item py-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                        <strong style="font-size:0.9rem;">{{ r.user.first_name }} {{ r.user.last_name }}</strong>
+                                        <span class="badge {% if r.service_type == 'Boarding' %}bg-primary{% elif r.service_type == 'Daycare' %}bg-warning text-dark{% else %}bg-secondary{% endif %}" style="font-size:0.7rem;">
+                                            {{ r.service_type or 'General' }}
+                                        </span>
+                                        {% if r.recommend == 'yes' %}
+                                        <span class="badge bg-success" style="font-size:0.7rem;">Recommends</span>
+                                        {% elif r.recommend == 'no' %}
+                                        <span class="badge bg-danger" style="font-size:0.7rem;">Doesn't Recommend</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="d-flex gap-3" style="font-size:0.78rem;color:#888;">
+                                        <span>Overall: <span style="color:#FFC107;">{% for i in range(r.overall_rating) %}★{% endfor %}</span></span>
+                                        <span>Comms: <span style="color:#FFC107;">{% for i in range(r.comm_rating) %}★{% endfor %}</span></span>
+                                    </div>
+                                    {% if r.comments %}
+                                    <div class="mt-1" style="font-size:0.85rem;color:#555;font-style:italic;">
+                                        "{{ r.comments }}"
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="text-muted small text-end" style="min-width:80px;">
+                                    {{ r.submitted_at.strftime('%m/%d/%Y') }}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="fas fa-star fa-3x mb-3 d-block opacity-25"></i>
+                        <p>No survey responses yet.</p>
+                        <p class="small">Surveys are sent automatically after boarding checkouts and every 5th daycare visit.<br>You can also send them manually from any customer profile.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+

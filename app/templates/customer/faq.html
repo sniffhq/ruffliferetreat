@@ -1,0 +1,502 @@
+﻿{% extends "base.html" %}
+{% block title %}FAQ — Ruff Life Retreat{% endblock %}
+{% block content %}
+<div class="container mt-4 mb-5" style="max-width:860px;">
+
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <div>
+            <h2 class="mb-0"><i class="fas fa-question-circle me-2 text-warning"></i>Frequently Asked Questions</h2>
+            <div class="text-muted small">Everything you need to know about Ruff Life Retreat</div>
+        </div>
+        {% if current_user.is_authenticated %}
+        <a href="{{ url_for('customer.dashboard') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i>Dashboard
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Quick jump links -->
+    <div class="d-flex flex-wrap gap-2 mb-4 mt-3">
+        {% for section in ['Getting Started', 'Daycare', 'Boarding', 'Vaccinations', 'Report Cards', 'Communication', 'Billing'] %}
+        <a href="#{{ section.lower().replace(' ', '-') }}"
+           class="btn btn-sm btn-outline-warning text-dark">{{ section }}</a>
+        {% endfor %}
+    </div>
+
+    <!-- ── GETTING STARTED ─────────────────────────────────────────────────── -->
+    <h5 id="getting-started" class="fw-bold mt-4 mb-3 pb-2 border-bottom">
+        <i class="fas fa-door-open me-2 text-warning"></i>Getting Started
+    </h5>
+
+    <div class="accordion mb-4" id="accGettingStarted">
+
+        <div class="accordion-item border-0 shadow-sm mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#gs1">
+                    How do I log in to my account?
+                </button>
+            </h2>
+            <div id="gs1" class="accordion-collapse collapse" data-bs-parent="#accGettingStarted">
+                <div class="accordion-body text-muted">
+                    Go to <strong>rufflife.app</strong> and click <strong>Login</strong>. Enter the email address and password you used when you registered. If you've forgotten your password, click <strong>Forgot Password</strong> on the login page and a reset link will be emailed to you. If you continue to have trouble, call us at <strong>(912) 648-2295</strong> and a staff member can reset it for you.
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item border-0 shadow-sm mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#gs2">
+                    How do I add my pet to my account?
+                </button>
+            </h2>
+            <div id="gs2" class="accordion-collapse collapse" data-bs-parent="#accGettingStarted">
+                <div class="accordion-body text-muted">
+                    After logging in, click <strong>My Pets</strong> in the navigation bar, then click <strong>Add a Pet</strong>. Fill in your pet's name, breed, age, weight, and vet information. You can also upload a photo and vaccination records during this step. Your pet's profile must be complete — including current vaccinations — before they can attend daycare or boarding.
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item border-0 shadow-sm mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#gs3">
+                    What information do I need before my pet's first visit?
+                </button>
+            </h2>
+            <div id="gs3" class="accordion-collapse collapse" data-bs-parent="#accGettingStarted">
+                <div class="accordion-body text-muted">
+                    Before your pet can join us, please make sure the following is on file:
+                    <ul class="mt-2">
+                        <li>Your pet's profile (name, breed, age, weight, gender)</li>
+                        <li>Your vet's name and phone number</li>
+                        <li>Current vaccination records — Rabies, DHPP, and Bordetella are all required</li>
+                        <li>Any medical notes, special instructions, or feeding requirements</li>
+                        <li>Your emergency contact information</li>
+                    </ul>
+                    Staff will verify all of this before your pet's first visit. Pets with expired or missing vaccinations cannot be admitted.
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item border-0 shadow-sm mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#gs4">
+                    How do I update my contact information?
+                </button>
+            </h2>
+            <div id="gs4" class="accordion-collapse collapse" data-bs-parent="#accGettingStarted">
+                <div class="accordion-body text-muted">
+                    Log in and go to your <strong>Dashboard</strong>. Scroll down to the <strong>My Profile</strong> section and click <strong>Edit Profile</strong>. You can update your phone number, address, and emergency contact there. Keeping your phone number current is especially important since we use SMS to keep you updated during your pet's stay.
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ── DAYCARE ──────────────────────────────────────────────────────────── -->
+    <h5 id="daycare" class="fw-bold mt-4 mb-3 pb-2 border-bottom">
+        <i class="fas fa-paw me-2 text-warning"></i>Daycare
+    </h5>
+
+    <div class="accordion mb-4" id="accDaycare">
+
+        <div class="accordion-item border-0 shadow-sm mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#dc1">
+                    What days and hours does daycare operate?
+                </button>
+            </h2>
+            <div id="dc1" class="accordion-collapse collapse" data-bs-parent="#accDaycare">
+                <div class="accordion-body text-muted">
+                    Daycare operates <strong>Monday through Thursday</strong>, with Friday reserved for trial days for new students only. Standard hours are <strong>7:00 AM to 3:30 PM</strong>. A late pickup option is available from 3:30 PM to 5:00 PM for an additional fee — pets not collected by 3:30 PM will transition to boarding.
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item border-0 shadow-sm mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#dc2">
+                    How does drop-off and pick-up work?
+                </button>
+            </h2>
+            <div id="dc2" class="accordion-collapse collapse" data-bs-parent="#accDaycare">
+                <div class="accordion-body text-muted">
+                    When you arrive, use the <strong>self-service kiosk</strong> at the front desk to check your pet in. Enter your last name and your pet's name to find your account, then tap <strong>Check In</strong>. You'll receive an SMS confirmation when your pet is checked in. The same process applies at pick-up — tap <strong>Check Out</strong> on the kiosk. If you have any trouble with the kiosk, a staff member is always available to help.
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item border-0 shadow-sm mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#dc3">
+                    How do I enroll my pet in daycare?
+                </button>
+            </h2>
+            <div id="dc3" class="accordion-collapse collapse" data-bs-parent="#accDaycare">
+                <div class="accordion-body text-muted">
+                    Daycare enrollment is handled by staff. You can join the waitlist through our website or by calling <strong>(912) 648-2295</strong>. Once a spot becomes available, we'll contact you to get your pet enrolled and schedule a trial day. Trial days are held on Fridays and give your pet a chance to meet the group before joining the regular schedule.
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item border-0 shadow-sm mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#dc4">
+                    How are pets grouped during daycare?
+                </button>
+            </h2>
+            <div id="dc4" class="accordion-collapse collapse" data-bs-parent="#accDaycare">
+                <div class="accordion-body text-muted">
+                    Pets are assigned to play groups based on their <strong>size</strong> (small, medium, large) and <strong>temperament</strong> (calm, energetic, or mixed). This ensures every dog is playing with compatible companions in a safe environment. If you have concerns about your pet's group assignment, please speak with a staff member.
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item border-0 shadow-sm mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#dc5">
+                    What if I need to change my pet's days?
+                </button>
+            </h2>
+            <div id="dc5" class="accordion-collapse collapse" data-bs-parent="#accDaycare">
+                <div class="accordion-body text-muted">
+                    Just give us a call at <strong>(912) 648-2295</strong> or send us a message and a staff member will update your pet's schedule. Changes can be made any time and take effect immediately. If your pet won't be attending on a day they're normally enrolled, please let us know as early as possible so we can plan accordingly.
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item border-0 shadow-sm mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#dc6">
+                    What is the late pickup policy?
+                </button>
+            </h2>
+            <div id="dc6" class="accordion-collapse collapse" data-bs-parent="#accDaycare">
+                <div class="accordion-body text-muted">
+                    Standard pick-up time is <strong>3:30 PM</strong>. If you're running late, please call us. Pets not collected by 3:30 PM will transition into boarding care, and a boarding fee will apply. We'll send you an SMS notification if this occurs.
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ── BOARDING ─────────────────────────────────────────────────────────── -->
+    <h5 id="boarding" class="fw-bold mt-4 mb-3 pb-2 border-bottom">
+        <i class="fas fa-hotel me-2 text-warning"></i>Boarding
+    </h5>
+
+    <div class="accordion mb-4" id="accBoarding">
+
+        <div class="accordion-item border-0 shadow-sm mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#bo1">
+                    How do I book a boarding reservation?
+                </button>
+            </h2>
+            <div id="bo1" class="accordion-collapse collapse" data-bs-parent="#accBoarding">
+                <div class="accordion-body text-muted">
+                    Log in to your account and click <strong>Book</strong> in the navigation bar. Select your pet (or multiple pets if you have more than one), enter your desired check-in date, drop-off time, check-out date, and preferred pick-up time, then click <strong>Submit Request</strong>. A staff member will review and confirm your reservation within 24 hours and you'll receive an SMS confirmation once it's approved.
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item border-0 shadow-sm mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#bo2">
+                    Can I board multiple pets at the same time?
+                </button>
+            </h2>
+            <div id="bo2" class="accordion-collapse collapse" data-bs-parent="#accBoarding">
+                <div class="accordion-body text-muted">
+                    Yes! When booking, you'll see checkboxes for each of your pets. Check all the pets you'd like to board together and submit a single request. Staff will confirm each pet's reservation and can house them in the same kennel or suite if you prefer — just mention it in your notes.
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item border-0 shadow-sm mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#bo3">
+                    What should I bring for a boarding stay?
+                </button>
+            </h2>
+            <div id="bo3" class="accordion-collapse collapse" data-bs-parent="#accBoarding">
+                <div class="accordion-body text-muted">
+                    To make your pet feel at home, you're welcome to bring:
+                    <ul class="mt-2">
+                        <li>Their regular food (pre-portioned if possible with feeding instructions)</li>
+                        <li>Any medications with clear dosage instructions</li>
+                        <li>A favourite toy or blanket that smells like home</li>
+                        <li>Treats (optional)</li>
+                    </ul>
+                    Please label all items with your pet's name. We provide bedding and bowls, so you don't need to bring those.
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item border-0 shadow-sm mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#bo4">
+                    How are medications handled during boarding?
+                </button>
+            </h2>
+            <div id="bo4" class="accordion-collapse collapse" data-bs-parent="#accBoarding">
+                <div class="accordion-body text-muted">
+                    Please bring all medications in their original containers with clear instructions — medication name, dosage, and schedule. Staff will administer medications as directed and log them in your pet's boarding care record. If there are any concerns about your pet's medications during their stay, we'll contact you right away.
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item border-0 shadow-sm mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#bo5">
+                    What are the check-in and check-out times?
+                </button>
+            </h2>
+            <div id="bo5" class="accordion-collapse collapse" data-bs-parent="#accBoarding">
+                <div class="accordion-body text-muted">
+                    Standard check-in is from <strong>8:00 AM to 10:00 AM</strong>. Standard check-out is by <strong>5:00 PM</strong>. When you book your reservation you can specify your preferred drop-off and pick-up times and we'll do our best to accommodate. If you need to arrange a time outside these windows, please call us at <strong>(912) 648-2295</strong>.
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ── VACCINATIONS ─────────────────────────────────────────────────────── -->
+    <h5 id="vaccinations" class="fw-bold mt-4 mb-3 pb-2 border-bottom">
+        <i class="fas fa-syringe me-2 text-warning"></i>Vaccinations
+    </h5>
+
+    <div class="accordion mb-4" id="accVaccinations">
+
+        <div class="accordion-item border-0 shadow-sm mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#vx1">
+                    Which vaccinations are required?
+                </button>
+            </h2>
+            <div id="vx1" class="accordion-collapse collapse" data-bs-parent="#accVaccinations">
+                <div class="accordion-body text-muted">
+                    All pets attending daycare or boarding must have current records on file for:
+                    <ul class="mt-2">
+                        <li><strong>Rabies</strong></li>
+                        <li><strong>DHPP</strong> (Distemper, Hepatitis, Parainfluenza, Parvovirus)</li>
+                        <li><strong>Bordetella</strong> (Kennel Cough)</li>
+                    </ul>
+                    Pets with expired or missing vaccinations will not be admitted. Please keep records up to date and upload new certificates as soon as they're available.
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item border-0 shadow-sm mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#vx2">
+                    How do I upload vaccination records?
+                </button>
+            </h2>
+            <div id="vx2" class="accordion-collapse collapse" data-bs-parent="#accVaccinations">
+                <div class="accordion-body text-muted">
+                    Log in and go to <strong>My Pets</strong>. Click on your pet's name to open their profile. Scroll to the <strong>Vaccination Records</strong> section and click <strong>Add Record</strong>. Enter the vaccine name, date given, expiration date, and vet/clinic name, then upload a photo or PDF of the certificate. You can upload records for each vaccine separately.
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item border-0 shadow-sm mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#vx3">
+                    What happens when a vaccination is about to expire?
+                </button>
+            </h2>
+            <div id="vx3" class="accordion-collapse collapse" data-bs-parent="#accVaccinations">
+                <div class="accordion-body text-muted">
+                    We'll send you an <strong>SMS reminder</strong> when a vaccination is approaching its expiration date — once at 30 days out and again at 7 days out. Please schedule your vet appointment and upload the updated certificate as soon as possible. If a vaccination expires before it's renewed, your pet will not be able to attend until the record is updated.
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ── REPORT CARDS ─────────────────────────────────────────────────────── -->
+    <h5 id="report-cards" class="fw-bold mt-4 mb-3 pb-2 border-bottom">
+        <i class="fas fa-clipboard-list me-2 text-warning"></i>Report Cards
+    </h5>
+
+    <div class="accordion mb-4" id="accReportCards">
+
+        <div class="accordion-item border-0 shadow-sm mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#rc1">
+                    What is a report card and when will I receive one?
+                </button>
+            </h2>
+            <div id="rc1" class="accordion-collapse collapse" data-bs-parent="#accReportCards">
+                <div class="accordion-body text-muted">
+                    A report card is a daily update from our staff about how your pet's day went. It covers mood, energy level, how well they played with other dogs, whether they stayed hydrated, and any notes from the team. For boarding guests it also includes appetite, sleep, and whether medications were given. You'll receive a text message with a link to view it — no login required.
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item border-0 shadow-sm mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#rc2">
+                    How do I view my pet's report card?
+                </button>
+            </h2>
+            <div id="rc2" class="accordion-collapse collapse" data-bs-parent="#accReportCards">
+                <div class="accordion-body text-muted">
+                    When a report card is ready, you'll receive an SMS with a direct link. Tap the link to open it — it works on any phone or browser and doesn't require you to log in. You can also view past report cards by logging in, going to your <strong>Dashboard</strong>, and scrolling to the <strong>Report Cards</strong> section.
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ── COMMUNICATION ────────────────────────────────────────────────────── -->
+    <h5 id="communication" class="fw-bold mt-4 mb-3 pb-2 border-bottom">
+        <i class="fas fa-sms me-2 text-warning"></i>Communication &amp; SMS
+    </h5>
+
+    <div class="accordion mb-4" id="accComms">
+
+        <div class="accordion-item border-0 shadow-sm mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#cm1">
+                    What kinds of text messages will I receive?
+                </button>
+            </h2>
+            <div id="cm1" class="accordion-collapse collapse" data-bs-parent="#accComms">
+                <div class="accordion-body text-muted">
+                    If you're opted in to SMS, you may receive:
+                    <ul class="mt-2">
+                        <li>Booking confirmations and cancellations</li>
+                        <li>Appointment reminders (24 hours before)</li>
+                        <li>Daycare check-in and check-out notifications</li>
+                        <li>Report card links</li>
+                        <li>Vaccination expiration reminders</li>
+                        <li>Direct replies from staff</li>
+                    </ul>
+                    All messages come from our Ruff Life Retreat number. You can reply directly to reach staff.
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item border-0 shadow-sm mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#cm2">
+                    How do I opt in or out of SMS notifications?
+                </button>
+            </h2>
+            <div id="cm2" class="accordion-collapse collapse" data-bs-parent="#accComms">
+                <div class="accordion-body text-muted">
+                    Log in and go to your <strong>Dashboard</strong>. Scroll to <strong>My Profile</strong> and click <strong>Edit Profile</strong>. You'll find an SMS opt-in checkbox there. Please note that opting out means you won't receive check-in/check-out alerts, vaccination reminders, or report card links.
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item border-0 shadow-sm mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#cm3">
+                    How do I get in touch with staff?
+                </button>
+            </h2>
+            <div id="cm3" class="accordion-collapse collapse" data-bs-parent="#accComms">
+                <div class="accordion-body text-muted">
+                    The easiest way to reach us is to <strong>reply to any text message</strong> you've received from us — your message goes directly to our staff inbox and we'll get back to you as soon as possible. You can also call us at <strong>(912) 648-2295</strong>. Our address is <strong>2945 Midland Rd., Guyton, GA 31312</strong>.
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ── BILLING ───────────────────────────────────────────────────────────── -->
+    <h5 id="billing" class="fw-bold mt-4 mb-3 pb-2 border-bottom">
+        <i class="fas fa-dollar-sign me-2 text-warning"></i>Billing &amp; Payments
+    </h5>
+
+    <div class="accordion mb-4" id="accBilling">
+
+        <div class="accordion-item border-0 shadow-sm mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#bi1">
+                    How are payments handled?
+                </button>
+            </h2>
+            <div id="bi1" class="accordion-collapse collapse" data-bs-parent="#accBilling">
+                <div class="accordion-body text-muted">
+                    Payment is collected at pick-up via our tap-to-pay system. We accept all major credit and debit cards. Please make sure your account is settled at the end of each visit. If you have any questions about a charge, please speak with a staff member or call <strong>(912) 648-2295</strong>.
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item border-0 shadow-sm mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#bi2">
+                    How do I view my payment history?
+                </button>
+            </h2>
+            <div id="bi2" class="accordion-collapse collapse" data-bs-parent="#accBilling">
+                <div class="accordion-body text-muted">
+                    Log in and go to your <strong>Dashboard</strong>. Scroll to the <strong>Payment History</strong> section to see a record of all payments on your account. You can also view a printable invoice by clicking <strong>View Invoice</strong> from the same section.
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item border-0 shadow-sm mb-2">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed fw-bold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#bi3">
+                    What if I have an outstanding balance?
+                </button>
+            </h2>
+            <div id="bi3" class="accordion-collapse collapse" data-bs-parent="#accBilling">
+                <div class="accordion-body text-muted">
+                    If you have an outstanding balance, a staff member will reach out to you. You can also call us at <strong>(912) 648-2295</strong> to arrange payment. Accounts with outstanding balances may not be able to book new services until the balance is cleared.
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Still have questions -->
+    <div class="card border-0 shadow-sm mt-2" style="background:#1a1a2e;">
+        <div class="card-body text-center py-4">
+            <i class="fas fa-headset fa-2x text-warning mb-2 d-block"></i>
+            <h5 class="text-white mb-1">Still have questions?</h5>
+            <p class="text-white-50 mb-3 small">We're always happy to help.</p>
+            <div class="d-flex justify-content-center gap-3 flex-wrap">
+                <a href="tel:9126482295" class="btn btn-warning text-dark fw-bold">
+                    <i class="fas fa-phone me-2"></i>(912) 648-2295
+                </a>
+                <a href="sms:+19125134498" class="btn btn-outline-warning">
+                    <i class="fas fa-sms me-2"></i>Send a Text
+                </a>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+

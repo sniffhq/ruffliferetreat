@@ -1,0 +1,113 @@
+﻿{% extends "base.html" %}
+{% block title %}{% if article %}Edit Article{% else %}New Article{% endif %} — Knowledge Base{% endblock %}
+{% block content %}
+<div class="container mt-4" style="max-width:860px;">
+
+    <!-- Header -->
+    <div class="d-flex align-items-center gap-3 mb-4">
+        <a href="{{ url_for('admin.kb_index') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-arrow-left"></i> Knowledge Base
+        </a>
+        <h4 class="mb-0">
+            {% if article %}
+                <i class="fas fa-pencil-alt me-2 text-warning"></i>Edit Article
+            {% else %}
+                <i class="fas fa-plus me-2 text-warning"></i>New Article
+            {% endif %}
+        </h4>
+    </div>
+
+    <form method="POST">
+        <div class="card shadow-sm mb-3">
+            <div class="card-body p-4">
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-8">
+                        <label class="form-label fw-bold">Title <span class="text-danger">*</span></label>
+                        <input type="text" name="title" class="form-control form-control-lg"
+                               value="{{ article.title if article else '' }}"
+                               placeholder="e.g. How to Check In a Daycare Pet" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Category <span class="text-danger">*</span></label>
+                        <select name="category" class="form-select form-select-lg" required>
+                            <option value="">— Select —</option>
+                            {% for cat in categories %}
+                            <option value="{{ cat }}"
+                                {% if article and article.category == cat %}selected{% endif %}>
+                                {{ cat }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <label class="form-label fw-bold mb-0">Content <span class="text-danger">*</span></label>
+                        <div class="btn-group btn-group-sm" id="format-toolbar">
+                            <button type="button" class="btn btn-outline-secondary" onclick="insertTag('h3')"><b>H3</b></button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="insertTag('strong')"><b>B</b></button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="insertTag('em')"><i>I</i></button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="insertList('ul')">• List</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="insertList('ol')">1. List</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="insertTag('p')">¶ Para</button>
+                        </div>
+                    </div>
+                    <textarea name="content" id="kb-content" class="form-control"
+                              rows="20" required
+                              style="font-family:monospace; font-size:0.85rem;">{{ article.content if article else '' }}</textarea>
+                    <div class="text-muted small mt-1">
+                        Content supports HTML — use &lt;p&gt;, &lt;ul&gt;, &lt;ol&gt;, &lt;li&gt;, &lt;strong&gt;, &lt;h3&gt; tags.
+                    </div>
+                </div>
+
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="pinned" id="pinned" value="1"
+                           {% if article and article.pinned %}checked{% endif %}>
+                    <label class="form-check-label" for="pinned">
+                        <i class="fas fa-thumbtack text-warning me-1"></i>
+                        Pin this article (appears at the top of the knowledge base)
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex gap-3">
+            <button type="submit" class="btn btn-warning text-dark fw-bold px-5">
+                <i class="fas fa-save me-2"></i>
+                {% if article %}Save Changes{% else %}Create Article{% endif %}
+            </button>
+            {% if article %}
+            <a href="{{ url_for('admin.kb_article', article_id=article.id) }}"
+               class="btn btn-outline-secondary">Cancel</a>
+            {% else %}
+            <a href="{{ url_for('admin.kb_index') }}" class="btn btn-outline-secondary">Cancel</a>
+            {% endif %}
+        </div>
+    </form>
+
+</div>
+
+<script>
+function insertTag(tag) {
+    const ta = document.getElementById('kb-content');
+    const start = ta.selectionStart;
+    const end   = ta.selectionEnd;
+    const sel   = ta.value.substring(start, end) || 'text here';
+    const insert = `<${tag}>${sel}</${tag}>`;
+    ta.value = ta.value.substring(0, start) + insert + ta.value.substring(end);
+    ta.focus();
+    ta.selectionStart = start + tag.length + 2;
+    ta.selectionEnd   = start + tag.length + 2 + sel.length;
+}
+function insertList(type) {
+    const ta = document.getElementById('kb-content');
+    const pos = ta.selectionStart;
+    const insert = `\n<${type}>\n  <li>Item one</li>\n  <li>Item two</li>\n</${type}>\n`;
+    ta.value = ta.value.substring(0, pos) + insert + ta.value.substring(pos);
+    ta.focus();
+}
+</script>
+{% endblock %}
+

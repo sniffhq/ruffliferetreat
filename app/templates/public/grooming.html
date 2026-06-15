@@ -1,0 +1,211 @@
+﻿{% extends "base.html" %}
+{% block title %}Grooming — Ruff Life Retreat{% endblock %}
+{% block content %}
+
+<!-- Hero -->
+<div style="background:linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+            padding: 90px 0 80px; position:relative; overflow:hidden;">
+    <!-- decorative paw prints -->
+    <div style="position:absolute;top:20px;right:80px;font-size:6rem;opacity:0.04;transform:rotate(15deg);">🐾</div>
+    <div style="position:absolute;bottom:10px;left:60px;font-size:8rem;opacity:0.04;transform:rotate(-10deg);">🐾</div>
+    <div class="container text-center text-white position-relative">
+        <div style="display:inline-block; background:rgba(255,193,7,0.15); border:1px solid rgba(255,193,7,0.3);
+                    border-radius:50px; padding:6px 20px; font-size:0.8rem; letter-spacing:2px;
+                    text-transform:uppercase; color:#FFC107; margin-bottom:20px;">
+            Professional Grooming
+        </div>
+        <h1 style="font-size:clamp(2.2rem,5vw,3.8rem); font-weight:800; line-height:1.15; margin-bottom:18px;">
+            Your Pet Deserves<br>
+            <span style="color:#FFC107;">to Look Their Best</span>
+        </h1>
+        <p style="font-size:1.15rem; color:rgba(255,255,255,0.7); max-width:520px; margin:0 auto 36px;">
+            From quick baths to full spa days — expert, gentle grooming with products your pet will love.
+        </p>
+        {% if current_user.is_authenticated %}
+            <a href="{{ url_for('customer.book_appointment') }}"
+               class="btn btn-warning btn-lg text-dark fw-bold px-5 me-3">
+                <i class="fas fa-calendar-plus me-2"></i>Book Grooming
+            </a>
+            <a href="{{ url_for('customer.dashboard') }}"
+               class="btn btn-outline-light btn-lg px-4">Dashboard</a>
+        {% else %}
+            <a href="{{ url_for('auth.register') }}"
+               class="btn btn-warning btn-lg text-dark fw-bold px-5 me-3">
+                <i class="fas fa-user-plus me-2"></i>Register Now
+            </a>
+            <a href="{{ url_for('auth.login') }}"
+               class="btn btn-outline-light btn-lg px-4">Login</a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Stats bar -->
+<div style="background:#FFC107;">
+    <div class="container">
+        <div class="row text-center g-0">
+            {% for stat, label in [('Certified','Groomers'),('Natural','Products'),('Gentle','Handling'),('No Cage','Waiting')] %}
+            <div class="col-6 col-md-3" style="padding:18px 10px; border-right:1px solid rgba(0,0,0,0.1);">
+                <div style="font-size:1.1rem; font-weight:800; color:#1a1a2e;">{{ stat }}</div>
+                <div style="font-size:0.75rem; letter-spacing:1px; text-transform:uppercase; color:rgba(0,0,0,0.6);">{{ label }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Services -->
+<div class="container" style="padding:70px 15px;">
+    <div class="text-center mb-5">
+        <h2 style="font-size:2rem; font-weight:800; color:#1a1a2e;">Our Grooming Services</h2>
+        <p class="text-muted">From basic baths to full spa treatments</p>
+    </div>
+
+    <div class="row g-4">
+
+        <!-- Bath & Brush -->
+        <div class="col-md-6">
+            <div style="border-radius:16px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.08);
+                        height:100%; background:white; border-top:4px solid #0d6efd;">
+                <div style="background:#0d6efd; padding:22px 28px;">
+                    <h4 style="color:white; margin:0; font-weight:700;">
+                        <i class="fas fa-shower me-2"></i>Bath & Brush
+                    </h4>
+                </div>
+                <div style="padding:28px;">
+                    <ul style="list-style:none; padding:0; margin-bottom:20px;">
+                        {% for item in ['Warm water bath with premium shampoo','Thorough brushing and de-shedding','Nail trimming','Ear cleaning','Blow dry and finish'] %}
+                        <li style="padding:7px 0; border-bottom:1px solid #f0f0f0; font-size:0.95rem;">
+                            <i class="fas fa-check text-success me-2"></i>{{ item }}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <div style="background:#f8f9ff; border-radius:10px; padding:14px; text-align:center;
+                                font-size:1.4rem; font-weight:800; color:#0d6efd;">Starting at $45</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Full Groom -->
+        <div class="col-md-6">
+            <div style="border-radius:16px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.08);
+                        height:100%; background:white; border-top:4px solid #198754;">
+                <div style="background:#198754; padding:22px 28px;">
+                    <h4 style="color:white; margin:0; font-weight:700;">
+                        <i class="fas fa-cut me-2"></i>Full Groom
+                    </h4>
+                </div>
+                <div style="padding:28px;">
+                    <ul style="list-style:none; padding:0; margin-bottom:20px;">
+                        {% for item in ['Everything in Bath & Brush','Full body haircut to breed standard','Face, feet, and sanitary trim','Teeth brushing','Cologne spritz','Bandana or bow'] %}
+                        <li style="padding:7px 0; border-bottom:1px solid #f0f0f0; font-size:0.95rem;">
+                            <i class="fas fa-check text-success me-2"></i>{{ item }}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <div style="background:#f0fff4; border-radius:10px; padding:14px; text-align:center;
+                                font-size:1.4rem; font-weight:800; color:#198754;">Starting at $75</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Spa Package -->
+        <div class="col-md-6">
+            <div style="border-radius:16px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.08);
+                        height:100%; background:white; border-top:4px solid #0dcaf0;">
+                <div style="background:#0dcaf0; padding:22px 28px;">
+                    <h4 style="color:white; margin:0; font-weight:700;">
+                        <i class="fas fa-spa me-2"></i>Spa Package
+                    </h4>
+                </div>
+                <div style="padding:28px;">
+                    <ul style="list-style:none; padding:0; margin-bottom:20px;">
+                        {% for item in ['Everything in Full Groom','Deep conditioning treatment','Pawdicure with nail polish','Blueberry facial','Teeth brushing with special paste','Premium cologne'] %}
+                        <li style="padding:7px 0; border-bottom:1px solid #f0f0f0; font-size:0.95rem;">
+                            <i class="fas fa-check text-success me-2"></i>{{ item }}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <div style="background:#f0fdff; border-radius:10px; padding:14px; text-align:center;
+                                font-size:1.4rem; font-weight:800; color:#0dcaf0;">Starting at $110</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- À La Carte -->
+        <div class="col-md-6">
+            <div style="border-radius:16px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.08);
+                        height:100%; background:white; border-top:4px solid #FFC107;">
+                <div style="background:#FFC107; padding:22px 28px;">
+                    <h4 style="color:#1a1a2e; margin:0; font-weight:700;">
+                        <i class="fas fa-paw me-2"></i>À La Carte
+                    </h4>
+                </div>
+                <div style="padding:28px;">
+                    <ul style="list-style:none; padding:0; margin-bottom:20px;">
+                        {% for item, price in [('Nail trim only','$15'),('Teeth brushing','$10'),('Ear cleaning','$10'),('Sanitary trim','$15'),('Face trim','$20'),('De-shedding treatment','$25')] %}
+                        <li style="padding:7px 0; border-bottom:1px solid #f0f0f0; font-size:0.95rem;
+                                   display:flex; justify-content:space-between;">
+                            <span><i class="fas fa-paw text-warning me-2"></i>{{ item }}</span>
+                            <strong>{{ price }}</strong>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Why Choose Us -->
+<div style="background:#f8f9fa; margin-top:-1.5rem; padding:70px 0;">
+    <div class="container">
+        <h3 class="text-center mb-5" style="font-weight:800; color:#1a1a2e;">
+            Why Choose Ruff Life Retreat for Grooming?
+        </h3>
+        <div class="row g-4 text-center">
+            {% for icon, color, title, desc in [
+                ('fas fa-user-graduate','#0d6efd','Certified Groomers','All our groomers are professionally trained and certified'),
+                ('fas fa-leaf','#198754','Natural Products','We use hypoallergenic, eco-friendly grooming products'),
+                ('fas fa-heart','#dc3545','Gentle Handling','Patient, caring approach with nervous or anxious pets'),
+                ('fas fa-clock','#FFC107','No Cage Time','Your pet is groomed and ready — no waiting in cages')
+            ] %}
+            <div class="col-md-3 col-6">
+                <div style="width:72px;height:72px;border-radius:50%;background:{{ color }};
+                            display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+                    <i class="{{ icon }} fa-2x text-white"></i>
+                </div>
+                <h5 style="font-weight:700; color:#1a1a2e;">{{ title }}</h5>
+                <p class="text-muted small">{{ desc }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- CTA -->
+<div style="background:#1a1a2e; margin-top:-1.5rem; padding:70px 0; text-align:center;">
+    <div class="container">
+        <h3 style="color:white; font-weight:800; font-size:1.8rem; margin-bottom:12px;">
+            Ready to Pamper Your Pet?
+        </h3>
+        <p style="color:rgba(255,255,255,0.6); margin-bottom:30px;">
+            Book a grooming appointment today or register to get started.
+        </p>
+        {% if current_user.is_authenticated %}
+            <a href="{{ url_for('customer.book_appointment') }}"
+               class="btn btn-warning btn-lg text-dark fw-bold px-5">
+                <i class="fas fa-calendar-plus me-2"></i>Schedule Grooming
+            </a>
+        {% else %}
+            <a href="{{ url_for('auth.register') }}"
+               class="btn btn-warning btn-lg text-dark fw-bold px-5">
+                <i class="fas fa-user-plus me-2"></i>Register to Get Started
+            </a>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
+
+

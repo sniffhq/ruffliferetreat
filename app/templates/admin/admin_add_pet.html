@@ -1,0 +1,141 @@
+﻿{% extends "base.html" %}
+{% block title %}Add Pet — {{ customer.first_name }} {{ customer.last_name }}{% endblock %}
+{% block content %}
+<div class="container mt-4" style="max-width:640px;">
+
+    <!-- Breadcrumb -->
+    <nav class="mb-3" style="font-size:0.85rem;">
+        <a href="{{ url_for('admin.customers') }}" class="text-decoration-none text-muted">Customers</a>
+        <span class="text-muted mx-2">/</span>
+        <a href="{{ url_for('admin.customer_detail', customer_id=customer.id) }}"
+           class="text-decoration-none text-muted">
+            {{ customer.first_name }} {{ customer.last_name }}
+        </a>
+        <span class="text-muted mx-2">/</span>
+        <span class="text-dark">Add Pet</span>
+    </nav>
+
+    <!-- Onboarding tip -->
+    <div class="alert alert-warning d-flex gap-3 align-items-start mb-4" style="border-radius:12px;">
+        <i class="fas fa-paw fa-lg mt-1 text-warning"></i>
+        <div>
+            <strong>Step 2 of 3 — Add {{ customer.first_name }}'s pet</strong>
+            <div class="small mt-1">
+                After saving the pet you'll land on the pet detail page where you can add
+                vaccination records. That's the final step before this customer is fully set up.
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header" style="background:#1a1a2e;">
+            <strong class="text-white">
+                <i class="fas fa-paw me-2 text-warning"></i>
+                Add Pet for {{ customer.first_name }} {{ customer.last_name }}
+            </strong>
+        </div>
+        <form method="POST" enctype="multipart/form-data">
+            <div class="card-body p-4">
+                <div class="row g-3">
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Pet Name <span class="text-danger">*</span></label>
+                        <input type="text" name="name" class="form-control"
+                               placeholder="e.g. Buddy" required autofocus>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Breed</label>
+                        <input type="text" name="breed" class="form-control"
+                               placeholder="e.g. Golden Retriever">
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">Age (years)</label>
+                        <input type="number" name="age" class="form-control"
+                               placeholder="3" min="0" max="30">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">Weight (lbs)</label>
+                        <input type="number" name="weight" class="form-control"
+                               placeholder="25" step="0.1" min="0">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">Gender</label>
+                        <select name="gender" class="form-select">
+                            <option value="">— Select —</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox"
+                                   name="spayed_neutered" id="spayed_neutered" value="1">
+                            <label class="form-check-label fw-bold" for="spayed_neutered">
+                                Spayed / Neutered
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Temperament</label>
+                        <select name="temperament" class="form-select">
+                            <option value="calm">Calm</option>
+                            <option value="energetic">Energetic</option>
+                            <option value="mixed">Mixed</option>
+                        </select>
+                        <div class="form-text">Used for automatic play group assignment.</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Vet Name</label>
+                        <input type="text" name="vet_name" class="form-control">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Vet Phone</label>
+                        <input type="tel" name="vet_phone" class="form-control">
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label fw-bold">Medical Notes</label>
+                        <textarea name="medical_notes" class="form-control" rows="2"
+                                  placeholder="Allergies, conditions, medications..."></textarea>
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label fw-bold">Special Instructions</label>
+                        <textarea name="special_instructions" class="form-control" rows="2"
+                                  placeholder="Feeding notes, behavioral notes, preferences..."></textarea>
+                    </div>
+
+                    <!-- File uploads -->
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Pet Photo</label>
+                        <input type="file" name="pet_photo" class="form-control"
+                               accept="image/*">
+                        <div class="form-text">JPG, PNG or WebP</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Vaccination Record</label>
+                        <input type="file" name="vaccine_record" class="form-control"
+                               accept="image/*,.pdf">
+                        <div class="form-text">Photo or PDF of vaccination certificate</div>
+                    </div>
+
+                </div>
+            </div>
+            <div class="card-footer bg-white d-flex justify-content-between align-items-center">
+                <a href="{{ url_for('admin.customer_detail', customer_id=customer.id) }}"
+                   class="text-muted small">
+                    <i class="fas fa-arrow-left me-1"></i>Back to customer profile
+                </a>
+                <button type="submit" class="btn btn-warning text-dark fw-bold px-5">
+                    <i class="fas fa-save me-2"></i>Save Pet & Add Vaccinations
+                </button>
+            </div>
+        </form>
+    </div>
+
+</div>
+{% endblock %}
+

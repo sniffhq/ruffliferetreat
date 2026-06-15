@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-body">
+                <h2 class="card-title text-center mb-4">Register</h2>
+                
+                {% if waitlist_data %}
+                <div class="alert alert-info">
+                    <i class="fas fa-clipboard-check"></i>
+                    <strong>Welcome back!</strong> We've pre-filled your information from the waitlist form.
+                </div>
+                {% endif %}
+
+                <form method="POST">
+                    <!-- Honeypot field - hidden from humans, bots will fill it -->
+                    <div style="position: absolute; left: -9999px;" aria-hidden="true">
+                        <label for="website">Leave this field empty</label>
+                        <input type="text" name="website" id="website" tabindex="-1" autocomplete="off">
+                    </div>
+                    
+                    <!-- Timestamp for timing check -->
+                    <input type="hidden" name="_timestamp" value="{{ form_timestamp }}">
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="first_name" class="form-label">First Name</label>
+                            <input type="text" class="form-control" id="first_name" name="first_name" 
+                                   value="{{ waitlist_data.first_name if waitlist_data else '' }}" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="last_name" class="form-label">Last Name</label>
+                            <input type="text" class="form-control" id="last_name" name="last_name" 
+                                   value="{{ waitlist_data.last_name if waitlist_data else '' }}" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" name="email" 
+                               value="{{ waitlist_data.email if waitlist_data else '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="phone" class="form-label">Phone</label>
+                        <input type="tel" class="form-control" id="phone" name="phone" 
+                               value="{{ waitlist_data.phone if waitlist_data else '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    
+                    {% if waitlist_data and (waitlist_data.monday or waitlist_data.wednesday or waitlist_data.friday) %}
+                    <div class="alert alert-success">
+                        <i class="fas fa-calendar-check"></i>
+                        <strong>Daycare Days Selected:</strong>
+                        {% if waitlist_data.monday %}<span class="badge bg-primary">Monday</span>{% endif %}
+                        {% if waitlist_data.wednesday %}<span class="badge bg-primary">Wednesday</span>{% endif %}
+                        {% if waitlist_data.friday %}<span class="badge bg-primary">Friday</span>{% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    <button type="submit" class="btn btn-primary w-100">Register</button>
+                </form>
+                <p class="text-center mt-3">Already have an account? <a href="{{ url_for('auth.login') }}">Login</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

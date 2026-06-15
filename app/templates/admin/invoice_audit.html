@@ -1,0 +1,443 @@
+﻿{% extends "base.html" %}
+{% block title %}Invoice Register — Ruff Life Retreat{% endblock %}
+{% block content %}
+<div class="container-fluid px-4 py-4" style="max-width:1300px;">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0" style="color:#1B2A4A;">
+                <i class="fas fa-file-invoice me-2 text-warning"></i>Invoice Register
+            </h2>
+            <div class="text-muted small">Centralized billing overview — as of {{ today.strftime('%B %d, %Y') }}</div>
+        </div>
+        <div class="d-flex gap-2 no-print">
+            <button onclick="window.print()" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-print me-1"></i>Print
+            </button>
+        </div>
+    </div>
+
+    <!-- KPI tiles -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="border-left:4px solid #dc3545 !important;">
+                <div class="card-body py-3 px-3">
+                    <div class="text-muted" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;">Open Balance</div>
+                    <div class="fw-bold" style="font-size:1.4rem;color:#dc3545;">${{ "%.2f"|format(total_open) }}</div>
+                    <div class="text-muted small">{{ open_invoices|length }} customer{{ 's' if open_invoices|length != 1 }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="border-left:4px solid #198754 !important;">
+                <div class="card-body py-3 px-3">
+                    <div class="text-muted" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;">Total Collected</div>
+                    <div class="fw-bold" style="font-size:1.4rem;color:#198754;">${{ "%.2f"|format(total_collected) }}</div>
+                    <div class="text-muted small">{{ paid_invoices|length }} payment{{ 's' if paid_invoices|length != 1 }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="border-left:4px solid #FFC107 !important;">
+                <div class="card-body py-3 px-3">
+                    <div class="text-muted" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;">Adjustments</div>
+                    <div class="fw-bold" style="font-size:1.4rem;color:#1B2A4A;">{{ adjustments|length }}</div>
+                    <div class="text-muted small">overrides &amp; custom lines</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="border-left:4px solid #0d6efd !important;">
+                <div class="card-body py-3 px-3">
+                    <div class="text-muted" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;">SMS Sent</div>
+                    <div class="fw-bold" style="font-size:1.4rem;color:#1B2A4A;">{{ total_sent }}</div>
+                    <div class="text-muted small">invoices &amp; estimates</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs mb-0" id="invoiceTabs" style="border-bottom:2px solid #1B2A4A;">
+        {% for tid, tlabel, ticon, tbadge, tbadge_class in [
+            ('open',     'Open Invoices',  'fas fa-exclamation-circle', open_invoices|length,   'bg-danger'),
+            ('paid',     'Paid Invoices',  'fas fa-check-circle',       paid_invoices|length,   'bg-success'),
+            ('adj',      'Adjustments',    'fas fa-sliders-h',          adjustments|length,     'bg-warning text-dark'),
+            ('sms',      'SMS History',    'fas fa-sms',                total_sent,             'bg-primary'),
+        ] %}
+        <li class="nav-item">
+            <button class="nav-link {% if tid == 'open' %}active fw-bold{% endif %} px-4"
+                    id="tab-{{ tid }}"
+                    data-bs-toggle="tab" data-bs-target="#pane-{{ tid }}"
+                    type="button"
+                    style="color:#1B2A4A;{% if tid == 'open' %}border-bottom:2px solid #1B2A4A;{% endif %}">
+                <i class="{{ ticon }} me-1"></i>{{ tlabel }}
+                <span class="badge {{ tbadge_class }} ms-1" style="font-size:0.65rem;">{{ tbadge }}</span>
+            </button>
+        </li>
+        {% endfor %}
+    </ul>
+
+    <div class="tab-content">
+
+        <!-- ── TAB 1: OPEN INVOICES ───────────────────────────────────────── -->
+        <div class="tab-pane fade show active pt-3" id="pane-open">
+            {% if open_invoices %}
+            <div class="mb-3 no-print">
+                <div class="input-group" style="max-width:360px;">
+                    <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
+                    <input type="text" id="searchOpen" class="form-control border-start-0"
+                           placeholder="Search customer..." autocomplete="off"
+                           oninput="filterTable('searchOpen','openRows')">
+                </div>
+            </div>
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0 align-middle" style="font-size:0.87rem;">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3">Customer</th>
+                                <th class="text-end">Boarding</th>
+                                <th class="text-end">Daycare</th>
+                                <th class="text-end">Total Due</th>
+                                <th>Age</th>
+                                <th class="no-print pe-3">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="openRows">
+                        {% for inv in open_invoices %}
+                        <tr class="open-row" data-search="{{ inv.customer.first_name|lower }} {{ inv.customer.last_name|lower }}">
+                            <td class="ps-3">
+                                <a href="{{ url_for('admin.customer_detail', customer_id=inv.customer.id) }}"
+                                   class="fw-bold text-decoration-none" style="color:#1B2A4A;">
+                                    {{ inv.customer.first_name }} {{ inv.customer.last_name }}
+                                </a>
+                                <div class="text-muted small">{{ inv.customer.phone or '—' }}</div>
+                            </td>
+                            <td class="text-end">
+                                {% if inv.boarding_balance > 0 %}
+                                ${{ "%.2f"|format(inv.boarding_balance) }}
+                                <div class="text-muted small">{{ inv.boarding_count }} stay{{ 's' if inv.boarding_count != 1 }}</div>
+                                {% else %}—{% endif %}
+                            </td>
+                            <td class="text-end">
+                                {% if inv.daycare_balance > 0 %}
+                                ${{ "%.2f"|format(inv.daycare_balance) }}
+                                <div class="text-muted small">{{ inv.daycare_count }} session{{ 's' if inv.daycare_count != 1 }}</div>
+                                {% else %}—{% endif %}
+                            </td>
+                            <td class="text-end fw-bold {% if inv.days_outstanding > 14 %}text-danger{% elif inv.days_outstanding > 7 %}text-warning{% endif %}">
+                                ${{ "%.2f"|format(inv.total_balance) }}
+                            </td>
+                            <td>
+                                {% if inv.days_outstanding == 0 %}
+                                <span class="badge bg-success">Today</span>
+                                {% elif inv.days_outstanding <= 7 %}
+                                <span class="badge bg-warning text-dark">{{ inv.days_outstanding }}d</span>
+                                {% else %}
+                                <span class="badge bg-danger">{{ inv.days_outstanding }}d overdue</span>
+                                {% endif %}
+                            </td>
+                            <td class="no-print pe-3">
+                                <div class="d-flex gap-1">
+                                {% if inv.boarding_balance > 0 %}
+                                <a href="{{ url_for('admin.customer_invoice', customer_id=inv.customer.id, type='boarding') }}"
+                                   class="btn btn-xs btn-outline-primary py-0 px-2" style="font-size:0.72rem;">
+                                    <i class="fas fa-hotel me-1"></i>Boarding
+                                </a>
+                                {% endif %}
+                                {% if inv.daycare_balance > 0 %}
+                                <a href="{{ url_for('admin.customer_invoice', customer_id=inv.customer.id, type='daycare') }}"
+                                   class="btn btn-xs btn-outline-success py-0 px-2" style="font-size:0.72rem;">
+                                    <i class="fas fa-paw me-1"></i>Daycare
+                                </a>
+                                {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% else %}
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center py-5 text-muted">
+                    <i class="fas fa-check-circle fa-3x mb-3 d-block text-success opacity-50"></i>
+                    <h5>All Clear</h5>
+                    <p class="mb-0">No outstanding balances found.</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- ── TAB 2: PAID INVOICES ───────────────────────────────────────── -->
+        <div class="tab-pane fade pt-3" id="pane-paid">
+            {% if paid_invoices %}
+            <div class="mb-3 no-print">
+                <div class="input-group" style="max-width:360px;">
+                    <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
+                    <input type="text" id="searchPaid" class="form-control border-start-0"
+                           placeholder="Search customer..." autocomplete="off"
+                           oninput="filterTable('searchPaid','paidRows')">
+                </div>
+            </div>
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0 align-middle" style="font-size:0.87rem;">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3">Customer</th>
+                                <th>Type</th>
+                                <th class="text-end">Amount</th>
+                                <th>Method</th>
+                                <th>Date Paid</th>
+                                <th>Notes</th>
+                                <th class="no-print pe-3"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="paidRows">
+                        {% for p in paid_invoices %}
+                        <tr class="paid-row" data-search="{{ p.customer.first_name|lower if p.customer else '' }} {{ p.customer.last_name|lower if p.customer else '' }}">
+                            <td class="ps-3 fw-bold">
+                                {% if p.customer %}
+                                <a href="{{ url_for('admin.customer_detail', customer_id=p.customer.id) }}"
+                                   class="text-decoration-none" style="color:#1B2A4A;">
+                                    {{ p.customer.first_name }} {{ p.customer.last_name }}
+                                </a>
+                                {% else %}—{% endif %}
+                            </td>
+                            <td>
+                                <span class="badge {% if p.service_type == 'Boarding' %}bg-primary{% elif p.service_type == 'Daycare' %}bg-success{% else %}bg-secondary{% endif %}">
+                                    {{ p.service_type or 'General' }}
+                                </span>
+                            </td>
+                            <td class="text-end fw-bold text-success">${{ "%.2f"|format(p.amount) }}</td>
+                            <td class="text-muted">{{ p.payment_method or '—' }}</td>
+                            <td>
+                                {{ p.payment_date.strftime('%m/%d/%Y') if p.payment_date else '—' }}
+                            </td>
+                            <td class="text-muted small" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                                {{ p.notes or '—' }}
+                            </td>
+                            <td class="no-print pe-3">
+                                {% if p.customer %}
+                                <a href="{{ url_for('admin.customer_detail', customer_id=p.customer.id) }}"
+                                   class="btn btn-xs btn-outline-secondary py-0 px-2" style="font-size:0.72rem;">
+                                    <i class="fas fa-user me-1"></i>Profile
+                                </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% else %}
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center py-5 text-muted">
+                    <i class="fas fa-file-invoice fa-3x mb-3 d-block opacity-25"></i>
+                    <h5>No Paid Invoices Yet</h5>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- ── TAB 3: ADJUSTMENTS ─────────────────────────────────────────── -->
+        <div class="tab-pane fade pt-3" id="pane-adj">
+            {% if adjustments %}
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0 align-middle" style="font-size:0.87rem;">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3">Customer</th>
+                                <th>Type</th>
+                                <th>Description</th>
+                                <th class="text-end">Amount</th>
+                                <th>Created</th>
+                                <th class="no-print pe-3">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for adj in adjustments %}
+                        <tr>
+                            <td class="ps-3 fw-bold">
+                                {% if adj.customer %}
+                                <a href="{{ url_for('admin.customer_detail', customer_id=adj.customer.id) }}"
+                                   class="text-decoration-none" style="color:#1B2A4A;">
+                                    {{ adj.customer.first_name }} {{ adj.customer.last_name }}
+                                </a>
+                                {% else %}—{% endif %}
+                            </td>
+                            <td>
+                                <span class="badge {% if adj.adj_type == 'override' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                                    {{ adj.adj_type|capitalize }}
+                                </span>
+                            </td>
+                            <td>{{ adj.description }}</td>
+                            <td class="text-end fw-bold {% if adj.amount < 0 %}text-success{% else %}text-dark{% endif %}">
+                                {% if adj.amount < 0 %}−${{ "%.2f"|format(adj.amount|abs) }}
+                                {% else %}${{ "%.2f"|format(adj.amount) }}{% endif %}
+                            </td>
+                            <td class="text-muted small">
+                                {{ adj.created_at.strftime('%m/%d/%Y') if adj.created_at else '—' }}
+                            </td>
+                            <td class="no-print pe-3">
+                                <div class="d-flex gap-1">
+                                {% if adj.customer %}
+                                <a href="{{ url_for('admin.customer_invoice', customer_id=adj.customer.id, type='boarding') }}"
+                                   class="btn btn-xs btn-outline-primary py-0 px-2" style="font-size:0.72rem;">
+                                    <i class="fas fa-eye me-1"></i>Invoice
+                                </a>
+                                {% endif %}
+                                {% if adj.adj_type == 'custom' %}
+                                <form method="POST"
+                                      action="{{ url_for('admin.invoice_delete_custom_line', customer_id=adj.customer_id, adj_id=adj.id) }}"
+                                      onsubmit="return confirm('Remove this adjustment?');">
+                                    <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-2" style="font-size:0.72rem;">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% else %}
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center py-5 text-muted">
+                    <i class="fas fa-sliders-h fa-3x mb-3 d-block opacity-25"></i>
+                    <h5>No Adjustments</h5>
+                    <p class="mb-0">Invoice overrides and custom lines will appear here.</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- ── TAB 4: SMS HISTORY ─────────────────────────────────────────── -->
+        <div class="tab-pane fade pt-3" id="pane-sms">
+            <div class="row g-3 mb-3">
+                {% for icon, label, value, color in [
+                    ('fas fa-paper-plane',  'Total Sent',       total_sent,       '#1B2A4A'),
+                    ('fas fa-file-invoice', 'Invoices',         invoices_sent,    '#0d6efd'),
+                    ('fas fa-calculator',   'Estimates',        estimates_sent,   '#FFC107'),
+                    ('fas fa-robot',        'Auto Checkout',    auto_sent,        '#fd7e14'),
+                    ('fas fa-users',        'Unique Customers', unique_customers, '#6f42c1'),
+                ] %}
+                <div class="col-6 col-md-2">
+                    <div class="card border-0 shadow-sm" style="border-left:3px solid {{ color }} !important;">
+                        <div class="card-body py-2 px-3">
+                            <div class="text-muted" style="font-size:0.68rem;text-transform:uppercase;letter-spacing:1px;">{{ label }}</div>
+                            <div class="fw-bold" style="font-size:1.2rem;color:#1B2A4A;">{{ value }}</div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            {% if sms_rows %}
+            <div class="mb-3 no-print">
+                <div class="input-group" style="max-width:360px;">
+                    <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
+                    <input type="text" id="searchSms" class="form-control border-start-0"
+                           placeholder="Search customer or phone..." autocomplete="off"
+                           oninput="filterTable('searchSms','smsRows')">
+                </div>
+            </div>
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0 align-middle" style="font-size:0.87rem;">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3" style="width:110px;">Type</th>
+                                <th>Customer</th>
+                                <th>Phone</th>
+                                <th>Sent</th>
+                                <th>Preview</th>
+                                <th class="no-print pe-3">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="smsRows">
+                        {% for row in sms_rows %}
+                        <tr data-search="{{ row.customer.first_name|lower if row.customer else '' }} {{ row.customer.last_name|lower if row.customer else '' }} {{ row.to_number or '' }}">
+                            <td class="ps-3">
+                                <span class="badge fw-bold"
+                                      style="background:{{ row.type_color }};color:{% if 'Estimate' in row.type and not row.auto %}#1a1a2e{% else %}white{% endif %};">
+                                    {% if row.auto %}<i class="fas fa-robot me-1"></i>{% endif %}
+                                    {{ row.type }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if row.customer %}
+                                <a href="{{ url_for('admin.customer_detail', customer_id=row.customer.id) }}"
+                                   class="fw-bold text-decoration-none" style="color:#1B2A4A;">
+                                    {{ row.customer.first_name }} {{ row.customer.last_name }}
+                                </a>
+                                {% else %}<span class="text-muted">Unknown</span>{% endif %}
+                            </td>
+                            <td class="text-muted">{{ row.to_number or '—' }}</td>
+                            <td>
+                                <div>{{ row.sent_at.strftime('%m/%d/%Y') }}</div>
+                                <div class="text-muted" style="font-size:0.75rem;">{{ row.sent_at.strftime('%I:%M %p') }}</div>
+                            </td>
+                            <td>
+                                <div class="text-muted"
+                                     style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+                                     title="{{ row.body }}">
+                                    {{ row.body[:110] if row.body else '' }}{% if row.body and row.body|length > 110 %}…{% endif %}
+                                </div>
+                            </td>
+                            <td class="no-print pe-3">
+                                {% if row.customer %}
+                                <a href="{{ url_for('admin.customer_invoice', customer_id=row.customer.id) }}"
+                                   class="btn btn-xs btn-outline-primary py-0 px-2" style="font-size:0.72rem;">
+                                    <i class="fas fa-eye me-1"></i>Invoice
+                                </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% else %}
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center py-5 text-muted">
+                    <i class="fas fa-sms fa-3x mb-3 d-block opacity-25"></i>
+                    <h5>No SMS History</h5>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+    </div><!-- end tab-content -->
+</div>
+
+<script>
+function filterTable(inputId, tbodyId) {
+    var q = document.getElementById(inputId).value.toLowerCase().trim();
+    document.querySelectorAll('#' + tbodyId + ' tr').forEach(function(r) {
+        var match = !q || (r.getAttribute('data-search') || '').includes(q);
+        r.style.display = match ? '' : 'none';
+    });
+}
+</script>
+
+<style>
+.nav-tabs .nav-link { color: #6c757d; border: none; border-bottom: 2px solid transparent; }
+.nav-tabs .nav-link.active { color: #1B2A4A; font-weight: 700; border-bottom: 2px solid #1B2A4A; background: none; }
+.nav-tabs .nav-link:hover { color: #1B2A4A; border-bottom: 2px solid #dee2e6; }
+@media print {
+    .no-print, nav, .navbar { display: none !important; }
+    .card { box-shadow: none !important; border: 1px solid #dee2e6 !important; }
+}
+</style>
+{% endblock %}
+

@@ -1,0 +1,168 @@
+﻿{% extends "base.html" %}
+{% block title %}Incident #{{ incident.id }} — Ruff Life Retreat{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4" style="max-width:860px;">
+
+    <!-- Breadcrumb -->
+    <nav class="mb-3" style="font-size:0.85rem;">
+        <a href="{{ url_for('admin.incidents') }}" class="text-decoration-none text-muted">
+            <i class="fas fa-exclamation-triangle me-1"></i>Incidents
+        </a>
+        <span class="text-muted mx-2">/</span>
+        <span class="text-dark">Incident #{{ incident.id }}</span>
+    </nav>
+
+    <!-- Header -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header d-flex justify-content-between align-items-start
+                    bg-{% if incident.severity in ['serious','critical'] %}danger{% elif incident.severity == 'moderate' %}warning{% else %}success{% endif %}">
+            <div>
+                <h5 class="mb-0 {% if incident.severity == 'moderate' %}text-dark{% else %}text-white{% endif %}">
+                    {{ incident.type_label }} — {{ incident.pet.name }}
+                </h5>
+                <div class="{% if incident.severity == 'moderate' %}text-dark{% else %}text-white{% endif %} small mt-1 opacity-75">
+                    #{{ incident.id }} &bull; {{ incident.incident_date.strftime('%A, %B %d, %Y at %I:%M %p') }}
+                    &bull; Reported by {{ incident.reporter.first_name }} {{ incident.reporter.last_name if incident.reporter else '—' }}
+                </div>
+            </div>
+            <div class="d-flex gap-2 flex-shrink-0 ms-3">
+                <span class="badge bg-white
+                    text-{% if incident.severity in ['serious','critical'] %}danger{% elif incident.severity == 'moderate' %}warning{% else %}success{% endif %}
+                    fw-bold">
+                    {{ incident.severity|title }}
+                </span>
+                <span class="badge {% if incident.status == 'open' %}bg-dark{% else %}bg-success{% endif %}">
+                    {{ incident.status|title }}
+                </span>
+            </div>
+        </div>
+
+        <div class="card-body p-4">
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="fw-bold text-muted small text-uppercase mb-2">Pet</div>
+                    <div class="d-flex align-items-center gap-3">
+                        {% if incident.pet.photo_path %}
+                        <img src="{{ url_for('static', filename='uploads/' + incident.pet.photo_path) }}"
+                             class="rounded-circle" style="width:48px;height:48px;object-fit:cover;">
+                        {% endif %}
+                        <div>
+                            <div class="fw-bold">{{ incident.pet.name }}</div>
+                            <div class="text-muted small">{{ incident.pet.breed or 'Dog' }}</div>
+                            <a href="{{ url_for('admin.pet_detail', pet_id=incident.pet.id) }}"
+                               class="small text-decoration-none">View Pet Profile →</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="fw-bold text-muted small text-uppercase mb-2">Owner</div>
+                    <div class="fw-bold">{{ incident.pet.owner.first_name }} {{ incident.pet.owner.last_name }}</div>
+                    <div class="text-muted small">{{ incident.pet.owner.phone or '—' }}</div>
+                    <div class="text-muted small">{{ incident.pet.owner.email }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Description & Action -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light fw-bold">
+            <i class="fas fa-clipboard me-2"></i>Incident Details
+        </div>
+        <div class="card-body">
+            <div class="mb-4">
+                <div class="fw-bold text-muted small text-uppercase mb-1">What Happened</div>
+                <div style="white-space:pre-wrap;line-height:1.7;">{{ incident.description }}</div>
+            </div>
+            {% if incident.action_taken %}
+            <div>
+                <div class="fw-bold text-muted small text-uppercase mb-1">Action Taken</div>
+                <div style="white-space:pre-wrap;line-height:1.7;">{{ incident.action_taken }}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Owner notification & resolve -->
+    <div class="row g-4">
+        <!-- Notification status -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light fw-bold">
+                    <i class="fas fa-sms me-2"></i>Owner Notification
+                </div>
+                <div class="card-body">
+                    {% if incident.owner_notified %}
+                    <div class="text-success mb-3">
+                        <i class="fas fa-check-circle me-1"></i>Owner was notified via SMS
+                    </div>
+                    {% else %}
+                    <div class="text-muted mb-3">Owner has not been notified yet.</div>
+                    <form method="POST" action="{{ url_for('admin.notify_incident_owner', incident_id=incident.id) }}">
+                        <button type="submit" class="btn btn-warning text-dark fw-bold w-100"
+                                onclick="return confirm('Send SMS notification to {{ incident.pet.owner.first_name }}?')">
+                            <i class="fas fa-sms me-2"></i>Notify Owner Now
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Resolve -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light fw-bold">
+                    <i class="fas fa-check-circle me-2"></i>Resolution
+                </div>
+                <div class="card-body">
+                    {% if incident.status == 'resolved' %}
+                    <div class="text-success mb-1">
+                        <i class="fas fa-check-circle me-1"></i>Resolved on {{ incident.resolved_at.strftime('%b %d, %Y at %I:%M %p') if incident.resolved_at else 'date unknown' }}
+                    </div>
+                    {% else %}
+                    <form method="POST" action="{{ url_for('admin.resolve_incident', incident_id=incident.id) }}">
+                        <textarea name="resolution_notes" class="form-control mb-2" rows="2"
+                                  placeholder="Optional resolution notes (appended to action taken)..."></textarea>
+                        <button type="submit" class="btn btn-success fw-bold w-100"
+                                onclick="return confirm('Mark this incident as resolved?')">
+                            <i class="fas fa-check-circle me-2"></i>Mark as Resolved
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Past incidents for this pet -->
+    {% set other_incidents = incident.pet.incidents|selectattr('id','ne',incident.id)|list %}
+    {% if other_incidents %}
+    <div class="card shadow-sm mt-4">
+        <div class="card-header bg-light fw-bold">
+            <i class="fas fa-history me-2"></i>Other Incidents for {{ incident.pet.name }}
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-sm table-hover mb-0" style="font-size:0.85rem;">
+                <thead class="table-light">
+                    <tr><th class="ps-3">Date</th><th>Type</th><th>Severity</th><th>Status</th><th></th></tr>
+                </thead>
+                <tbody>
+                    {% for inc in other_incidents[:5] %}
+                    <tr>
+                        <td class="ps-3">{{ inc.incident_date.strftime('%b %d, %Y') }}</td>
+                        <td>{{ inc.type_label }}</td>
+                        <td><span class="badge bg-{{ inc.severity_color }} {% if inc.severity == 'moderate' %}text-dark{% endif %}">{{ inc.severity|title }}</span></td>
+                        <td><span class="badge {% if inc.status == 'open' %}bg-warning text-dark{% else %}bg-success{% endif %}">{{ inc.status|title }}</span></td>
+                        <td><a href="{{ url_for('admin.incident_detail', incident_id=inc.id) }}" class="btn btn-xs btn-outline-primary py-0 px-1" style="font-size:0.75rem;"><i class="fas fa-eye"></i></a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+

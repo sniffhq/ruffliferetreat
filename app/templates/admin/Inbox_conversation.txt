@@ -1,0 +1,83 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+
+            <!-- Header -->
+            <div class="d-flex align-items-center gap-3 mb-4">
+                <a href="{{ url_for('admin.sms_inbox') }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-arrow-left"></i> Inbox
+                </a>
+                <div>
+                    <h4 class="mb-0">{{ customer.first_name }} {{ customer.last_name }}</h4>
+                    <small class="text-muted">{{ customer.phone }}</small>
+                </div>
+                <a href="{{ url_for('admin.customer_detail', customer_id=customer.id) }}"
+                   class="btn btn-outline-warning btn-sm ms-auto">
+                    <i class="fas fa-user"></i> View Profile
+                </a>
+            </div>
+
+            <!-- Message thread -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-body p-3" style="height:500px; overflow-y:auto;" id="message-thread">
+                    {% if messages %}
+                        {% for msg in messages %}
+                        <div class="d-flex mb-3 {% if msg.direction == 'outbound' %}justify-content-end{% endif %}">
+                            <div class="p-3 rounded-3 shadow-sm"
+                                 style="max-width:70%;
+                                        {% if msg.direction == 'outbound' %}
+                                            background:#ffc107; color:#000;
+                                        {% else %}
+                                            background:#f1f3f5; color:#000;
+                                        {% endif %}">
+                                <div>{{ msg.body }}</div>
+                                <div class="text-end mt-1" style="font-size:0.7rem; opacity:0.65;">
+                                    {{ msg.created_at.strftime('%-m/%-d %-I:%M %p') }}
+                                    {% if msg.direction == 'outbound' %}
+                                        <i class="fas fa-check ms-1"></i>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center text-muted py-5">
+                            <i class="fas fa-comment-slash fa-2x mb-2"></i><br>
+                            No messages yet. Send the first one below.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Reply box -->
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('admin.sms_reply', user_id=customer.id) }}">
+                        <div class="input-group">
+                            <textarea class="form-control" name="body" rows="2"
+                                      placeholder="Type a message..." required
+                                      style="resize:none;"></textarea>
+                            <button type="submit" class="btn btn-warning text-dark fw-bold px-4">
+                                <i class="fas fa-paper-plane"></i> Send
+                            </button>
+                        </div>
+                        <div class="text-muted small mt-1">
+                            Sending from <strong>{{ config.TWILIO_PHONE_NUMBER if config else '+19125134498' }}</strong>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    // Auto-scroll to bottom of thread on load
+    const thread = document.getElementById('message-thread');
+    if (thread) thread.scrollTop = thread.scrollHeight;
+</script>
+{% endblock %}

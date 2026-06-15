@@ -1,0 +1,751 @@
+{% extends "base.html" %}
+{% block title %}Boarding Dashboard — Ruff Life Retreat{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0"><i class="fas fa-hotel me-2"></i>Boarding Dashboard</h2>
+        <div class="d-flex gap-2">
+            <form method="POST"
+                  action="{{ url_for('admin.run_checkout_estimates') }}"
+                  onsubmit="return confirm('Send estimated balance SMS to all owners with pets checking out today?');">
+                <button type="submit" class="btn btn-outline-warning text-dark">
+                    <i class="fas fa-calculator me-2"></i>Send Today's Estimates
+                </button>
+            </form>
+            <button class="btn btn-warning text-dark fw-bold" data-bs-toggle="modal" data-bs-target="#addBoardingModal">
+                <i class="fas fa-plus me-2"></i>New Reservation
+            </button>
+        </div>
+    </div>
+
+    <!-- ── KENNEL CAPACITY ───────────────────────────────────────────────── -->
+    <div class="card mb-4 border-0 shadow-sm">
+        <div class="card-body py-2 px-3">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                <div class="d-flex align-items-center gap-3">
+                    <i class="fas fa-dog text-primary fa-lg"></i>
+                    <div>
+                        <div class="text-muted small fw-semibold text-uppercase" style="letter-spacing:.05em;">Kennel Capacity</div>
+                        <div class="d-flex align-items-baseline gap-2">
+                            <span class="fs-4 fw-bold text-primary" id="capacity-display">{{ kennel_capacity }}</span>
+                            <span class="text-muted small">kennels available</span>
+                            {% set occupied = checked_in_bookings|length + upcoming_bookings|selectattr('check_in_date', 'equalto', today)|list|length %}
+                            <span class="badge {% if occupied >= kennel_capacity %}bg-danger{% elif occupied >= (kennel_capacity * 0.8)|int %}bg-warning text-dark{% else %}bg-success{% endif %} ms-1">
+                                {{ occupied }} / {{ kennel_capacity }} in use
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <button class="btn btn-sm btn-outline-secondary"
+                            type="button"
+                            onclick="document.getElementById('capacity-edit-form').classList.toggle('d-none')">
+                        <i class="fas fa-edit me-1"></i>Adjust
+                    </button>
+                </div>
+            </div>
+            <!-- Inline edit form — hidden by default -->
+            <div id="capacity-edit-form" class="d-none mt-3 pt-3 border-top">
+                <form method="POST" action="{{ url_for('admin.save_kennel_capacity') }}"
+                      class="d-flex align-items-center gap-3 flex-wrap">
+                    <div>
+                        <label class="form-label mb-1 fw-semibold small">Set capacity to:</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <input type="number" name="kennel_capacity"
+                                   value="{{ kennel_capacity }}"
+                                   min="1" max="500"
+                                   class="form-control form-control-sm"
+                                   style="width:90px;">
+                            <span class="text-muted small">kennels</span>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 align-self-end">
+                        <button type="submit" class="btn btn-sm btn-primary">
+                            <i class="fas fa-save me-1"></i>Save
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                onclick="document.getElementById('capacity-edit-form').classList.add('d-none')">
+                            Cancel
+                        </button>
+                    </div>
+                    <div class="text-muted small align-self-end pb-1">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Reducing capacity will limit new bookings on dates that exceed the new limit.
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── PENDING REQUESTS ──────────────────────────────────────────────── -->
+    <div class="card shadow-sm mb-4 {% if pending_requests %}border-warning{% endif %}">
+        <div class="card-header d-flex justify-content-between align-items-center
+                    {% if pending_requests %}bg-warning text-dark{% else %}bg-light{% endif %}">
+            <strong>
+                <i class="fas fa-clock me-2"></i>Pending Boarding Requests
+            </strong>
+            {% if pending_requests %}
+            <span class="badge bg-dark">{{ pending_requests|length }} awaiting review</span>
+            {% endif %}
+        </div>
+        <div class="card-body p-0">
+            {% if pending_requests %}
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Pet</th>
+                        <th>Owner</th>
+                        <th>Check-In</th>
+                        <th>Check-Out</th>
+                        <th>Phone</th>
+                        <th>Notes</th>
+                        <th style="min-width:220px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for appt in pending_requests %}
+                    <tr class="table-warning">
+                        <td>
+                            <strong>{{ appt.pet.name }}</strong>
+                            <div class="text-muted small">{{ appt.pet.breed or appt.pet.species or 'Dog' }}</div>
+                        </td>
+                        <td>{{ appt.user.first_name }} {{ appt.user.last_name }}</td>
+                        <td>
+                            {{ appt.appointment_date.strftime('%a, %b %d, %Y') }}
+                            {% if appt.start_time %}
+                            <div class="text-muted small">{{ appt.start_time.strftime('%I:%M %p') }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if appt.end_time %}
+                                {{ appt.end_time.strftime('%a, %b %d, %Y') }}
+                                <div class="text-muted small">{{ appt.end_time.strftime('%I:%M %p') }}</div>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ appt.user.phone or '—' }}</td>
+                        <td class="text-muted small">{{ appt.notes or '—' }}</td>
+                        <td>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-success fw-bold"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#approveModal{{ appt.id }}">
+                                    <i class="fas fa-check me-1"></i>Approve
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#rejectModal{{ appt.id }}">
+                                    <i class="fas fa-times me-1"></i>Reject
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="text-center py-4 text-muted">
+                <i class="fas fa-check-circle text-success fa-2x mb-2 d-block"></i>
+                No pending boarding requests.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ── 2-MONTH CALENDAR ───────────────────────────────────────────────── -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center" style="background:#1a1a2e;">
+            <strong class="text-white"><i class="fas fa-calendar me-2 text-warning"></i>Boarding Calendar</strong>
+            <div class="d-flex align-items-center gap-2">
+                {% if cal_offset > 0 %}
+                <a href="{{ url_for('admin.boarding_dashboard', cal_offset=cal_offset - 2) }}"
+                   class="btn btn-sm btn-outline-warning">
+                    <i class="fas fa-chevron-left me-1"></i>Previous
+                </a>
+                {% endif %}
+                {% if cal_offset > 0 %}
+                <a href="{{ url_for('admin.boarding_dashboard') }}"
+                   class="btn btn-sm btn-outline-light">Today</a>
+                {% endif %}
+                <a href="{{ url_for('admin.boarding_dashboard', cal_offset=cal_offset + 2) }}"
+                   class="btn btn-sm btn-outline-warning">
+                    Next<i class="fas fa-chevron-right ms-1"></i>
+                </a>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row g-4">
+                {% for month in months %}
+                <div class="col-md-6">
+                    <div class="text-center fw-bold mb-2" style="color:#1a1a2e;font-size:1rem;">
+                        {{ month.name }} {{ month.year }}
+                    </div>
+                    <table class="table table-sm text-center mb-0" style="font-size:0.82rem;">
+                        <thead>
+                            <tr>
+                                {% for d in ['Su','Mo','Tu','We','Th','Fr','Sa'] %}
+                                <th style="color:#888;font-weight:600;padding:4px;">{{ d }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for week in month.weeks %}
+                            <tr>
+                                {% for day in week %}
+                                <td style="padding:3px;">
+                                    {% if day == 0 %}
+                                    <span style="color:transparent;">0</span>
+                                    {% else %}
+                                        {% set ds = '%s-%02d-%02d'|format(month.year, month.month, day) %}
+                                        {% set pets_in = boarding_dates_parsed.get(ds, []) %}
+                                        {% set is_today = ds == today.isoformat() %}
+                                        {% if pets_in and is_today %}
+                                        <span onclick="showDayDetail('{{ ds }}')"
+                                              style="display:inline-flex;align-items:center;justify-content:center;
+                                                     width:28px;height:28px;border-radius:50%;cursor:pointer;
+                                                     background:#0d6efd;color:white;font-weight:700;font-size:0.8rem;
+                                                     outline:3px solid #FFC107;outline-offset:1px;">
+                                            {{ day }}
+                                        </span>
+                                        {% elif pets_in %}
+                                        <span onclick="showDayDetail('{{ ds }}')"
+                                              style="display:inline-flex;align-items:center;justify-content:center;
+                                                     width:28px;height:28px;border-radius:50%;cursor:pointer;
+                                                     background:#0d6efd;color:white;font-weight:700;font-size:0.8rem;">
+                                            {{ day }}
+                                        </span>
+                                        {% elif is_today %}
+                                        <span style="display:inline-flex;align-items:center;justify-content:center;
+                                                     width:28px;height:28px;border-radius:50%;
+                                                     background:#FFC107;color:#1a1a2e;font-weight:700;font-size:0.8rem;">
+                                            {{ day }}
+                                        </span>
+                                        {% else %}
+                                        <span style="display:inline-block;width:28px;height:28px;line-height:28px;">{{ day }}</span>
+                                        {% endif %}
+                                    {% endif %}
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endfor %}
+            </div>
+            <!-- Legend -->
+            <div class="d-flex gap-4 mt-3 align-items-center" style="font-size:0.82rem;">
+                <div class="d-flex align-items-center gap-2">
+                    <span style="width:18px;height:18px;border-radius:50%;background:#FFC107;display:inline-block;"></span> Today
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span style="width:18px;height:18px;border-radius:50%;background:#0d6efd;display:inline-block;"></span> Boarding Guest(s) — hover for names
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span style="width:18px;height:18px;border-radius:50%;background:#0d6efd;display:inline-block;outline:3px solid #FFC107;outline-offset:1px;"></span> Today + Boarders
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% macro addon_badges(b) %}
+{%- set ns = namespace(addons=[]) %}
+{%- for appt in b.pet.appointments %}
+  {%- if appt.notes and 'Add-ons:' in appt.notes %}
+    {%- set parts = appt.notes.split('Add-ons:') %}
+    {%- if parts|length > 1 %}
+      {%- for item in parts[1].split(',') %}
+        {%- set ns.addons = ns.addons + [item.strip()] %}
+      {%- endfor %}
+    {%- endif %}
+  {%- endif %}
+{%- endfor %}
+{%- if ns.addons %}
+<div class="mt-1">
+  {%- for a in ns.addons %}
+  <span class="badge" style="background:#FFC107;color:#1a1a2e;font-size:0.65rem;">
+    <i class="fas fa-bath me-1"></i>{{ a.split('(')[0].strip() }}
+  </span>
+  {%- endfor %}
+</div>
+{%- endif %}
+{% endmacro %}
+
+    <!-- ── CURRENTLY CHECKED IN ─────────────────────────────────────────────── -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center"
+             style="background:#1a1a2e;">
+            <strong class="text-white">
+                <i class="fas fa-door-open me-2 text-warning"></i>Currently Checked In
+            </strong>
+            <span class="badge bg-warning text-dark">{{ checked_in_bookings|length }}</span>
+        </div>
+        <div class="card-body p-0">
+            {% if checked_in_bookings %}
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr><th>Pet</th><th>Owner</th><th>Check-In</th><th>Check-Out</th><th>Nights</th><th>Location</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                    {% for b in checked_in_bookings %}
+                    <tr>
+                        <td><strong>{{ b.pet.name }}</strong><div class="text-muted small">{{ b.pet.breed or 'Dog' }}</div>{{ addon_badges(b) }}</td>
+                        <td>{{ b.pet.owner.first_name }} {{ b.pet.owner.last_name }}<div class="text-muted small">{{ b.pet.owner.phone or '' }}</div></td>
+                        <td>{{ b.check_in_date.strftime('%m/%d/%Y') }} <span class="text-muted small">{{ b.check_in_time | fmt_time }}</span>
+                            {% if b.checked_in_at %}
+                            <div class="text-success small"><i class="fas fa-check me-1"></i>Arrived {{ b.checked_in_at.strftime('%I:%M %p') }}</div>
+                            {% endif %}
+                        </td>
+                        <td>{{ b.check_out_date.strftime('%m/%d/%Y') }} <span class="text-muted small">{{ b.check_out_time | fmt_time }}</span></td>
+                        <td><span class="badge bg-primary">{% set _cout = b.check_out_time|string if b.check_out_time else '17:00' %}{% set _days = (b.check_out_date - b.check_in_date).days if _cout[:5] <= '10:00' else (b.check_out_date - b.check_in_date).days + 1 %}{{ _days }} day{{ 's' if _days != 1 else '' }}</span></td>
+                        <td>
+                            {% if b.kennel_number %}
+                            <span class="badge {% if b.kennel_type == 'suite' %}bg-info text-dark{% else %}bg-secondary{% endif %}">
+                                {{ b.kennel_type|title if b.kennel_type else 'Kennel' }} #{{ b.kennel_number }}
+                            </span>
+                            {% else %}
+                            <span class="text-muted small">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('admin.boarding_detail', booking_id=b.id) }}"
+                               class="btn btn-sm btn-outline-primary me-1" title="View">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <form method="POST"
+                                  action="{{ url_for('admin.complete_boarding', booking_id=b.id) }}"
+                                  class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-success"
+                                        title="Check Out"
+                                        onclick="return confirm('Check out {{ b.pet.name }}?')">
+                                    <i class="fas fa-sign-out-alt"></i> Check Out
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="text-center py-4 text-muted">
+                <i class="fas fa-moon fa-2x mb-2 d-block opacity-25"></i>No pets currently checked in.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ── UPCOMING / ARRIVING ───────────────────────────────────────────────── -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center bg-success">
+            <strong class="text-white">
+                <i class="fas fa-suitcase me-2"></i>Upcoming Reservations
+            </strong>
+            <span class="badge bg-white text-success">{{ upcoming_bookings|length }}</span>
+        </div>
+        <div class="card-body p-0">
+            {% if upcoming_bookings %}
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr><th>Pet</th><th>Owner</th><th>Check-In</th><th>Check-Out</th><th>Nights</th><th>Location</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                    {% for b in upcoming_bookings %}
+                    <tr {% if b.check_in_date == today %}class="table-warning"{% endif %}>
+                        <td>
+                            <strong>{{ b.pet.name }}</strong>
+                            <div class="text-muted small">{{ b.pet.breed or 'Dog' }}</div>
+                            {% if b.check_in_date == today %}
+                            <span class="badge bg-warning text-dark">Arriving Today</span>
+                            {% endif %}
+                            {{ addon_badges(b) }}
+                        </td>
+                        <td>{{ b.pet.owner.first_name }} {{ b.pet.owner.last_name }}<div class="text-muted small">{{ b.pet.owner.phone or '' }}</div></td>
+                        <td>{{ b.check_in_date.strftime('%m/%d/%Y') }} <span class="text-muted small">{{ b.check_in_time | fmt_time }}</span></td>
+                        <td>{{ b.check_out_date.strftime('%m/%d/%Y') }} <span class="text-muted small">{{ b.check_out_time | fmt_time }}</span></td>
+                        <td><span class="badge bg-primary">{% set _cout = b.check_out_time|string if b.check_out_time else '17:00' %}{% set _days = (b.check_out_date - b.check_in_date).days if _cout[:5] <= '10:00' else (b.check_out_date - b.check_in_date).days + 1 %}{{ _days }} day{{ 's' if _days != 1 else '' }}</span></td>
+                        <td>
+                            {% if b.kennel_number %}
+                            <span class="badge {% if b.kennel_type == 'suite' %}bg-info text-dark{% else %}bg-secondary{% endif %}">
+                                {{ b.kennel_type|title if b.kennel_type else 'Kennel' }} #{{ b.kennel_number }}
+                            </span>
+                            {% else %}
+                            <span class="text-muted small">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('admin.boarding_detail', booking_id=b.id) }}"
+                               class="btn btn-sm btn-outline-primary me-1" title="View">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <form method="POST"
+                                  action="{{ url_for('admin.checkin_boarding', booking_id=b.id) }}"
+                                  class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-warning text-dark fw-bold"
+                                        title="Check In"
+                                        onclick="return confirm('Check in {{ b.pet.name }}?')">
+                                    <i class="fas fa-sign-in-alt me-1"></i>Check In
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="text-center py-4 text-muted">
+                <i class="fas fa-calendar fa-2x mb-2 d-block opacity-25"></i>No upcoming reservations.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ── RECENTLY COMPLETED ─────────────────────────────────────────────── -->
+    {% if completed_bookings %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light fw-bold">
+            <i class="fas fa-history me-2 text-muted"></i>Recently Completed (Last 30 Days)
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0" style="font-size:0.875rem;">
+                <thead class="table-light">
+                    <tr><th>Pet</th><th>Owner</th><th>Check In</th><th>Check Out</th><th>Nights</th><th></th></tr>
+                </thead>
+                <tbody>
+                    {% for b in completed_bookings %}
+                    <tr>
+                        <td>{{ b.pet.name }}</td>
+                        <td>{{ b.pet.owner.first_name }} {{ b.pet.owner.last_name }}</td>
+                        <td>{{ b.check_in_date.strftime('%m/%d/%Y') }}</td>
+                        <td>{{ b.check_out_date.strftime('%m/%d/%Y') }}</td>
+                        {% set _cout = b.check_out_time|string if b.check_out_time else '17:00' %}{% set _days = (b.check_out_date - b.check_in_date).days if _cout[:5] <= '10:00' else (b.check_out_date - b.check_in_date).days + 1 %}<td>{{ _days }}</td>
+                        <td>
+                            <a href="{{ url_for('admin.boarding_detail', booking_id=b.id) }}"
+                               class="btn btn-sm btn-outline-primary" title="View">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<!-- ── APPROVE MODALS (one per pending request) ────────────────────────────── -->
+{% for appt in pending_requests %}
+<div class="modal fade" id="approveModal{{ appt.id }}" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-check me-2"></i>Approve — {{ appt.pet.name }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.approve_boarding_request', appt_id=appt.id) }}">
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">
+                        Confirm the check-in and check-out dates for this reservation.
+                        The customer requested check-in <strong>{{ appt.appointment_date.strftime('%B %d, %Y') }}</strong>{% if appt.end_time %} and check-out <strong>{{ appt.end_time.strftime('%B %d, %Y') }}</strong>{% endif %}.
+                    </p>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Check-In Date <span class="text-danger">*</span></label>
+                            <input type="date" name="check_in_date" class="form-control"
+                                   value="{{ appt.appointment_date.strftime('%Y-%m-%d') }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Check-In Time</label>
+                            <input type="time" name="check_in_time" class="form-control" value="{{ appt.start_time.strftime('%H:%M') if appt.start_time else '08:00' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Check-Out Date <span class="text-danger">*</span></label>
+                            <input type="date" name="check_out_date" class="form-control"
+                                   value="{{ appt.end_time.strftime('%Y-%m-%d') if appt.end_time else '' }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Check-Out Time</label>
+                            <input type="time" name="check_out_time" class="form-control"
+                                   value="{{ appt.end_time.strftime('%H:%M') if appt.end_time else '17:00' }}">
+                            {% if appt.end_time %}
+                            <div class="form-text text-success">
+                                <i class="fas fa-user me-1"></i>Customer requested {{ appt.end_time.strftime('%I:%M %p') }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Accommodation Type</label>
+                            <select name="kennel_type" class="form-select">
+                                <option value="kennel">Kennel</option>
+                                <option value="suite">Suite</option>
+                            </select>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label fw-bold">Kennel / Suite Number</label>
+                            <input type="text" name="kennel_number" class="form-control"
+                                   placeholder="e.g. 4, 4A, 12 — can be shared for multiple pets">
+                            <div class="form-text">Use the same number for pets sharing a space.</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Special Notes</label>
+                            <textarea name="special_notes" class="form-control" rows="2"
+                                      placeholder="Feeding instructions, medications, etc."></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success fw-bold">
+                        <i class="fas fa-check me-1"></i>Approve & Create Reservation
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- REJECT MODAL -->
+<div class="modal fade" id="rejectModal{{ appt.id }}" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-times me-2"></i>Reject — {{ appt.pet.name }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.reject_boarding_request', appt_id=appt.id) }}">
+                <div class="modal-body">
+                    <p class="text-muted small">
+                        Rejecting this request will cancel the appointment and notify
+                        <strong>{{ appt.user.first_name }}</strong> via SMS.
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Reason (optional — sent to customer)</label>
+                        <textarea name="reason" class="form-control" rows="2"
+                                  placeholder="e.g. Fully booked for those dates"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger fw-bold">
+                        <i class="fas fa-times me-1"></i>Reject Request
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- ── NEW RESERVATION MODAL ──────────────────────────────────────────────── -->
+<div class="modal fade" id="addBoardingModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#1a1a2e;">
+                <h5 class="modal-title text-white"><i class="fas fa-plus me-2"></i>New Boarding Reservation</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.create_boarding') }}">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Pet <span class="text-danger">*</span></label>
+                            <select name="pet_id" class="form-select" required>
+                                <option value="">— Select Pet —</option>
+                                {% for pet in all_pets %}
+                                <option value="{{ pet.id }}">{{ pet.name }} ({{ pet.owner.first_name }} {{ pet.owner.last_name }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">Check-In Date</label>
+                            <input type="date" name="check_in_date" class="form-control" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">Check-In Time</label>
+                            <input type="time" name="check_in_time" class="form-control" value="08:00">
+                        </div>
+                        <div class="col-md-6 offset-md-6">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">Check-Out Date</label>
+                            <input type="date" name="check_out_date" class="form-control" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">Check-Out Time</label>
+                            <input type="time" name="check_out_time" class="form-control" value="17:00">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Accommodation Type</label>
+                            <select name="kennel_type" class="form-select">
+                                <option value="kennel">Kennel</option>
+                                <option value="suite">Suite</option>
+                            </select>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label fw-bold">Kennel / Suite Number</label>
+                            <input type="text" name="kennel_number" class="form-control"
+                                   placeholder="e.g. 4, 4A — use same number for pets sharing a space">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Add-Ons</label>
+                            <div class="border rounded p-3" style="background:#f8f9fa;">
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox"
+                                           name="addon_spa_bath_nails" id="m_addon_spa_bath_nails"
+                                           value="1">
+                                    <label class="form-check-label" for="m_addon_spa_bath_nails">
+                                        <strong>Spa Bath + Nail Trim</strong>
+                                        <span class="badge bg-warning text-dark ms-2">$20/pet</span>
+                                    </label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox"
+                                           name="addon_spa_bath" id="m_addon_spa_bath"
+                                           value="1">
+                                    <label class="form-check-label" for="m_addon_spa_bath">
+                                        <strong>Spa Bath</strong>
+                                        <span class="badge bg-warning text-dark ms-2">$15/pet</span>
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox"
+                                           name="addon_nail_trim" id="m_addon_nail_trim"
+                                           value="1">
+                                    <label class="form-check-label" for="m_addon_nail_trim">
+                                        <strong>Nail Trim</strong>
+                                        <span class="badge bg-warning text-dark ms-2">$10/pet</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="form-text">Add-ons are performed on the last day of stay before checkout.</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Medications</label>
+                            <textarea name="medications" class="form-control" rows="2"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Feeding Schedule</label>
+                            <textarea name="feeding_schedule" class="form-control" rows="2"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Special Notes</label>
+                            <textarea name="special_notes" class="form-control" rows="2"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning text-dark fw-bold">
+                        <i class="fas fa-plus me-1"></i>Create Reservation
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Day Detail Modal -->
+<div class="modal fade" id="dayDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#1a1a2e;">
+                <h5 class="modal-title text-white" id="dayDetailTitle">
+                    <i class="fas fa-calendar-day me-2 text-warning"></i>
+                    <span id="dayDetailDate"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0" id="dayDetailBody"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+const calendarDetail = {{ calendar_detail|safe }};
+
+function fmtTime(t) {
+    if (!t) return '';
+    var parts = t.split(':');
+    var h = parseInt(parts[0]), m = parts[1];
+    var ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return h + ':' + m + ' ' + ampm;
+}
+
+function fmtDate(ds) {
+    var d = new Date(ds + 'T00:00:00');
+    return d.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric', year:'numeric'});
+}
+
+function showDayDetail(ds) {
+    var entries = calendarDetail[ds];
+    if (!entries || entries.length === 0) return;
+
+    document.getElementById('dayDetailDate').textContent = fmtDate(ds);
+
+    var staying   = entries.filter(function(e) { return !e.is_checkin && !e.is_checkout; });
+    var checkIns  = entries.filter(function(e) { return e.is_checkin; });
+    var checkOuts = entries.filter(function(e) { return e.is_checkout; });
+
+    var html = '';
+
+    function renderSection(title, icon, color, items, timeKey, timeLabel) {
+        if (!items.length) return '';
+        var s = '<div class="border-bottom">' +
+                '<div class="px-4 py-2 fw-bold" style="background:#f8f9fa;font-size:0.8rem;text-transform:uppercase;letter-spacing:1px;color:' + color + ';">' +
+                '<i class="' + icon + ' me-2"></i>' + title + ' <span class="badge ms-1" style="background:' + color + ';color:white;">' + items.length + '</span>' +
+                '</div></div>';
+        items.forEach(function(e) {
+            s += '<div class="px-4 py-3 border-bottom">' +
+                 '<div class="d-flex justify-content-between align-items-start">' +
+                 '<div>' +
+                 '<strong class="fs-6">' + e.name + '</strong>' +
+                 '<span class="text-muted small ms-2">' + e.breed + '</span>';
+            if (e.kennel) {
+                s += '<span class="badge bg-secondary ms-2" style="font-size:0.7rem;">' + e.kennel + '</span>';
+            }
+            s += '<div class="text-muted small mt-1"><i class="fas fa-user me-1"></i>' + e.owner +
+                 (e.phone !== '—' ? ' &nbsp;<i class="fas fa-phone me-1"></i>' + e.phone : '') + '</div>';
+            if (timeKey) {
+                s += '<div class="text-muted small"><i class="fas fa-clock me-1"></i>' +
+                     timeLabel + ': <strong>' + fmtTime(e[timeKey]) + '</strong></div>';
+            }
+            if (e.addons && e.addons.length) {
+                s += '<div class="mt-1">';
+                e.addons.forEach(function(a) {
+                    s += '<span class="badge bg-warning text-dark me-1" style="font-size:0.7rem;"><i class="fas fa-plus me-1"></i>' + a + '</span>';
+                });
+                s += '</div>';
+            }
+            s += '</div>';
+            s += '<a href="/admin/boarding/' + e.id + '" class="btn btn-sm btn-outline-primary ms-3 flex-shrink-0">' +
+                 '<i class="fas fa-eye"></i></a>';
+            s += '</div></div>';
+        });
+        return s;
+    }
+
+    html += renderSection('Dropping Off', 'fas fa-sign-in-alt', '#198754', checkIns,  'cin_time',  'Drop-off');
+    html += renderSection('Picking Up',   'fas fa-sign-out-alt','#dc3545', checkOuts, 'cout_time', 'Pick-up');
+    html += renderSection('Currently Boarding', 'fas fa-bed',  '#0d6efd', staying,   null,        null);
+
+    document.getElementById('dayDetailBody').innerHTML = html ||
+        '<div class="p-4 text-muted text-center">No details available.</div>';
+
+    new bootstrap.Modal(document.getElementById('dayDetailModal')).show();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('[title]').forEach(el => {
+        if (el.title) new bootstrap.Tooltip(el);
+    });
+});
+</script>
+{% endblock %}

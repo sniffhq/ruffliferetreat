@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Privacy Policy — Ruff Life Retreat{% endblock %}
+
+{% block content %}
+<div class="container mt-5 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-body p-4 p-lg-5">
+
+                    <h1 class="mb-1">Privacy Policy</h1>
+                    <p class="text-muted small mb-4">Last updated: April 27, 2026</p>
+
+                    <p>Ruff Life Retreat ("we," "us," or "our") operates the website and application located at
+                    <strong>rufflife.app</strong>. This Privacy Policy describes how we collect, use, and protect
+                    your personal information.</p>
+
+                    <hr>
+
+                    <h4 class="mt-4">1. Information We Collect</h4>
+                    <p>We collect information you provide directly to us when you create an account or use our
+                    services, including:</p>
+                    <ul>
+                        <li>Name, email address, phone number, and mailing address</li>
+                        <li>Pet information (name, breed, vaccination records, veterinarian details)</li>
+                        <li>Emergency contact information</li>
+                        <li>Payment and transaction history</li>
+                        <li>Communications you send to us via SMS or other channels</li>
+                    </ul>
+
+                    <h4 class="mt-4">2. How We Use Your Information</h4>
+                    <p>We use the information we collect to:</p>
+                    <ul>
+                        <li>Provide, operate, and improve our pet boarding, daycare, and grooming services</li>
+                        <li>Send appointment confirmations, reminders, and service notifications</li>
+                        <li>Send SMS notifications you have consented to receive</li>
+                        <li>Respond to your inquiries and provide customer support</li>
+                        <li>Maintain accurate pet care and health records</li>
+                        <li>Process payments and maintain billing records</li>
+                    </ul>
+
+                    <h4 class="mt-4">3. SMS / Text Message Communications</h4>
+                    <p>If you opt in to receive SMS notifications from Ruff Life Retreat, we will send you
+                    text messages related to your services, including appointment confirmations, reminders,
+                    daycare check-in and check-out alerts, and other service-related notifications.</p>
+
+                    <div class="alert alert-warning mt-3 mb-3">
+                        <strong>Mobile Data Sharing Policy:</strong> Mobile information (including your phone number
+                        and SMS opt-in consent) collected by Ruff Life Retreat will <strong>never be shared,
+                        sold, rented, or disclosed to third parties or affiliates for marketing, promotional,
+                        or any other purposes.</strong> No mobile opt-in data will be shared with third parties
+                        or affiliates for marketing or promotional purposes at any time.
+                    </div>
+
+                    <p>Message and data rates may apply. Message frequency varies based on your service activity.
+                    You may opt out at any time by replying <strong>STOP</strong> to any message or by contacting
+                    us directly. Reply <strong>HELP</strong> for assistance.</p>
+
+                    <h4 class="mt-4">4. How We Share Your Information</h4>
+                    <p>We do not sell, trade, or otherwise transfer your personal information to third parties.
+                    We may share information only in the following limited circumstances:</p>
+                    <ul>
+                        <li><strong>Service providers:</strong> We use Twilio to send SMS notifications on our
+                        behalf. Twilio receives only the phone number and message content necessary to deliver
+                        your messages. Twilio does not use this information for marketing purposes.</li>
+                        <li><strong>Legal requirements:</strong> We may disclose information if required by law
+                        or to protect the rights and safety of our customers, staff, or animals in our care.</li>
+                    </ul>
+
+                    <h4 class="mt-4">5. Data Security</h4>
+                    <p>We implement reasonable security measures to protect your personal information from
+                    unauthorized access, disclosure, or destruction. Your account is protected by a password,
+                    and all data is transmitted over encrypted HTTPS connections.</p>
+
+                    <h4 class="mt-4">6. Data Retention</h4>
+                    <p>We retain your personal information for as long as your account is active or as needed
+                    to provide services. You may request deletion of your account and associated data by
+                    contacting us directly.</p>
+
+                    <h4 class="mt-4">7. Your Rights</h4>
+                    <p>You have the right to:</p>
+                    <ul>
+                        <li>Access the personal information we hold about you</li>
+                        <li>Request correction of inaccurate information</li>
+                        <li>Request deletion of your account and data</li>
+                        <li>Opt out of SMS notifications at any time by replying STOP</li>
+                    </ul>
+
+                    <h4 class="mt-4">8. Children's Privacy</h4>
+                    <p>Our services are not directed to children under the age of 13. We do not knowingly
+                    collect personal information from children under 13.</p>
+
+                    <h4 class="mt-4">9. Changes to This Policy</h4>
+                    <p>We may update this Privacy Policy from time to time. We will notify you of significant
+                    changes by posting the new policy on this page with an updated date.</p>
+
+                    <h4 class="mt-4">10. Contact Us</h4>
+                    <p>If you have questions about this Privacy Policy or how we handle your information,
+                    please contact us:</p>
+                    <ul class="list-unstyled">
+                        <li><strong>Ruff Life Retreat</strong></li>
+                        <li>2945 Midland Rd, Guyton, GA 31312</li>
+                        <li>Phone: (912) 648-2295</li>
+                        <li>Website: <a href="https://rufflife.app">rufflife.app</a></li>
+                    </ul>
+
+                    <hr class="mt-4">
+                    <div class="text-center mt-3">
+                        <a href="{{ url_for('public.terms') }}" class="btn btn-outline-secondary btn-sm me-2">
+                            View Terms of Service
+                        </a>
+                        <a href="{{ url_for('auth.register') }}" class="btn btn-warning btn-sm text-dark">
+                            Back to Registration
+                        </a>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

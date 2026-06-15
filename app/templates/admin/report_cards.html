@@ -1,0 +1,140 @@
+﻿{% extends "base.html" %}
+{% block title %}Report Cards — Ruff Life Retreat{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0"><i class="fas fa-clipboard-list me-2"></i>Daily Report Cards</h2>
+            <div class="text-muted small">{{ today.strftime('%A, %B %d, %Y') }}</div>
+        </div>
+    </div>
+
+    <!-- Daycare Roster -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+            <strong><i class="fas fa-paw me-2"></i>Daycare — Today's Attendees</strong>
+            <span class="badge bg-dark">{{ daycare_today|length }} pets</span>
+        </div>
+        <div class="card-body p-0">
+            {% if daycare_today %}
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Pet</th>
+                        <th>Owner</th>
+                        <th>Check In</th>
+                        <th>Check Out</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for att in daycare_today %}
+                    {% set pet = att.enrollment.pet %}
+                    {% set owner = pet.owner %}
+                    <tr>
+                        <td><strong>{{ pet.name }}</strong><div class="text-muted small">{{ pet.breed or pet.species or 'Dog' }}</div></td>
+                        <td>{{ owner.first_name }} {{ owner.last_name }}<div class="text-muted small">{{ owner.phone or '—' }}</div></td>
+                        <td>{{ att.check_in_time.strftime('%I:%M %p') }}</td>
+                        <td>{{ att.check_out_time.strftime('%I:%M %p') if att.check_out_time else '—' }}</td>
+                        <td>
+                            {% if att.id in sent_today %}
+                                <span class="badge bg-success"><i class="fas fa-check me-1"></i>Sent</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if att.id in sent_today %}
+                                <a href="{{ url_for('admin.create_report_card', card_type='daycare', pet_id=pet.id) }}"
+                                   class="btn btn-sm btn-outline-warning">
+                                    <i class="fas fa-edit"></i> Edit
+                                </a>
+                            {% else %}
+                                <a href="{{ url_for('admin.create_report_card', card_type='daycare', pet_id=pet.id) }}"
+                                   class="btn btn-sm btn-warning text-dark fw-bold">
+                                    <i class="fas fa-clipboard-list"></i> Write Card
+                                </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="text-center py-4 text-muted">
+                <i class="fas fa-dog fa-2x mb-2 d-block"></i>No daycare check-ins today.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Boarding Roster -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header" style="background:#1a1a2e;">
+            <div class="d-flex justify-content-between align-items-center">
+                <strong class="text-white"><i class="fas fa-hotel me-2"></i>Boarding — Current Guests</strong>
+                <span class="badge bg-warning text-dark">{{ boarding_active|length }} pets</span>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            {% if boarding_active %}
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Pet</th>
+                        <th>Owner</th>
+                        <th>Check In</th>
+                        <th>Check Out</th>
+                        <th>Night</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for res in boarding_active %}
+                    {% set pet = res.pet %}
+                    {% set owner = pet.owner %}
+                    {% set night_num = (today - res.check_in_date).days + 1 %}
+                    <tr>
+                        <td><strong>{{ pet.name }}</strong><div class="text-muted small">{{ pet.breed or pet.species or 'Dog' }}</div></td>
+                        <td>{{ owner.first_name }} {{ owner.last_name }}<div class="text-muted small">{{ owner.phone or '—' }}</div></td>
+                        <td>{{ res.check_in_date.strftime('%m/%d') }}</td>
+                        <td>{{ res.check_out_date.strftime('%m/%d') }}</td>
+                        <td><span class="badge bg-primary">Night {{ night_num }}</span></td>
+                        <td>
+                            {% if pet.id in sent_today %}
+                                <span class="badge bg-success"><i class="fas fa-check me-1"></i>Sent</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if pet.id in sent_today %}
+                                <a href="{{ url_for('admin.create_report_card', card_type='boarding', pet_id=pet.id) }}"
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-edit"></i> Edit
+                                </a>
+                            {% else %}
+                                <a href="{{ url_for('admin.create_report_card', card_type='boarding', pet_id=pet.id) }}"
+                                   class="btn btn-sm btn-primary fw-bold">
+                                    <i class="fas fa-clipboard-list"></i> Write Card
+                                </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="text-center py-4 text-muted">
+                <i class="fas fa-hotel fa-2x mb-2 d-block"></i>No boarding guests currently checked in.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+

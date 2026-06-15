@@ -1,0 +1,422 @@
+{% extends "base.html" %}
+{% block title %}Edit Appointment — Ruff Life Retreat{% endblock %}
+{% block content %}
+<div class="container mt-4" style="max-width:580px;">
+
+    <div class="d-flex align-items-center gap-3 mb-4">
+        <a href="{{ url_for('customer.dashboard') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-arrow-left"></i> Dashboard
+        </a>
+        <h4 class="mb-0"><i class="fas fa-calendar-edit me-2 text-warning"></i>Edit Appointment</h4>
+    </div>
+
+    {% if appt.status == 'confirmed' %}
+    <div class="alert alert-warning py-2 mb-3" style="font-size:0.875rem;">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        <strong>Heads up:</strong> This booking is already confirmed. Saving changes will send it back to staff for re-approval.
+    </div>
+    {% endif %}
+
+    <div class="card shadow-sm">
+        <div class="card-header" style="background:#1a1a2e;">
+            <strong class="text-white">Update Booking #{{ appt.id }}</strong>
+        </div>
+        <form method="POST" action="{{ url_for('customer.edit_appointment', appt_id=appt.id) }}" id="edit-form">
+            <div class="card-body p-4">
+                <div class="row g-3">
+
+                    <!-- Pet Selection -->
+                    <div class="col-12">
+                        <label class="form-label fw-bold">Pet(s) <span class="text-danger">*</span></label>
+                        {% if pets|length > 1 %}
+                        <div class="border rounded p-3 bg-light">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="selectAllPets"
+                                       onchange="toggleAllPets(this)">
+                                <label class="form-check-label fw-bold text-warning" for="selectAllPets">
+                                    <i class="fas fa-paw me-1"></i>All Pets
+                                </label>
+                            </div>
+                            <hr class="my-2">
+                            {% for pet in pets %}
+                            {% set records = pet.vaccination_records %}
+                            {% set has_valid = records|selectattr('expiration_date', 'ge', today)|list %}
+                            {% set has_any = records|length > 0 %}
+                            <div class="form-check">
+                                <input class="form-check-input pet-checkbox" type="checkbox"
+                                       name="pet_ids" value="{{ pet.id }}"
+                                       id="pet{{ pet.id }}"
+                                       {% if not has_any or not has_valid %}disabled{% endif %}
+                                       {% if pet.id == appt.pet_id %}checked{% endif %}>
+                                <label class="form-check-label" for="pet{{ pet.id }}">
+                                    <strong>{{ pet.name }}</strong>
+                                    <span class="text-muted small">— {{ pet.breed or 'Mixed' }}</span>
+                                    {% if not has_any %}
+                                    <span class="badge bg-danger ms-1" style="font-size:0.65rem;">No Vaccinations</span>
+                                    {% elif not has_valid %}
+                                    <span class="badge bg-warning text-dark ms-1" style="font-size:0.65rem;">Vaccinations Expired</span>
+                                    {% endif %}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        {% for pet in pets %}
+                        <input type="hidden" name="pet_ids" value="{{ pet.id }}">
+                        <div class="form-control bg-light">
+                            <i class="fas fa-paw me-2 text-warning"></i>
+                            <strong>{{ pet.name }}</strong>
+                            <span class="text-muted small">— {{ pet.breed or 'Mixed' }}</span>
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+                    </div>
+
+                    <!-- Service — hidden, always boarding -->
+                    {% if services %}
+                    <input type="hidden" name="service_type_id" value="{{ services[0].id }}">
+                    {% endif %}
+                    <div class="col-12">
+                        <label class="form-label fw-bold">Service</label>
+                        <div class="form-control bg-light text-muted">
+                            <i class="fas fa-hotel me-2 text-warning"></i>Boarding
+                        </div>
+                    </div>
+
+                    <!-- Check-in Date -->
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Check-In Date <span class="text-danger">*</span></label>
+                        <input type="date" name="appointment_date" id="checkin-date"
+                               class="form-control"
+                               value="{{ appt.appointment_date.strftime('%Y-%m-%d') }}"
+                               min="{{ today.isoformat() }}" required>
+                    </div>
+
+                    <!-- Drop-off Time -->
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Drop-Off Time <span class="text-danger">*</span></label>
+                        <select name="appointment_time" id="checkin-time" class="form-select" required>
+                            <option value="{{ appt.start_time.strftime('%H:%M') if appt.start_time else '09:00' }}" selected>
+                                {{ appt.start_time.strftime('%I:%M %p') if appt.start_time else '9:00 AM' }} (current)
+                            </option>
+                        </select>
+                        <div class="form-text" id="checkin-time-hint"></div>
+                    </div>
+
+                    <!-- Check-out Date -->
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Check-Out Date <span class="text-danger">*</span></label>
+                        <input type="date" name="checkout_date" id="checkout-date"
+                               class="form-control"
+                               value="{{ appt.end_time.strftime('%Y-%m-%d') if appt.end_time else '' }}"
+                               min="{{ today.isoformat() }}" required>
+                    </div>
+
+                    <!-- Pick-up Time -->
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Pick-Up Time <span class="text-danger">*</span></label>
+                        <select name="pickup_time" id="checkout-time" class="form-select" required>
+                            <option value="{{ appt.end_time.strftime('%H:%M') if appt.end_time else '17:00' }}" selected>
+                                {{ appt.end_time.strftime('%I:%M %p') if appt.end_time else '5:00 PM' }} (current)
+                            </option>
+                        </select>
+                        <div class="form-text" id="checkout-time-hint"></div>
+                    </div>
+
+                    <!-- Closure warning -->
+                    <div class="col-12" id="closure-warning" style="display:none;">
+                        <div class="alert alert-danger py-2 mb-0">
+                            <i class="fas fa-ban me-2"></i>
+                            <span id="closure-warning-text"></span>
+                        </div>
+                    </div>
+
+                    {% if future_blocks %}
+                    <div class="col-12">
+                        <div class="alert alert-warning py-2" style="font-size:0.85rem;">
+                            <i class="fas fa-calendar-times me-2"></i>
+                            <strong>We will be closed:</strong>
+                            {% for b in future_blocks %}
+                            {{ b.start_date.strftime('%b %d') }}{% if b.start_date != b.end_date %}&ndash;{{ b.end_date.strftime('%b %d') }}{% endif %}{% if b.reason %} ({{ b.reason }}){% endif %}{% if not loop.last %}, {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Add-Ons -->
+                    <div class="col-12">
+                        <label class="form-label fw-bold">Add-Ons <span class="text-muted small">(optional)</span></label>
+                        <div class="border rounded p-3 bg-light">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input addon-checkbox" type="checkbox"
+                                       name="addons" value="spa_bath_nails" id="addon_spa_bath_nails"
+                                       {% if 'spa_bath_nails' in existing_addons %}checked{% endif %}
+                                       onchange="updatePricing()">
+                                <label class="form-check-label" for="addon_spa_bath_nails">
+                                    <strong>Spa Bath + Nail Trim</strong>
+                                    <span class="badge bg-warning text-dark ms-2">$30/pet</span>
+                                    <span class="text-muted small d-block">Full spa bath and nail trim on the last day of stay</span>
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input addon-checkbox" type="checkbox"
+                                       name="addons" value="spa_bath" id="addon_spa_bath"
+                                       {% if 'spa_bath' in existing_addons %}checked{% endif %}
+                                       onchange="updatePricing()">
+                                <label class="form-check-label" for="addon_spa_bath">
+                                    <strong>Spa Bath</strong>
+                                    <span class="badge bg-warning text-dark ms-2">$30/pet</span>
+                                    <span class="text-muted small d-block">Full spa bath on the last day of stay</span>
+                                </label>
+                            </div>
+                            <div class="form-check mt-2">
+                                <input class="form-check-input addon-checkbox" type="checkbox"
+                                       name="addons" value="nail_trim" id="addon_nail_trim"
+                                       {% if 'nail_trim' in existing_addons %}checked{% endif %}
+                                       onchange="updatePricing()">
+                                <label class="form-check-label" for="addon_nail_trim">
+                                    <strong>Nail Trim</strong>
+                                    <span class="badge bg-warning text-dark ms-2">$20/pet</span>
+                                    <span class="text-muted small d-block">Nail trim only on the last day of stay</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div id="free-bath-notice" class="alert alert-success py-2 mt-2 mb-0" style="display:none;font-size:0.85rem;">
+                            <i class="fas fa-gift me-2"></i><strong>7+ night stay bonus:</strong> A free Spa Bath is included!
+                        </div>
+                    </div>
+
+                    <!-- Notes -->
+                    <div class="col-12">
+                        <label class="form-label fw-bold">Notes (optional)</label>
+                        <textarea name="notes" class="form-control" rows="3"
+                                  placeholder="Any special requests, instructions, or questions...">{{ base_notes }}</textarea>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Pricing Summary -->
+            <div class="card-footer bg-light" id="pricing-summary" style="display:none;">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div id="pricing-breakdown" class="text-muted small"></div>
+                    <div class="text-end">
+                        <div class="text-muted small">Estimated Total</div>
+                        <div class="fs-5 fw-bold text-success" id="pricing-total"></div>
+                        <div class="text-muted" style="font-size:0.72rem;">Final price confirmed by staff</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── UPDATED FOOTER: Save + Cancel Reservation ── -->
+            <div class="card-footer bg-white d-flex justify-content-between align-items-center gap-2">
+                <button type="button" class="btn btn-outline-danger btn-sm"
+                        data-bs-toggle="modal" data-bs-target="#cancelModal">
+                    <i class="fas fa-times-circle me-1"></i>Cancel Reservation
+                </button>
+                <button type="submit" class="btn btn-warning text-dark fw-bold px-5" id="submit-btn">
+                    <i class="fas fa-save me-2"></i>Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+
+</div>
+
+<!-- ── Cancel Confirmation Modal ── -->
+<div class="modal fade" id="cancelModal" tabindex="-1" aria-labelledby="cancelModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title text-danger" id="cancelModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Cancel Reservation?
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body pt-2">
+                <p class="mb-1">Are you sure you want to cancel <strong>Booking #{{ appt.id }}</strong>?</p>
+                <p class="text-muted small mb-0">This cannot be undone. You'll need to submit a new booking request if you change your mind.</p>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    Keep Reservation
+                </button>
+                <form method="POST" action="{{ url_for('customer.cancel_appointment', appt_id=appt.id) }}" style="display:inline;">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-times-circle me-1"></i>Yes, Cancel It
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- ── END Modal ── -->
+
+<script>
+var blockedDates = {{ blocked_dates_json|safe }};
+var ADDON_PRICES = { spa_bath_nails: 20, spa_bath: 15, nail_trim: 10 };
+var ADDON_LABELS = { spa_bath_nails: 'Spa Bath + Nail Trim', spa_bath: 'Spa Bath', nail_trim: 'Nail Trim' };
+
+function toggleAllPets(cb) {
+    document.querySelectorAll('.pet-checkbox').forEach(function(c) { c.checked = cb.checked; });
+}
+document.querySelectorAll('.pet-checkbox').forEach(function(c) {
+    c.addEventListener('change', function() {
+        var all     = document.querySelectorAll('.pet-checkbox');
+        var checked = document.querySelectorAll('.pet-checkbox:checked');
+        var sa = document.getElementById('selectAllPets');
+        if (sa) {
+            sa.checked       = all.length === checked.length;
+            sa.indeterminate = checked.length > 0 && checked.length < all.length;
+        }
+        updatePricing();
+    });
+});
+
+function getCheckinDate()  { return document.getElementById('checkin-date').value; }
+function getCheckoutDate() { return document.getElementById('checkout-date').value; }
+function getSelectedPetCount() {
+    var cbs = document.querySelectorAll('.pet-checkbox');
+    if (cbs.length === 0) return 1;
+    return document.querySelectorAll('.pet-checkbox:checked').length;
+}
+function getNights() {
+    var ci = getCheckinDate(), co = getCheckoutDate();
+    if (!ci || !co) return 0;
+    var diff = (new Date(co + 'T00:00:00') - new Date(ci + 'T00:00:00')) / 86400000;
+    return diff > 0 ? diff : 0;
+}
+function getBillableDays() { var n = getNights(); return n > 0 ? n + 1 : 0; }
+
+function updatePricing() {
+    var petCount  = getSelectedPetCount();
+    var nights    = getNights();
+    var days      = getBillableDays();
+    var freeBath  = nights >= 7;
+    var summary   = document.getElementById('pricing-summary');
+    var breakdown = document.getElementById('pricing-breakdown');
+    var totalEl   = document.getElementById('pricing-total');
+    var freeNotice = document.getElementById('free-bath-notice');
+    if (freeNotice) freeNotice.style.display = freeBath ? 'block' : 'none';
+    if (petCount === 0 || days === 0) { summary.style.display = 'none'; return; }
+
+    var baseTotal = (40 + Math.max(0, petCount - 1) * 25) * days;
+    var addonTotal = 0, addonLines = [];
+
+    document.querySelectorAll('.addon-checkbox:checked').forEach(function(cb) {
+        var price = ADDON_PRICES[cb.value] || 0;
+        if (freeBath && cb.value === 'spa_bath') {
+            addonLines.push('Spa Bath x' + petCount + ' — <span class="text-success fw-bold">FREE</span>');
+            return;
+        }
+        if (freeBath && cb.value === 'spa_bath_nails') {
+            var cost = 5 * petCount;
+            addonTotal += cost;
+            addonLines.push('Spa Bath + Nail Trim x' + petCount + ' — $' + cost + ' <span class="text-success small">(bath included free)</span>');
+            return;
+        }
+        var cost = price * petCount;
+        addonTotal += cost;
+        addonLines.push(ADDON_LABELS[cb.value] + ' x' + petCount + ' — $' + cost);
+    });
+
+    var lines = [];
+    if (petCount === 1) {
+        lines.push('1 pet x ' + days + ' day' + (days !== 1 ? 's' : '') + ' @ $40/day — $' + (40 * days));
+    } else {
+        lines.push('1st pet x ' + days + ' day' + (days !== 1 ? 's' : '') + ' @ $40/day — $' + (40 * days));
+        lines.push((petCount - 1) + ' additional pet' + (petCount > 2 ? 's' : '') + ' x ' + days + ' day' + (days !== 1 ? 's' : '') + ' @ $25/day — $' + (25 * (petCount - 1) * days));
+    }
+    lines = lines.concat(addonLines);
+    breakdown.innerHTML = lines.map(function(l) { return '<div>' + l + '</div>'; }).join('');
+    totalEl.textContent = '$' + (baseTotal + addonTotal).toFixed(2);
+    summary.style.display = 'block';
+}
+
+function isBlocked(ds) { return blockedDates.indexOf(ds) !== -1; }
+
+function checkDateConflict() {
+    var ci  = document.getElementById('checkin-date').value;
+    var co  = document.getElementById('checkout-date').value;
+    var warning = document.getElementById('closure-warning');
+    var text    = document.getElementById('closure-warning-text');
+    var btn     = document.getElementById('submit-btn');
+    var conflict = null;
+    if (ci && isBlocked(ci)) {
+        conflict = 'The check-in date falls within a scheduled closure.';
+    } else if (co && isBlocked(co)) {
+        conflict = 'The check-out date falls within a scheduled closure.';
+    } else if (ci && co) {
+        var cur = new Date(ci + 'T00:00:00');
+        var end = new Date(co + 'T00:00:00');
+        while (cur <= end) {
+            var ds = cur.toISOString().slice(0, 10);
+            if (isBlocked(ds)) {
+                var d = cur.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+                conflict = 'Your stay includes ' + d + ', which falls within a scheduled closure.';
+                break;
+            }
+            cur.setDate(cur.getDate() + 1);
+        }
+    }
+    if (conflict) {
+        text.textContent = conflict;
+        warning.style.display = 'block';
+        if (btn) btn.disabled = true;
+    } else {
+        warning.style.display = 'none';
+        if (btn) btn.disabled = false;
+    }
+}
+
+function loadTimeSlots(dateStr, type) {
+    var selectId   = type === 'checkin' ? 'checkin-time'  : 'checkout-time';
+    var hintId     = type === 'checkin' ? 'checkin-time-hint' : 'checkout-time-hint';
+    var defaultOpt = type === 'checkin' ? '09:00' : '17:00';
+    var sel  = document.getElementById(selectId);
+    var hint = document.getElementById(hintId);
+    if (!dateStr) { sel.innerHTML = '<option value="">— Select a date first —</option>'; sel.disabled = true; return; }
+    sel.innerHTML = '<option value="">Loading...</option>';
+    sel.disabled = true;
+    fetch('/customer/available-times?date=' + dateStr + '&type=' + type)
+        .then(function(r) { return r.json(); })
+        .then(function(slots) {
+            sel.innerHTML = '<option value="">— Select a time —</option>';
+            slots.forEach(function(s) {
+                var opt = document.createElement('option');
+                opt.value = s.time;
+                if (!s.available) {
+                    opt.textContent = s.display + ' — Unavailable';
+                    opt.disabled = true;
+                    opt.style.color = '#adb5bd';
+                } else {
+                    opt.textContent = s.display;
+                    if (s.time === defaultOpt) opt.selected = true;
+                }
+                sel.appendChild(opt);
+            });
+            sel.disabled = false;
+            var taken = slots.filter(function(s) { return !s.available; }).length;
+            hint.innerHTML = taken > 0 ? '<i class="fas fa-info-circle me-1 text-warning"></i>' + taken + ' slot' + (taken !== 1 ? 's' : '') + ' already booked.' : '';
+        })
+        .catch(function() { sel.innerHTML = '<option value="">Error loading — refresh and try again</option>'; });
+}
+
+document.getElementById('checkin-date').addEventListener('change', function() {
+    loadTimeSlots(this.value, 'checkin'); checkDateConflict(); updatePricing();
+});
+document.getElementById('checkout-date').addEventListener('change', function() {
+    loadTimeSlots(this.value, 'checkout'); checkDateConflict(); updatePricing();
+});
+
+document.querySelector('form').addEventListener('submit', function(e) {
+    var cbs = document.querySelectorAll('.pet-checkbox');
+    if (cbs.length > 0 && document.querySelectorAll('.pet-checkbox:checked').length === 0) {
+        e.preventDefault();
+        alert('Please select at least one pet.');
+    }
+});
+
+updatePricing();
+</script>
+{% endblock %}

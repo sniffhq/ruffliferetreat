@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-body">
+                <h2 class="card-title text-center mb-4">Register</h2>
+
+                <!-- Honeypot field - hidden from humans, bots will fill it -->
+                <div style="position: absolute; left: -9999px;" aria-hidden="true">
+                    <label for="website">Leave this field empty</label>
+                    <input type="text" name="website" id="website" tabindex="-1" autocomplete="off">
+                </div>
+                <input type="hidden" name="_timestamp" value="{{ form_timestamp }}">
+
+                <form method="POST">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="first_name" class="form-label">First Name</label>
+                            <input type="text" class="form-control" id="first_name" name="first_name"
+                                   value="{{ waitlist_data.first_name if waitlist_data else '' }}" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="last_name" class="form-label">Last Name</label>
+                            <input type="text" class="form-control" id="last_name" name="last_name"
+                                   value="{{ waitlist_data.last_name if waitlist_data else '' }}" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" name="email"
+                               value="{{ waitlist_data.email if waitlist_data else '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="phone" class="form-label">Phone</label>
+                        <input type="tel" class="form-control" id="phone" name="phone"
+                               value="{{ waitlist_data.phone if waitlist_data else '' }}"
+                               placeholder="(912) 555-1234">
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+
+                    <!-- Terms & Conditions (separate from SMS opt-in) -->
+                    <div class="mb-3 p-3 bg-light rounded border">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="accept_terms"
+                                   id="accept_terms" value="1" required>
+                            <label class="form-check-label" for="accept_terms">
+                                I agree to the
+                                <a href="{{ url_for('public.terms') }}" target="_blank">Terms of Service</a>
+                                and
+                                <a href="{{ url_for('public.privacy') }}" target="_blank">Privacy Policy</a>
+                                <span class="text-danger">*</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- SMS Opt-In (must be separate from T&C per A2P requirements) -->
+                    <div class="mb-4 p-3 bg-light rounded border">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="sms_opt_in"
+                                   id="sms_opt_in" value="1">
+                            <label class="form-check-label" for="sms_opt_in">
+                                <strong>I agree to receive SMS notifications from Ruff Life Retreat</strong>
+                                <span class="text-muted fw-normal">(optional)</span>
+                            </label>
+                        </div>
+                        <div class="text-muted small mt-2 ms-4">
+                            By checking this box, you consent to receive text messages from Ruff Life Retreat
+                            at the phone number provided above. Messages may include appointment confirmations,
+                            reminders, daycare check-in/check-out alerts, and other service notifications.
+                            Message and data rates may apply. Message frequency varies.
+                            Reply STOP to unsubscribe at any time. Reply HELP for help.
+                            <br><br>
+                            <strong>No mobile information will be shared with third parties or affiliates
+                            for marketing or promotional purposes.</strong>
+                            See our <a href="{{ url_for('public.privacy') }}" target="_blank">Privacy Policy</a>.
+                        </div>
+                    </div>
+
+                    <!-- ── RUFF LIFE RETREAT WAIVER ─────────────────────────────── -->
+                    <div class="card mt-4 mb-3" style="border:2px solid #1a1a2e;">
+                        <div class="card-header text-white" style="background:#1a1a2e;">
+                            <h5 class="mb-0">
+                                <i class="fas fa-file-contract me-2" style="color:#B07A8E;"></i>
+                                Ruff Life Retreat — Doggy Daycare &amp; Boarding Waiver
+                            </h5>
+                        </div>
+                        <div class="card-body">
+
+                            <div class="p-3 rounded mb-3"
+                                 style="background:#f8f9fa; border-left:4px solid #B07A8E;
+                                        max-height:280px; overflow-y:auto; font-size:0.88rem; line-height:1.65;">
+                                <p>I understand that I am solely responsible for any harm caused by my dog(s) while my dog(s) is/are attending daycare/boarding at Ruff Life Retreat.</p>
+                                <p>I also understand and agree that in admitting my dog(s), Ruff Life Retreat has relied upon my representation that my dog(s) is/are in good health and have not harmed or shown aggressive or threatening behavior towards any person or any other dog.</p>
+                                <p>I further understand that due to the way that dogs interact with one another, cuts/scratches, bug bites/nature related risks, or accidents can occur even though the dogs are carefully supervised at all times. While my dog(s) is/are in the care and custody of Ruff Life Retreat, if I am unreachable in the event of an emergency, I hereby authorize Ruff Life Retreat, its agents, and/or representatives to seek immediate veterinary care for my dog. I understand that all costs in connection with, veterinary, medical or other shall be my responsibility.</p>
+                                <p>I hereby release and agree to save and hold harmless, Ruff Life Retreat, it's directors, officers, shareholders, employees, assistants, members and agents from any and all liability, claims, suits, actions, loss, injury or damage of any nature or kind, or for any liability, claims, suits, actions, loss, injury or damage which I or my dog(s) may sustain or which may be caused in any way by my dog(s). I specifically, without limitation, agree to fully indemnify Ruff Life Retreat for any and all such liability, claims, suits, actions, losses, injury or damage.</p>
+                                <p>I certify that I have read and understand the rules and regulations set forth herein and that I have read and understand this agreement. I agree to abide by the rules and regulations and accept all the terms, conditions and statements of this agreement and confirm the truthfulness of the contents of the Application form completed by me. Payment can be made through Zelle or cash.</p>
+                                <p class="mb-0">Although we carefully screen all applicants, occasionally we discover that this is not an appropriate environment for every dog. Ruff Life Retreat reserves the right to permanently remove a dog from daycare at any time. In addition, Ruff Life Retreat reserves the right to disallow certain breeds to participate in the daycare.</p>
+                            </div>
+
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">
+                                        Pet Name(s) <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="text" class="form-control" name="waiver_pet_name"
+                                           id="waiver_pet_name"
+                                           placeholder="e.g. Buddy, Max" required>
+                                    <div class="form-text">Enter the name(s) of your dog(s)</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Date</label>
+                                    <input type="text" class="form-control" id="waiver_date"
+                                           name="waiver_date" readonly
+                                           style="background:#f8f9fa; cursor:default;">
+                                </div>
+                            </div>
+
+                            <div class="form-check p-3 rounded" style="background:#fff8f5; border:1px solid #B07A8E;">
+                                <input class="form-check-input" type="checkbox"
+                                       name="waiver_accepted" id="waiver_accepted"
+                                       value="1" required>
+                                <label class="form-check-label fw-bold" for="waiver_accepted"
+                                       style="color:#1a1a2e; font-size:0.9rem;">
+                                    I have read, understood, and agree to all terms of the Ruff Life Retreat
+                                    Doggy Daycare &amp; Boarding Waiver. I confirm this serves as my
+                                    electronic signature.
+                                </label>
+                            </div>
+
+                        </div>
+                    </div>
+                    <!-- ── END WAIVER ────────────────────────────────────────────── -->
+
+                    <button type="submit" class="btn btn-primary w-100">Register</button>
+                </form>
+                <p class="text-center mt-3">Already have an account? <a href="{{ url_for('auth.login') }}">Login</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+document.getElementById('waiver_date').value =
+    new Date().toLocaleDateString('en-US', {
+        year: 'numeric', month: 'long', day: 'numeric'
+    });
+</script>
+{% endblock %}

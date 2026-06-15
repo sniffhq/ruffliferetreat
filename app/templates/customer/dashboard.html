@@ -1,0 +1,584 @@
+{% extends "base.html" %}
+{% block title %}My Portal — Ruff Life Retreat{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <!-- Welcome header -->
+    <div style="background:linear-gradient(135deg,#1a1a2e,#0f3460);border-radius:16px;padding:28px 32px;margin-bottom:24px;position:relative;overflow:hidden;">
+        <div style="position:absolute;right:30px;top:10px;font-size:5rem;opacity:0.07;">🐾</div>
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h3 style="color:#FFC107;font-weight:800;margin-bottom:4px;">
+                    Welcome back, {{ current_user.first_name }}! 🐾
+                </h3>
+                <div style="color:rgba(255,255,255,0.65);font-size:0.9rem;">
+                    {% if pets %}
+                        You have {{ pets|length }} pet{{ 's' if pets|length != 1 }} registered
+                        {% if upcoming_appointments %} &nbsp;·&nbsp; {{ upcoming_appointments|length }} upcoming appointment{{ 's' if upcoming_appointments|length != 1 }}{% endif %}
+                    {% else %}
+                        Get started by adding your pet below
+                    {% endif %}
+                </div>
+            </div>
+            <a href="{{ url_for('customer.book_appointment') }}"
+               class="btn btn-warning text-dark fw-bold d-none d-md-block">
+                <i class="fas fa-calendar-plus me-2"></i>Book Appointment
+            </a>
+        </div>
+    </div>
+
+    <!-- Tab Navigation -->
+    <ul class="nav nav-tabs mb-4" id="portalTabs" role="tablist"
+        style="border-bottom:2px solid #dee2e6;">
+        {% for tab_id, tab_label, tab_icon in [
+            ('dashboard','Dashboard','fas fa-home'),
+            ('pets','My Pets','fas fa-paw'),
+            ('appointments','Appointments','fas fa-calendar-alt'),
+            ('reportcards','Report Cards','fas fa-clipboard-list'),
+            ('calendar','Calendar','fas fa-calendar'),
+            ('profile','Profile','fas fa-user')
+        ] %}
+        <li class="nav-item" role="presentation">
+            <button class="nav-link {% if loop.first %}active{% endif %} d-flex align-items-center gap-2"
+                    id="tab-{{ tab_id }}" data-bs-toggle="tab"
+                    data-bs-target="#pane-{{ tab_id }}" type="button"
+                    style="font-size:0.875rem; font-weight:600;">
+                <i class="{{ tab_icon }}"></i>
+                <span class="d-none d-sm-inline">{{ tab_label }}</span>
+            </button>
+        </li>
+        {% endfor %}
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="portalTabContent">
+
+        <!-- ── DASHBOARD ── -->
+        <div class="tab-pane fade show active" id="pane-dashboard">
+            <div class="row g-4">
+
+                <!-- Upcoming appointments -->
+                <div class="col-lg-6">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header bg-warning text-dark fw-bold">
+                            <i class="fas fa-calendar-check me-2"></i>Upcoming Appointments
+                        </div>
+                        <div class="card-body p-0">
+                            {% if upcoming_appointments %}
+                            <ul class="list-group list-group-flush">
+                                {% for appt in upcoming_appointments %}
+                                <li class="list-group-item py-3">
+                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                        <div>
+                                            <div class="fw-bold">{{ appt.service_type.name }}</div>
+                                            <div class="text-muted small">
+                                                {{ appt.pet.name }} &bull;
+                                                {{ appt.appointment_date.strftime('%a, %b %d') }}
+                                                {% if appt.start_time %} at {{ appt.start_time.strftime('%I:%M %p') }}{% endif %}
+                                            </div>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                                            <span class="badge {% if appt.status == 'confirmed' %}bg-success{% elif appt.status == 'pending' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                                                {{ appt.status|title }}
+                                            </span>
+                                            {% set cutoff = appt.appointment_date - timedelta(days=1) %}
+                                            {% if appt.status in ('pending', 'confirmed') and today < cutoff %}
+                                            <a href="{{ url_for('customer.edit_appointment', appt_id=appt.id) }}"
+                                               class="btn btn-sm btn-outline-warning py-0 px-2"
+                                               style="font-size:0.75rem;">
+                                                <i class="fas fa-edit me-1"></i>Edit
+                                            </a>
+                                            <form method="POST" action="{{ url_for('customer.cancel_appointment', appt_id=appt.id) }}"
+                                                  class="d-inline" onsubmit="return confirm('Cancel this reservation? This cannot be undone.');">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2" style="font-size:0.75rem;">
+                                                    <i class="fas fa-times me-1"></i>Cancel
+                                                </button>
+                                            </form>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}
+                            <div class="text-center py-4 text-muted">
+                                <i class="fas fa-calendar fa-2x mb-2 d-block opacity-25"></i>
+                                No upcoming appointments.
+                                <br><a href="{{ url_for('customer.book_appointment') }}" class="btn btn-sm btn-warning text-dark mt-2">Book Now</a>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Daycare enrollments -->
+                <div class="col-lg-6">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header" style="background:#1a1a2e;">
+                            <strong class="text-white"><i class="fas fa-paw me-2"></i>Daycare Schedule</strong>
+                        </div>
+                        <div class="card-body p-0">
+                            {% if enrollments %}
+                            <ul class="list-group list-group-flush">
+                                {% for enr in enrollments %}
+                                <li class="list-group-item py-3">
+                                    <div class="fw-bold mb-2">{{ enr.pet.name }}</div>
+                                    <div class="d-flex gap-1 flex-wrap">
+                                        {% for day, label in [('monday','M'),('tuesday','T'),('wednesday','W'),('thursday','Th'),('friday','F')] %}
+                                        <span class="badge {% if enr[day] %}bg-success{% else %}bg-light text-muted border{% endif %}"
+                                              style="min-width:26px; font-size:0.75rem;">{{ label }}</span>
+                                        {% endfor %}
+                                    </div>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}
+                            <div class="text-center py-4 text-muted">
+                                <i class="fas fa-dog fa-2x mb-2 d-block opacity-25"></i>
+                                Not currently enrolled in daycare.
+                                <br>
+                                <a href="{{ url_for('public.daycare_waitlist') }}" class="btn btn-sm btn-warning text-dark mt-2">Join Waitlist</a>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent report cards -->
+                {% if report_cards %}
+                <div class="col-12">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-light fw-bold">
+                            <i class="fas fa-clipboard-list me-2 text-warning"></i>Recent Report Cards
+                        </div>
+                        <div class="d-flex gap-3 p-3 overflow-auto">
+                            {% for card in report_cards[:4] %}
+                            <a href="{{ url_for('public.view_report_card', token=card.token) }}"
+                               target="_blank" class="text-decoration-none flex-shrink-0"
+                               style="width:160px;">
+                                <div style="border-radius:12px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.1); border:2px solid transparent;"
+                                     onmouseover="this.style.borderColor='#FFC107'" onmouseout="this.style.borderColor='transparent'">
+                                    {% if card.photo_filename %}
+                                    <img src="{{ card.photo_url }}" alt="{{ card.pet.name }}"
+                                         style="width:100%;height:110px;object-fit:cover;display:block;">
+                                    {% else %}
+                                    <div style="height:110px;background:#f0f2f5;display:flex;align-items:center;justify-content:center;font-size:2rem;">🐾</div>
+                                    {% endif %}
+                                    <div style="padding:8px 10px;background:white;">
+                                        <div style="font-weight:700;font-size:0.82rem;color:#1a1a2e;">{{ card.pet.name }}</div>
+                                        <div style="font-size:0.72rem;color:#888;">{{ card.card_date.strftime('%b %d') }} &bull; {{ card.card_type|title }}</div>
+                                        {% if card.mood %}
+                                        <div style="font-size:0.8rem;margin-top:2px;">
+                                            {% if card.mood == 'happy' %}😊{% elif card.mood == 'neutral' %}😐{% else %}😟{% endif %}
+                                            {{ card.mood|title }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+            </div>
+        </div>
+
+        <!-- ── MY PETS ── -->
+        <div class="tab-pane fade" id="pane-pets">
+            {% if pets %}
+            <div class="row g-4">
+                {% for pet in pets %}
+                <div class="col-md-6 col-lg-4">
+                    <div class="card shadow-sm h-100" style="border-top:4px solid #FFC107;">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center gap-3 mb-3">
+                                <div style="width:52px;height:52px;border-radius:50%;background:#FFC107;display:flex;align-items:center;justify-content:center;font-size:1.4rem;">🐾</div>
+                                <div>
+                                    <div class="fw-bold fs-5">{{ pet.name }}</div>
+                                    <div class="text-muted small">{{ pet.breed or pet.species or 'Dog' }}</div>
+                                </div>
+                            </div>
+                            <table class="table table-sm mb-3" style="font-size:0.82rem;">
+                                {% if pet.date_of_birth %}<tr><th class="text-muted border-0 ps-0">DOB</th><td class="border-0">{{ pet.date_of_birth.strftime('%m/%d/%Y') }}</td></tr>{% endif %}
+                                {% if pet.weight %}<tr><th class="text-muted ps-0">Weight</th><td>{{ pet.weight }} lbs</td></tr>{% endif %}
+                                <tr><th class="text-muted ps-0">Neutered</th><td>{{ 'Yes' if pet.is_neutered else 'No' }}</td></tr>
+                                {% if pet.vet_name %}<tr><th class="text-muted ps-0">Vet</th><td>{{ pet.vet_name }}</td></tr>{% endif %}
+                            </table>
+
+                            <!-- Vaccination status -->
+                            {% if pet.vaccination_records %}
+                            <div class="mb-0">
+                                <div class="text-muted small fw-bold text-uppercase mb-1" style="letter-spacing:1px;">Vaccinations</div>
+                                {% for rec in pet.vaccination_records|sort(attribute='expiration_date') %}
+                                <div class="d-flex justify-content-between align-items-center py-1 border-top" style="font-size:0.78rem;">
+                                    <span>{{ rec.vaccine_name }}</span>
+                                    {% if rec.is_expired %}
+                                        <span class="badge bg-danger">Expired</span>
+                                    {% elif rec.days_until_expiration <= 30 %}
+                                        <span class="badge bg-warning text-dark">{{ rec.days_until_expiration }}d left</span>
+                                    {% else %}
+                                        <span class="badge bg-success">Current</span>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <div class="text-muted small">No vaccination records on file.</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-paw fa-3x mb-3 d-block opacity-25"></i>
+                <p>No pets registered yet.</p>
+                <a href="{{ url_for('customer.add_pet') }}" class="btn btn-warning text-dark fw-bold">
+                    <i class="fas fa-plus me-2"></i>Add Your Pet
+                </a>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- ── APPOINTMENTS ── -->
+        <div class="tab-pane fade" id="pane-appointments">
+
+            {% if upcoming_appointments %}
+            <h5 class="fw-bold mb-3" style="color:#1a1a2e;">Upcoming</h5>
+            <div class="card shadow-sm mb-4">
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr><th>Service</th><th>Pet</th><th>Date</th><th>Time</th><th>Status</th><th></th></tr>
+                        </thead>
+                        <tbody>
+                            {% for appt in upcoming_appointments %}
+                            <tr>
+                                <td><strong>{{ appt.service_type.name }}</strong></td>
+                                <td>{{ appt.pet.name }}</td>
+                                <td>{{ appt.appointment_date.strftime('%a, %b %d, %Y') }}</td>
+                                <td>{{ appt.start_time.strftime('%I:%M %p') if appt.start_time else '—' }}</td>
+                                <td><span class="badge {% if appt.status == 'confirmed' %}bg-success{% elif appt.status == 'pending' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ appt.status|title }}</span></td>
+                                <td>
+                                    {% set cutoff = appt.appointment_date - timedelta(days=1) %}
+                                    {% if appt.status in ('pending', 'confirmed') and today < cutoff %}
+                                    <a href="{{ url_for('customer.edit_appointment', appt_id=appt.id) }}"
+                                       class="btn btn-sm btn-outline-warning">
+                                        <i class="fas fa-edit me-1"></i>Edit
+                                    </a>
+                                    <form method="POST" action="{{ url_for('customer.cancel_appointment', appt_id=appt.id) }}"
+                                          class="d-inline" onsubmit="return confirm('Cancel this reservation? This cannot be undone.');">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            <i class="fas fa-times me-1"></i>Cancel
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if past_appointments %}
+            <h5 class="fw-bold mb-3 text-muted">Past Appointments</h5>
+            <div class="card shadow-sm">
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0" style="font-size:0.875rem;">
+                        <thead class="table-light">
+                            <tr><th>Service</th><th>Pet</th><th>Date</th><th>Status</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for appt in past_appointments %}
+                            <tr>
+                                <td>{{ appt.service_type.name }}</td>
+                                <td>{{ appt.pet.name }}</td>
+                                <td>{{ appt.appointment_date.strftime('%b %d, %Y') }}</td>
+                                <td><span class="badge bg-secondary">{{ appt.status|title }}</span></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if not upcoming_appointments and not past_appointments %}
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-calendar fa-3x mb-3 d-block opacity-25"></i>
+                <p>No appointments yet.</p>
+                <a href="{{ url_for('customer.book_appointment') }}" class="btn btn-warning text-dark fw-bold">
+                    <i class="fas fa-calendar-plus me-2"></i>Book an Appointment
+                </a>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- ── REPORT CARDS ── -->
+        <div class="tab-pane fade" id="pane-reportcards">
+            {% if report_cards %}
+            <div class="row g-3">
+                {% for card in report_cards %}
+                <div class="col-md-6 col-lg-4">
+                    <a href="{{ url_for('public.view_report_card', token=card.token) }}"
+                       target="_blank" class="text-decoration-none">
+                        <div class="card shadow-sm h-100" style="transition:transform 0.15s;"
+                             onmouseover="this.style.transform='translateY(-4px)'"
+                             onmouseout="this.style.transform='translateY(0)'">
+                            {% if card.photo_filename %}
+                            <img src="{{ card.photo_url }}" class="card-img-top"
+                                 style="height:160px;object-fit:cover;">
+                            {% else %}
+                            <div style="height:80px;background:linear-gradient(135deg,#1a1a2e,#0f3460);display:flex;align-items:center;justify-content:center;font-size:2rem;">🐾</div>
+                            {% endif %}
+                            <div class="card-body py-2 px-3">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <div class="fw-bold" style="color:#1a1a2e;">{{ card.pet.name }}</div>
+                                        <div class="text-muted small">{{ card.card_date.strftime('%B %d, %Y') }}</div>
+                                    </div>
+                                    <div class="text-end">
+                                        <span class="badge {% if card.card_type == 'daycare' %}bg-warning text-dark{% else %}bg-primary{% endif %}" style="font-size:0.7rem;">
+                                            {{ card.card_type|title }}
+                                        </span>
+                                        {% if card.mood %}
+                                        <div style="font-size:1.2rem;">
+                                            {% if card.mood == 'happy' %}😊{% elif card.mood == 'neutral' %}😐{% else %}😟{% endif %}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% if card.notes %}
+                                <div class="text-muted small mt-1 text-truncate">{{ card.notes }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-clipboard-list fa-3x mb-3 d-block opacity-25"></i>
+                <p>No report cards yet. These will appear here once staff sends them after daycare or boarding visits.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- ── CALENDAR ── -->
+        <div class="tab-pane fade" id="pane-calendar">
+            <div class="row g-4">
+                {% for month in months %}
+                <div class="col-md-4">
+                    <div class="card shadow-sm">
+                        <div class="card-header text-center fw-bold" style="background:#1a1a2e;color:#FFC107;">
+                            {{ month.name }} {{ month.year }}
+                        </div>
+                        <div class="card-body p-2">
+                            <table class="table table-sm text-center mb-0" style="font-size:0.82rem;">
+                                <thead>
+                                    <tr>
+                                        {% for d in ['Su','Mo','Tu','We','Th','Fr','Sa'] %}
+                                        <th style="color:#888;font-weight:600;padding:4px;">{{ d }}</th>
+                                        {% endfor %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for week in month.weeks %}
+                                    <tr>
+                                        {% for day in week %}
+                                        <td style="padding:3px;">
+                                            {% if day == 0 %}
+                                            <span style="color:transparent;">0</span>
+                                            {% else %}
+                                                {% set date_str = '%s-%02d-%02d' % (month.year, month.month, day) %}
+                                                {% if date_str in blocked_dates|from_json %}
+                                                <span style="display:inline-flex;align-items:center;justify-content:center;
+                                                             width:26px;height:26px;border-radius:50%;
+                                                             background:#dc3545;color:white;font-weight:700;">
+                                                    {{ day }}
+                                                </span>
+                                                {% elif date_str == today.isoformat() %}
+                                                <span style="display:inline-flex;align-items:center;justify-content:center;
+                                                             width:26px;height:26px;border-radius:50%;
+                                                             background:#FFC107;color:#1a1a2e;font-weight:700;">
+                                                    {{ day }}
+                                                </span>
+                                                {% else %}
+                                                <span style="display:inline-block;width:26px;height:26px;line-height:26px;">{{ day }}</span>
+                                                {% endif %}
+                                            {% endif %}
+                                        </td>
+                                        {% endfor %}
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Legend -->
+            <div class="d-flex gap-4 mt-3 align-items-center" style="font-size:0.85rem;">
+                <div class="d-flex align-items-center gap-2">
+                    <span style="width:18px;height:18px;border-radius:50%;background:#FFC107;display:inline-block;"></span>
+                    Today
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span style="width:18px;height:18px;border-radius:50%;background:#dc3545;display:inline-block;"></span>
+                    Closed / Service Block
+                </div>
+            </div>
+
+            <!-- Upcoming closures list -->
+            {% if blocks %}
+            <div class="card shadow-sm mt-4">
+                <div class="card-header bg-light fw-bold">
+                    <i class="fas fa-ban text-danger me-2"></i>Upcoming Closures & Service Blocks
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for block in blocks %}
+                    <div class="list-group-item py-3">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="fw-bold">{{ block.reason or "Closed" }}</div>
+                                <div class="text-muted small">
+                                    {% if block.start_date == block.end_date %}
+                                        {{ block.start_date.strftime('%A, %B %d, %Y') }}
+                                    {% else %}
+                                        {{ block.start_date.strftime('%b %d') }} — {{ block.end_date.strftime('%b %d, %Y') }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <span class="badge bg-danger ms-3">
+                                {% if block.start_date == block.end_date %}1 day{% else %}{{ (block.end_date - block.start_date).days + 1 }} days{% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-success mt-4">
+                <i class="fas fa-check-circle me-2"></i>No upcoming closures in the next 90 days.
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- ── PROFILE ── -->
+        <div class="tab-pane fade" id="pane-profile">
+            <div class="row justify-content-center">
+                <div class="col-lg-7">
+                    <div class="card shadow-sm">
+                        <div class="card-header" style="background:#1a1a2e;">
+                            <strong class="text-white"><i class="fas fa-user me-2"></i>My Profile</strong>
+                        </div>
+                        <form method="POST" action="{{ url_for('customer.update_profile') }}">
+                            <div class="card-body p-4">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">First Name</label>
+                                        <input type="text" name="first_name" class="form-control"
+                                               value="{{ current_user.first_name }}" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Last Name</label>
+                                        <input type="text" name="last_name" class="form-control"
+                                               value="{{ current_user.last_name }}" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Email</label>
+                                        <input type="text" class="form-control"
+                                               value="{{ current_user.email }}" disabled>
+                                        <div class="text-muted small mt-1">Contact us to change your email address.</div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Phone</label>
+                                        <input type="tel" name="phone" class="form-control"
+                                               value="{{ current_user.phone or '' }}"
+                                               placeholder="(912) 555-1234">
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label fw-bold">Address</label>
+                                        <input type="text" name="address" class="form-control"
+                                               value="{{ current_user.address or '' }}"
+                                               placeholder="123 Main St">
+                                    </div>
+                                    <div class="col-md-5">
+                                        <label class="form-label fw-bold">City</label>
+                                        <input type="text" name="city" class="form-control"
+                                               value="{{ current_user.city or '' }}">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label fw-bold">State</label>
+                                        <input type="text" name="state" class="form-control"
+                                               value="{{ current_user.state or '' }}" maxlength="2" placeholder="GA">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-bold">Zip Code</label>
+                                        <input type="text" name="zip_code" class="form-control"
+                                               value="{{ current_user.zip_code or '' }}">
+                                    </div>
+
+                                    <!-- SMS Opt-in -->
+                                    <div class="col-12">
+                                        <div class="p-3 bg-light rounded border">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox"
+                                                       name="sms_opt_in" id="sms_opt_in" value="1"
+                                                       {% if current_user.sms_opt_in %}checked{% endif %}>
+                                                <label class="form-check-label fw-bold" for="sms_opt_in">
+                                                    Receive SMS notifications from Ruff Life Retreat
+                                                </label>
+                                            </div>
+                                            <div class="text-muted small mt-1 ms-4">
+                                                Appointment reminders, daycare check-in/out alerts, and report cards.
+                                                Msg & data rates may apply. Reply STOP to unsubscribe.
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-footer bg-white d-flex justify-content-between align-items-center">
+                                <a href="{{ url_for('auth.forgot_password') }}" class="text-muted small">
+                                    <i class="fas fa-key me-1"></i>Change Password
+                                </a>
+                                <button type="submit" class="btn btn-warning text-dark fw-bold px-4">
+                                    <i class="fas fa-save me-2"></i>Save Changes
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- end tab-content -->
+</div>
+
+<script>
+// Restore active tab from URL hash
+const hash = window.location.hash;
+if (hash) {
+    const tabId = 'tab-' + hash.replace('#','');
+    const tab   = document.getElementById(tabId);
+    if (tab) { new bootstrap.Tab(tab).show(); }
+}
+// Update hash on tab change
+document.querySelectorAll('[data-bs-toggle="tab"]').forEach(btn => {
+    btn.addEventListener('shown.bs.tab', e => {
+        const pane = e.target.getAttribute('data-bs-target').replace('#pane-','');
+        history.replaceState(null, null, '#' + pane);
+    });
+});
+</script>
+
+{% endblock %}

@@ -1,0 +1,722 @@
+{% extends "base.html" %}
+{% block title %}{{ pet.name }} — Pet Detail{% endblock %}
+{% block content %}
+<script src="{{ url_for('static', filename='js/pet_tags.js') }}"></script>
+</script>
+<div class="container-fluid mt-4">
+    <!-- Breadcrumb -->
+    <nav class="mb-3" style="font-size:0.85rem;">
+        <a href="{{ url_for('admin.customers') }}" class="text-decoration-none text-muted">Customers</a>
+        <span class="text-muted mx-2">/</span>
+        <a href="{{ url_for('admin.customer_detail', customer_id=pet.owner.id) }}"
+           class="text-decoration-none text-muted">{{ pet.owner.first_name }} {{ pet.owner.last_name }}</a>
+        <span class="text-muted mx-2">/</span>
+        <span class="text-dark">{{ pet.name }}</span>
+    </nav>
+    <div class="row g-4">
+        <!-- Left column: photo + basic info -->
+        <div class="col-lg-4">
+            <!-- Photo card -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-body text-center p-4">
+                    {% if pet.photo_path %}
+                    <img src="{{ url_for('static', filename='uploads/' + pet.photo_path) }}"
+                         alt="{{ pet.name }}"
+                         class="rounded-circle mb-3"
+                         style="width:140px;height:140px;object-fit:cover;
+                                border:4px solid #FFC107;">
+                    {% else %}
+                    <div class="rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center"
+                         style="width:140px;height:140px;background:#f0f0f0;
+                                border:4px dashed #dee2e6;">
+                        <i class="fas fa-paw fa-3x text-muted opacity-50"></i>
+                    </div>
+                    {% endif %}
+                    <h4 class="fw-bold mb-0" style="color:#1a1a2e;">{{ pet.name }}</h4>
+                    <div class="text-muted small">{{ pet.breed or 'Mixed' }}</div>
+                    <!-- Photo upload form -->
+                    <form method="POST"
+                          action="{{ url_for('admin.upload_pet_photo', pet_id=pet.id) }}"
+                          enctype="multipart/form-data"
+                          class="mt-3">
+                        <div class="input-group input-group-sm">
+                            <input type="file" name="pet_photo" class="form-control form-control-sm"
+                                   accept="image/*" required style="font-size:0.78rem;">
+                            <button type="submit" class="btn btn-warning btn-sm text-dark fw-bold">
+                                <i class="fas fa-camera me-1"></i>
+                                {% if pet.photo_path %}Update{% else %}Add Photo{% endif %}
+                            </button>
+                        </div>
+                        <div class="form-text">JPG, PNG or WebP</div>
+                    </form>
+                </div>
+            </div>
+            <!-- Quick stats -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light fw-bold">Pet Info</div>
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0" style="font-size:0.875rem;">
+                        <tbody>
+                            <tr><td class="text-muted ps-3">Age</td><td>{{ pet.age or '—' }}{% if pet.age %} yr{% endif %}</td></tr>
+                            <tr><td class="text-muted ps-3">Weight</td><td>{{ pet.weight or '—' }}{% if pet.weight %} lbs{% endif %}</td></tr>
+                            <tr><td class="text-muted ps-3">Gender</td><td>{{ pet.gender or '—' }}</td></tr>
+                            <tr><td class="text-muted ps-3">Spayed/Neutered</td>
+                                <td>{% if pet.spayed_neutered %}<span class="badge bg-success">Yes</span>{% else %}<span class="badge bg-secondary">No</span>{% endif %}</td>
+                            </tr>
+                            <tr><td class="text-muted ps-3">Temperament</td><td>{{ pet.temperament|title if pet.temperament else '—' }}</td></tr>
+                            <tr><td class="text-muted ps-3">Vet</td><td>{{ pet.vet_name or '—' }}</td></tr>
+                            <tr><td class="text-muted ps-3">Vet Phone</td><td>{{ pet.vet_phone or '—' }}</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% if pet.additional_notes %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header fw-bold bg-light">
+                    <i class="fas fa-sticky-note me-2 text-warning"></i>Additional Notes
+                </div>
+                <div class="card-body" style="font-size:0.9rem;white-space:pre-wrap;line-height:1.7;">{{ pet.additional_notes }}</div>
+            </div>
+            {% endif %}
+        </div>
+        <!-- Right column: edit form + vaccinations -->
+        <div class="col-lg-8">
+            <!-- Edit form -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header" style="background:#1a1a2e;">
+                    <strong class="text-white"><i class="fas fa-edit me-2 text-warning"></i>Edit Pet Info</strong>
+                </div>
+                <form method="POST"
+                      action="{{ url_for('admin.edit_pet', pet_id=pet.id) }}"
+                      enctype="multipart/form-data">
+                    <div class="card-body p-4">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Name</label>
+                                <input type="text" name="name" class="form-control" value="{{ pet.name }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Breed</label>
+                                <input type="text" name="breed" class="form-control" value="{{ pet.breed or '' }}">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">Age (years)</label>
+                                <input type="number" name="age" class="form-control" value="{{ pet.age or '' }}" min="0">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">Weight (lbs)</label>
+                                <input type="number" name="weight" class="form-control"
+                                       value="{{ pet.weight or '' }}" step="0.1" min="0">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">Gender</label>
+                                <select name="gender" class="form-select">
+                                    <option value="">—</option>
+                                    <option value="Male" {% if pet.gender == 'Male' %}selected{% endif %}>Male</option>
+                                    <option value="Female" {% if pet.gender == 'Female' %}selected{% endif %}>Female</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">Temperament</label>
+                                <select name="temperament" class="form-select">
+                                    <option value="">—</option>
+                                    <option value="calm" {% if pet.temperament == 'calm' %}selected{% endif %}>Calm</option>
+                                    <option value="energetic" {% if pet.temperament == 'energetic' %}selected{% endif %}>Energetic</option>
+                                    <option value="mixed" {% if pet.temperament == 'mixed' %}selected{% endif %}>Mixed</option>
+                                    <option value="dominant" {% if pet.temperament == 'dominant' %}selected{% endif %}>Dominant</option>
+                                    <option value="aggressive" {% if pet.temperament == 'aggressive' %}selected{% endif %}>Aggressive</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 d-flex align-items-end">
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" name="spayed_neutered"
+                                           id="spayed_neutered" value="1"
+                                           {% if pet.spayed_neutered %}checked{% endif %}>
+                                    <label class="form-check-label" for="spayed_neutered">Spayed/Neutered</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Vet Name</label>
+                                <input type="text" name="vet_name" class="form-control" value="{{ pet.vet_name or '' }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Vet Phone</label>
+                                <input type="tel" name="vet_phone" class="form-control" value="{{ pet.vet_phone or '' }}">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-bold">Medical Notes</label>
+                                <textarea name="medical_notes" class="form-control" rows="2">{{ pet.medical_notes or '' }}</textarea>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-bold">Special Instructions</label>
+                                <textarea name="special_instructions" class="form-control" rows="2">{{ pet.special_instructions or '' }}</textarea>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-bold">Additional Notes</label>
+                                <textarea name="additional_notes" class="form-control" rows="2"
+                                          placeholder="Personality quirks, favourite toys, anything that doesn't fit elsewhere...">{{ pet.additional_notes or '' }}</textarea>
+                                <div class="form-text">Non-medical notes visible to staff only.</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-white text-end">
+                        <button type="submit" class="btn btn-warning text-dark fw-bold px-5">
+                            <i class="fas fa-save me-2"></i>Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- ── Pet Tags ────────────────────────────────────────────── -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center"
+                     style="background:#1B2A4A;">
+                    <span class="fw-bold text-white">
+                        <i class="fas fa-tags me-2" style="color:#FFC107;"></i>
+                        Pet Tags
+                    </span>
+                    {% if pet.tags_list %}
+                    <span class="badge bg-warning text-dark">{{ pet.tags_list|length }} tag{{ 's' if pet.tags_list|length != 1 }}</span>
+                    {% else %}
+                    <span class="text-muted" style="font-size:0.8rem;">No tags set</span>
+                    {% endif %}
+                </div>
+                <div class="card-body p-4">
+                    <p class="text-muted mb-3" style="font-size:0.85rem;">
+                        Tags appear on boarding detail pages so staff always know what to expect.
+                        Click a suggested tag to add it, or type a custom tag and press Enter.
+                    </p>
+
+                    <!-- Current tags display -->
+                    <div id="tag-display" class="d-flex flex-wrap gap-2 mb-3" style="min-height:36px;"
+                         data-initial-tags="{{ pet.pet_tags or '' }}">
+                        {% set warning_tags = ['Dog Aggressive','Not Dog Friendly','People Shy','Escape Artist','Dominant','Requires Separate Kennel','Needs Medication','Diabetic','Post-Surgery'] %}
+                        {% set info_tags = ['Senior','Anxious','Special Diet','Large Breed','Intact Male','Intact Female','Puppy','Deaf','Blind'] %}
+                        {% set success_tags = ['Free Bath Included','VIP','Long-Term Guest','First Stay'] %}
+                        {% for tag in pet.tags_list %}
+                        {% if tag in warning_tags %}{% set tag_bg = '#dc3545' %}
+                        {% elif tag in info_tags %}{% set tag_bg = '#0d6efd' %}
+                        {% elif tag in success_tags %}{% set tag_bg = '#198754' %}
+                        {% else %}{% set tag_bg = '#6c757d' %}{% endif %}
+                        <span class="badge d-inline-flex align-items-center gap-1 px-2 py-1"
+                              style="background:{{ tag_bg }};color:white;font-size:0.82rem;">
+                            {{ tag }}
+                            <button type="button" class="btn-close btn-close-white ms-1"
+                                    style="font-size:0.55rem;" onclick="removeTag('{{ tag }}')"></button>
+                        </span>
+                        {% else %}
+                        <span class="text-muted" style="font-size:0.85rem;" id="no-tags-msg">No tags added yet.</span>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Custom tag input -->
+                    <div class="input-group input-group-sm mb-3" style="max-width:320px;">
+                        <input type="text" id="custom-tag-input" class="form-control"
+                               placeholder="Type a custom tag…" maxlength="50">
+                        <button id="add-custom-tag-btn" class="btn btn-outline-secondary" type="button">
+                            <i class="fas fa-plus"></i> Add
+                        </button>
+                    </div>
+
+                    <!-- Suggested tags -->
+                    <div style="font-size:0.8rem;font-weight:700;color:#1B2A4A;margin-bottom:8px;">
+                        Quick-add suggestions:
+                    </div>
+                    {% set tag_groups = [
+                        ('⚕️ Care & Medical', ['Needs Medication','Special Diet','Diabetic','Senior','Anxious','Post-Surgery']),
+                        ('🐾 Behavioral', ['Not Dog Friendly','People Shy','Friendly','People Friendly','Escape Artist','Dominant','Requires Separate Kennel']),
+                        ('📏 Physical', ['Large Breed','Intact Male','Intact Female','Puppy','Deaf','Blind']),
+                        ('🏨 Boarding', ['Free Bath Included','VIP','Long-Term Guest','First Stay']),
+                    ] %}
+                    {% for group_label, group_tags in tag_groups %}
+                    <div class="mb-2">
+                        <span class="text-muted" style="font-size:0.75rem;">{{ group_label }}</span><br>
+                        {% for tag in group_tags %}
+                        <button type="button"
+                                class="btn btn-sm btn-outline-secondary me-1 mb-1 suggestion-btn"
+                                style="font-size:0.75rem;padding:2px 8px;"
+                                data-tag="{{ tag }}">
+                            + {{ tag }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+
+                    <div id="tag-save-indicator" class="text-success mt-2" style="font-size:0.82rem;display:none;">
+                        <i class="fas fa-check-circle me-1"></i>Tags saved
+                    </div>
+                </div>
+            </div>
+<script>
+var currentTags = {{ pet.tags_list | tojson }};
+var TAG_WARN    = ['Dog Aggressive','Not Dog Friendly','People Shy','Escape Artist','Dominant','Requires Separate Kennel','Needs Medication','Diabetic','Post-Surgery'];
+var TAG_INFO    = ['Senior','Anxious','Special Diet','Large Breed','Intact Male','Intact Female','Puppy','Deaf','Blind'];
+var TAG_SUCCESS = ['Free Bath Included','VIP','Long-Term Guest','First Stay'];
+
+function getTagStyle(tag) {
+    if (TAG_WARN.indexOf(tag)    > -1) return 'background:#dc3545;color:white;border:none;';
+    if (TAG_INFO.indexOf(tag)    > -1) return 'background:#0d6efd;color:white;border:none;';
+    if (TAG_SUCCESS.indexOf(tag) > -1) return 'background:#198754;color:white;border:none;';
+    return 'background:#6c757d;color:white;border:none;';
+}
+
+function renderTags() {
+    var display = document.getElementById('tag-display');
+    if (!display) return;
+    if (currentTags.length === 0) {
+        display.innerHTML = '<span class="text-muted" style="font-size:0.85rem;">No tags added yet.</span>';
+    } else {
+        display.innerHTML = currentTags.map(function(tag) {
+            var safe = tag.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+            return '<span class="badge d-inline-flex align-items-center gap-1 px-2 py-1" style="' + getTagStyle(tag) + 'font-size:0.82rem;">' +
+                tag +
+                '<button type="button" class="btn-close btn-close-white ms-1" style="font-size:0.55rem;" onclick="removeTag(\'' + safe + '\')"></button>' +
+                '</span>';
+        }).join('');
+    }
+    document.querySelectorAll('.suggestion-btn').forEach(function(btn) {
+        var t = btn.getAttribute('data-tag');
+        btn.disabled     = currentTags.indexOf(t) > -1;
+        btn.style.opacity = currentTags.indexOf(t) > -1 ? '0.4' : '1';
+    });
+}
+
+function addTag(tag) {
+    if (!tag || currentTags.indexOf(tag) > -1) return;
+    currentTags.push(tag);
+    renderTags();
+    saveTags();
+}
+
+function removeTag(tag) {
+    currentTags = currentTags.filter(function(t) { return t !== tag; });
+    renderTags();
+    saveTags();
+}
+
+function addCustomTag() {
+    var input = document.getElementById('custom-tag-input');
+    var val   = input ? input.value.trim() : '';
+    if (val) { addTag(val); input.value = ''; }
+}
+
+function saveTags() {
+    fetch('{{ url_for("admin.save_pet_tags", pet_id=pet.id) }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({tags: currentTags})
+    }).then(function() {
+        var ind = document.getElementById('tag-save-indicator');
+        if (ind) { ind.style.display = 'inline'; setTimeout(function() { ind.style.display = 'none'; }, 2000); }
+    }).catch(function(e) { console.error('Tag save failed', e); });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    var input = document.getElementById('custom-tag-input');
+    if (input) {
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); addCustomTag(); }
+        });
+    }
+    renderTags();
+});
+</script>
+
+            <!-- ── Per-Pet Custom Pricing ──────────────────────────────────── -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center"
+                     style="background:#1B2A4A;">
+                    <span class="fw-bold text-white">
+                        <i class="fas fa-tag me-2" style="color:#B07A8E;"></i>
+                        Custom Pricing for {{ pet.name }}
+                    </span>
+                    {% if pet.custom_boarding_rate or pet.custom_daycare_rate %}
+                    <span class="badge bg-warning text-dark">
+                        <i class="fas fa-star me-1"></i>Custom Rate Active
+                    </span>
+                    {% else %}
+                    <span class="text-muted" style="font-size:0.8rem;">Using customer / facility defaults</span>
+                    {% endif %}
+                </div>
+                <div class="card-body p-4">
+                    <p class="text-muted mb-3" style="font-size:0.85rem;">
+                        Set a rate specific to <strong>{{ pet.name }}</strong>.
+                        This overrides any customer-level or facility-default rates for this pet only.
+                        Leave blank to inherit from the customer profile or facility defaults.
+                    </p>
+                    <div class="d-flex gap-3 mb-3 flex-wrap">
+                        <div class="d-flex align-items-center gap-2" style="font-size:0.8rem;">
+                            <span class="badge" style="background:#B07A8E;">Pet</span>
+                            <span class="text-muted">→</span>
+                            <span class="badge bg-primary">Customer</span>
+                            <span class="text-muted">→</span>
+                            <span class="badge bg-secondary">Facility Default</span>
+                            <span class="text-muted ms-1">Priority order</span>
+                        </div>
+                    </div>
+                    <form method="POST" action="{{ url_for('admin.update_pet_rates', pet_id=pet.id) }}">
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold">
+                                    <i class="fas fa-hotel me-1" style="color:#B07A8E;"></i>
+                                    Boarding Rate (per night)
+                                </label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" name="custom_boarding_rate"
+                                           class="form-control" step="0.01" min="0"
+                                           placeholder="{{ '%.2f'|format(effective_boarding_rate) }}"
+                                           value="{{ '%.2f'|format(pet.custom_boarding_rate|float) if pet.custom_boarding_rate else '' }}">
+                                </div>
+                                <div class="form-text">
+                                    Effective: <strong>${{ '%.2f'|format(effective_boarding_rate) }}</strong>
+                                    <span class="text-muted">({{ rate_source_boarding }})</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold">
+                                    <i class="fas fa-paw me-1" style="color:#B07A8E;"></i>
+                                    Daycare Rate (per day)
+                                </label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" name="custom_daycare_rate"
+                                           class="form-control" step="0.01" min="0"
+                                           placeholder="{{ '%.2f'|format(effective_daycare_rate) }}"
+                                           value="{{ '%.2f'|format(pet.custom_daycare_rate|float) if pet.custom_daycare_rate else '' }}">
+                                </div>
+                                <div class="form-text">
+                                    Effective: <strong>${{ '%.2f'|format(effective_daycare_rate) }}</strong>
+                                    <span class="text-muted">({{ rate_source_daycare }})</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold">
+                                    <i class="fas fa-sticky-note me-1" style="color:#B07A8E;"></i>
+                                    Rate Note
+                                </label>
+                                <input type="text" name="custom_rate_note"
+                                       class="form-control form-control-sm"
+                                       placeholder="e.g. Senior care, large breed..."
+                                       value="{{ pet.custom_rate_note or '' }}"
+                                       maxlength="255">
+                                <div class="form-text">Shown on invoice and audit trail</div>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary btn-sm fw-bold">
+                                <i class="fas fa-save me-1"></i>Save Pet Rates
+                            </button>
+                            {% if pet.custom_boarding_rate or pet.custom_daycare_rate %}
+                            <button type="submit" name="clear_rates" value="1"
+                                    class="btn btn-outline-secondary btn-sm"
+                                    onclick="return confirm('Clear {{ pet.name }}\'s custom rates?');">
+                                <i class="fas fa-undo me-1"></i>Clear — Use Defaults
+                            </button>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Vaccination Records -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center"
+                     style="background:#1a1a2e;">
+                    <strong class="text-white"><i class="fas fa-syringe me-2 text-warning"></i>Vaccination Records</strong>
+                    <button class="btn btn-sm btn-warning text-dark fw-bold"
+                            data-bs-toggle="modal" data-bs-target="#addVaxModal">
+                        <i class="fas fa-plus me-1"></i>Add Record
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    {% if pet.vaccination_record_path or pet.vaccination_record %}
+                    {% set cert_file = pet.vaccination_record_path or pet.vaccination_record %}
+                    {% set cert = 'uploads/' + cert_file if not cert_file.startswith('uploads/') else cert_file %}
+                    <div class="p-3 border-bottom bg-light d-flex align-items-center gap-3">
+                        <i class="fas fa-file-certificate fa-lg text-warning"></i>
+                        <div class="flex-grow-1">
+                            <div class="fw-bold small">Uploaded Certificate (whole record)</div>
+                            <div class="text-muted" style="font-size:0.78rem;">
+                                Originally uploaded during onboarding or pet setup
+                            </div>
+                        </div>
+                        {% set ext = cert.split('.')[-1].lower() %}
+                        {% if ext in ['jpg','jpeg','png','webp'] %}
+                        <a href="{{ url_for('static', filename=cert) }}"
+                           target="_blank" class="btn btn-sm btn-outline-warning">
+                            <i class="fas fa-image me-1"></i>View Image
+                        </a>
+                        {% elif ext == 'pdf' %}
+                        <a href="{{ url_for('static', filename=cert) }}"
+                           target="_blank" class="btn btn-sm btn-outline-danger">
+                            <i class="fas fa-file-pdf me-1"></i>View PDF
+                        </a>
+                        {% else %}
+                        <a href="{{ url_for('static', filename=cert) }}"
+                           target="_blank" class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-download me-1"></i>Download
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% if pet.vaccination_records %}
+                    <table class="table table-hover mb-0" style="font-size:0.875rem;">
+                        <thead class="table-light">
+                            <tr><th>Vaccine</th><th>Date Given</th><th>Expires</th><th>Vet/Clinic</th><th>Status</th><th></th></tr>
+                        </thead>
+                        <tbody>
+                            {% for vax in pet.vaccination_records|sort(attribute='expiration_date') %}
+                            {% set today = now.date() %}
+                            {% set days_left = (vax.expiration_date - today).days if vax.expiration_date else 999 %}
+                            <tr style="cursor:pointer;"
+                                data-bs-toggle="modal"
+                                data-bs-target="#viewVaxModal{{ vax.id }}">
+                                <td><strong>{{ vax.vaccine_name }}</strong></td>
+                                <td>{{ vax.vaccination_date.strftime('%m/%d/%Y') if vax.vaccination_date else '—' }}</td>
+                                <td>{{ vax.expiration_date.strftime('%m/%d/%Y') if vax.expiration_date else '—' }}</td>
+                                <td class="text-muted">{{ vax.veterinarian or '—' }}</td>
+                                <td>
+                                    {% if days_left < 0 %}
+                                        <span class="badge bg-danger">Expired</span>
+                                    {% elif days_left <= 30 %}
+                                        <span class="badge bg-warning text-dark">Expiring Soon</span>
+                                    {% else %}
+                                        <span class="badge bg-success">Current</span>
+                                    {% endif %}
+                                </td>
+                                <td onclick="event.stopPropagation();">
+                                    <div class="d-flex gap-1">
+                                        <button type="button"
+                                                class="btn btn-xs btn-outline-warning py-0 px-1"
+                                                style="font-size:0.7rem;"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#viewVaxModal{{ vax.id }}"
+                                                title="View / Edit">
+                                            <i class="fas fa-pencil-alt"></i>
+                                        </button>
+                                        <form method="POST"
+                                              action="{{ url_for('admin.delete_vaccination', rec_id=vax.id) }}"
+                                              onsubmit="return confirm('Delete this vaccination record?');">
+                                            <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1"
+                                                    style="font-size:0.7rem;">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="fas fa-syringe fa-2x mb-2 d-block opacity-25"></i>
+                        No vaccination records on file.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- View/Edit Vaccination Modals -->
+{% for vax in pet.vaccination_records %}
+<div class="modal fade" id="viewVaxModal{{ vax.id }}" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#1a1a2e;">
+                <h5 class="modal-title text-white">
+                    <i class="fas fa-syringe me-2 text-warning"></i>{{ vax.vaccine_name }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.edit_vaccination', rec_id=vax.id) }}"
+                  enctype="multipart/form-data">
+                <div class="modal-body">
+                    {% set today = now.date() %}
+                    {% set days_left = (vax.expiration_date - today).days if vax.expiration_date else 999 %}
+                    <div class="alert {% if days_left < 0 %}alert-danger{% elif days_left <= 30 %}alert-warning{% else %}alert-success{% endif %} py-2 mb-3">
+                        <i class="fas fa-{% if days_left < 0 %}times-circle{% elif days_left <= 30 %}exclamation-triangle{% else %}check-circle{% endif %} me-1"></i>
+                        {% if days_left < 0 %}
+                            Expired {{ (-days_left) }} day{{ 's' if days_left != -1 }} ago
+                        {% elif days_left <= 30 %}
+                            Expires in {{ days_left }} day{{ 's' if days_left != 1 }}
+                        {% else %}
+                            Current — expires in {{ days_left }} days
+                        {% endif %}
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Vaccine Name <span class="text-danger">*</span></label>
+                            <input type="text" name="vaccine_name" class="form-control"
+                                   value="{{ vax.vaccine_name }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Date Given</label>
+                            <input type="date" name="vaccination_date" class="form-control"
+                                   value="{{ vax.vaccination_date.strftime('%Y-%m-%d') if vax.vaccination_date else '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Expiration Date</label>
+                            <input type="date" name="expiration_date" class="form-control"
+                                   value="{{ vax.expiration_date.strftime('%Y-%m-%d') if vax.expiration_date else '' }}">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Vet / Clinic</label>
+                            <input type="text" name="administered_by" class="form-control"
+                                   value="{{ vax.veterinarian or '' }}">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Vaccination Certificate</label>
+                            {% if vax.document_path %}
+                            <div class="mb-2 p-2 border rounded bg-light d-flex align-items-center gap-2">
+                                <i class="fas fa-file-alt text-warning fa-lg"></i>
+                                <div class="flex-grow-1">
+                                    {% set ext = vax.document_path.split('.')[-1].lower() %}
+                                    {% if ext in ['jpg','jpeg','png','webp'] %}
+                                    <a href="{{ url_for('static', filename=vax.document_path) }}"
+                                       target="_blank" class="text-decoration-none fw-bold">
+                                        View Certificate Image
+                                    </a>
+                                    <div class="mt-1">
+                                        <img src="{{ url_for('static', filename=vax.document_path) }}"
+                                             class="img-fluid rounded" style="max-height:120px;"
+                                             alt="Vaccination certificate">
+                                    </div>
+                                    {% elif ext == 'pdf' %}
+                                    <a href="{{ url_for('static', filename=vax.document_path) }}"
+                                       target="_blank" class="text-decoration-none fw-bold">
+                                        <i class="fas fa-file-pdf text-danger me-1"></i>View PDF Certificate
+                                    </a>
+                                    {% else %}
+                                    <a href="{{ url_for('static', filename=vax.document_path) }}"
+                                       target="_blank" class="text-decoration-none fw-bold">
+                                        View Certificate
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="form-text mb-1">Upload a new file to replace the existing certificate.</div>
+                            {% else %}
+                            <div class="text-muted small mb-1">No certificate uploaded yet.</div>
+                            {% endif %}
+                            <input type="file" name="vax_document" class="form-control"
+                                   accept="image/*,.pdf">
+                            <div class="form-text">JPG, PNG, WebP or PDF</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-warning text-dark fw-bold">
+                        <i class="fas fa-save me-1"></i>Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+<!-- Add Vaccination Modal -->
+<div class="modal fade" id="addVaxModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#1a1a2e;">
+                <h5 class="modal-title text-white"><i class="fas fa-syringe me-2"></i>Add Vaccination Record</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.add_vaccination', pet_id=pet.id) }}"
+                  enctype="multipart/form-data">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Vaccine Name <span class="text-danger">*</span></label>
+                            <input type="text" name="vaccine_name" class="form-control"
+                                   placeholder="e.g. Rabies, DHPP, Bordetella" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Date Given</label>
+                            <input type="date" name="vaccination_date" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Expiration Date</label>
+                            <input type="date" name="expiration_date" class="form-control">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Vet / Clinic</label>
+                            <input type="text" name="administered_by" class="form-control">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Upload Certificate (optional)</label>
+                            <input type="file" name="vax_document" class="form-control"
+                                   accept="image/*,.pdf">
+                            <div class="form-text">JPG, PNG, WebP or PDF</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning text-dark fw-bold">
+                        <i class="fas fa-plus me-1"></i>Add Record
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<!-- Boarding History -->
+{% set boardings = pet.boarding_reservations|sort(attribute='check_in_date', reverse=True) if pet.boarding_reservations else [] %}
+{% if boardings %}
+<div class="container-fluid mt-0 px-4">
+    <div class="card shadow-sm" style="max-width:860px;">
+        <div class="card-header" style="background:#1a1a2e;">
+            <strong class="text-white">
+                <i class="fas fa-hotel me-2 text-warning"></i>Boarding History
+            </strong>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0" style="font-size:0.875rem;">
+                <thead class="table-light">
+                    <tr>
+                        <th>Check-In</th>
+                        <th>Check-Out</th>
+                        <th>Nights</th>
+                        <th>Location</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for b in boardings %}
+                    <tr>
+                        <td>{{ b.check_in_date.strftime('%b %d, %Y') }}</td>
+                        <td>{{ b.check_out_date.strftime('%b %d, %Y') }}</td>
+                        <td>{{ (b.check_out_date - b.check_in_date).days }}</td>
+                        <td>
+                            {% if b.kennel_number %}
+                            <span class="badge {% if b.kennel_type == 'suite' %}bg-info text-dark{% else %}bg-secondary{% endif %}">
+                                {{ b.kennel_type|title if b.kennel_type else 'Kennel' }} #{{ b.kennel_number }}
+                            </span>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge {% if b.status == 'completed' %}bg-success{% elif b.status == 'active' %}bg-primary{% else %}bg-secondary{% endif %}">
+                                {{ b.status|title }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+// Tag JS loaded early via block scripts — functions must be global
+</script>
+{% endblock %}

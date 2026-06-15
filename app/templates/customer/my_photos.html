@@ -1,0 +1,88 @@
+﻿{% extends "base.html" %}
+{% block title %}My Photos — Ruff Life Retreat{% endblock %}
+{% block content %}
+<div class="container mt-4 mb-5" style="max-width:960px;">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0"><i class="fas fa-images me-2 text-warning"></i>My Photo Gallery</h2>
+            <div class="text-muted small">Photos shared by Ruff Life Retreat staff</div>
+        </div>
+        <a href="{{ url_for('customer.dashboard') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
+        </a>
+    </div>
+
+    {% if photos %}
+    <div class="row g-3">
+        {% for photo in photos %}
+        <div class="col-6 col-md-4 col-lg-3">
+            <div class="card h-100 shadow-sm border-0">
+                <a href="#" data-bs-toggle="modal" data-bs-target="#lightbox{{ photo.id }}"
+                   style="overflow:hidden;display:block;border-radius:8px 8px 0 0;">
+                    <img src="{{ url_for('static', filename='uploads/customers/' + current_user.id|string + '/' + photo.filename) }}"
+                         class="card-img-top"
+                         style="height:160px;object-fit:cover;transition:transform 0.2s;"
+                         onmouseover="this.style.transform='scale(1.04)'"
+                         onmouseout="this.style.transform='scale(1)'"
+                         alt="{{ photo.caption or 'Photo from Ruff Life Retreat' }}">
+                </a>
+                {% if photo.caption %}
+                <div class="card-body p-2">
+                    <small class="text-muted">{{ photo.caption }}</small>
+                </div>
+                {% endif %}
+                <div class="card-footer bg-white border-0 p-2">
+                    <small class="text-muted">
+                        <i class="fas fa-calendar-alt me-1"></i>{{ photo.uploaded_at.strftime('%b %d, %Y') }}
+                    </small>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="text-muted small mt-3 text-center">
+        {{ photos|length }} photo{{ 's' if photos|length != 1 }} — uploaded by Ruff Life Retreat staff
+    </div>
+
+    {% else %}
+    <div class="card shadow-sm border-0">
+        <div class="card-body text-center py-5 text-muted">
+            <i class="fas fa-camera fa-3x mb-3 d-block opacity-25"></i>
+            <h5>No photos yet</h5>
+            <p class="mb-0">Staff will add photos of your pets here during their stay. Check back soon!</p>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<!-- Lightbox Modals -->
+{% for photo in photos %}
+<div class="modal fade" id="lightbox{{ photo.id }}" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content bg-dark border-0">
+            <div class="modal-header border-0 pb-1">
+                <div class="text-white small">
+                    {% if photo.caption %}
+                    <strong>{{ photo.caption }}</strong> &bull;
+                    {% endif %}
+                    {{ photo.uploaded_at.strftime('%B %d, %Y') }}
+                </div>
+                <button type="button" class="btn-close btn-close-white ms-auto"
+                        data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center p-2">
+                <img src="{{ url_for('static', filename='uploads/customers/' + current_user.id|string + '/' + photo.filename) }}"
+                     class="img-fluid rounded"
+                     style="max-height:80vh;"
+                     alt="{{ photo.caption or 'Photo from Ruff Life Retreat' }}">
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% endblock %}
+

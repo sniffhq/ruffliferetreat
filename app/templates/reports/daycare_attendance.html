@@ -1,0 +1,268 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Daycare Attendance Report{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h2><i class="fas fa-clipboard-check"></i> Daycare Check-In/Check-Out Report</h2>
+            <p class="text-muted">Track daycare attendance, check-in/check-out times, and visit durations</p>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('reports.reports_dashboard') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Reports
+            </a>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Total Visits</h6>
+                    <h2>{{ summary.total_visits }}</h2>
+                    <small>{{ start_date }} to {{ end_date }}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Checked Out</h6>
+                    <h2>{{ summary.checked_out_count }}</h2>
+                    <small>Completed visits</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Still Checked In</h6>
+                    <h2>{{ summary.still_checked_in }}</h2>
+                    <small>Currently in daycare</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Avg Duration</h6>
+                    <h2>{{ "%.1f"|format(summary.avg_duration) }}h</h2>
+                    <small>Per completed visit</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Additional Stats -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Daily Statistics</h5>
+                    <p class="mb-1"><strong>Average Daily Attendance:</strong> {{ "%.1f"|format(summary.avg_daily_attendance) }} pets</p>
+                    {% if summary.peak_day[0] %}
+                    <p class="mb-0"><strong>Peak Day:</strong> {{ summary.peak_day[0] }} ({{ summary.peak_day[1] }} pets)</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Attendance by Day of Week</h5>
+                    <div class="row">
+                        {% for day, count in summary.weekday_breakdown.items() %}
+                        <div class="col-4 mb-2">
+                            <strong>{{ day[:3] }}:</strong> {{ count }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fas fa-filter"></i> Filters</h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('reports.daycare_attendance_report') }}">
+                <div class="row">
+                    <div class="col-md-3">
+                        <label class="form-label">Start Date</label>
+                        <input type="date" class="form-control" name="start_date" 
+                               value="{{ start_date }}" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">End Date</label>
+                        <input type="date" class="form-control" name="end_date" 
+                               value="{{ end_date }}" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Filter by Pet</label>
+                        <select class="form-select" name="pet_id">
+                            <option value="">All Pets</option>
+                            {% for pet in all_pets %}
+                            <option value="{{ pet.id }}" {% if selected_pet_id == pet.id %}selected{% endif %}>
+                                {{ pet.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Day of Week</label>
+                        <select class="form-select" name="day">
+                            <option value="all" {% if day_filter == 'all' %}selected{% endif %}>All Days</option>
+                            <option value="monday" {% if day_filter == 'monday' %}selected{% endif %}>Monday</option>
+                            <option value="tuesday" {% if day_filter == 'tuesday' %}selected{% endif %}>Tuesday</option>
+                            <option value="wednesday" {% if day_filter == 'wednesday' %}selected{% endif %}>Wednesday</option>
+                            <option value="thursday" {% if day_filter == 'thursday' %}selected{% endif %}>Thursday</option>
+                            <option value="friday" {% if day_filter == 'friday' %}selected{% endif %}>Friday</option>
+                            <option value="saturday" {% if day_filter == 'saturday' %}selected{% endif %}>Saturday</option>
+                            <option value="sunday" {% if day_filter == 'sunday' %}selected{% endif %}>Sunday</option>
+                        </select>
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label">&nbsp;</label>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Export Button -->
+    <div class="row mb-3">
+        <div class="col">
+            <a href="{{ url_for('reports.export_daycare_attendance_csv', start_date=start_date, end_date=end_date, pet_id=selected_pet_id, day=day_filter) }}" 
+               class="btn btn-success">
+                <i class="fas fa-file-csv"></i> Export to CSV
+            </a>
+        </div>
+    </div>
+
+    <!-- Attendance Records Table -->
+    <div class="card">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fas fa-table"></i> Attendance Records ({{ attendance_records|length }} records)</h5>
+        </div>
+        <div class="card-body">
+            {% if attendance_records %}
+            <div class="table-responsive">
+                <table class="table table-hover table-striped">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Date</th>
+                            <th>Day</th>
+                            <th>Pet</th>
+                            <th>Owner</th>
+                            <th>Check-In Time</th>
+                            <th>Check-Out Time</th>
+                            <th>Duration</th>
+                            <th>Status</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in attendance_records %}
+                        <tr>
+                            <td>{{ record.check_in_time.strftime('%Y-%m-%d') }}</td>
+                            <td>{{ record.check_in_time.strftime('%A')[:3] }}</td>
+                            <td>
+                                {% if record.pet %}
+                                <strong>{{ record.pet.name }}</strong><br>
+                                <small class="text-muted">{{ record.pet.breed }}</small>
+                                {% else %}
+                                <span class="text-muted">Unknown</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if record.owner %}
+                                {{ record.owner.first_name }} {{ record.owner.last_name }}<br>
+                                <small class="text-muted">{{ record.owner.phone }}</small>
+                                {% else %}
+                                <span class="text-muted">Unknown</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <i class="fas fa-sign-in-alt text-success"></i> 
+                                {{ record.check_in_time.strftime('%I:%M %p') }}
+                            </td>
+                            <td>
+                                {% if record.check_out_time %}
+                                <i class="fas fa-sign-out-alt text-danger"></i> 
+                                {{ record.check_out_time.strftime('%I:%M %p') }}
+                                {% else %}
+                                <span class="badge bg-warning">Still Checked In</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if record.duration_hours %}
+                                {{ "%.2f"|format(record.duration_hours) }} hours
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if record.check_out_time %}
+                                <span class="badge bg-success">Checked Out</span>
+                                {% else %}
+                                <span class="badge bg-warning">Checked In</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if record.notes %}
+                                <button type="button" class="btn btn-sm btn-info" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#notesModal{{ record.id }}">
+                                    <i class="fas fa-sticky-note"></i> View
+                                </button>
+                                
+                                <!-- Notes Modal -->
+                                <div class="modal fade" id="notesModal{{ record.id }}" tabindex="-1">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">Notes - {{ record.pet.name if record.pet else 'Unknown' }}</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                {% if record.notes %}
+                                                <h6>Notes:</h6>
+                                                <p>{{ record.notes }}</p>
+                                                {% else %}
+                                                <p class="text-muted">No notes recorded.</p>
+                                                {% endif %}
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% else %}
+                                <span class="text-muted">No notes</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> No attendance records found for the selected date range and filters.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+

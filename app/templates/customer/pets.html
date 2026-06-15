@@ -1,0 +1,71 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>My Pets</h2>
+    <a href="{{ url_for('customer.add_pet') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Add Pet
+    </a>
+</div>
+
+<div class="row">
+    {% for pet in pets %}
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            {% if pet.photo_path %}
+            <img src="{{ url_for('static', filename='uploads/' + pet.photo_path) }}" class="card-img-top" alt="{{ pet.name }}" style="height: 250px; object-fit: cover;">
+            {% else %}
+            <div class="card-img-top bg-secondary text-white d-flex align-items-center justify-content-center" style="height: 250px;">
+                <i class="fas fa-dog fa-5x"></i>
+            </div>
+            {% endif %}
+            <div class="card-body">
+                <h5 class="card-title">{{ pet.name }}</h5>
+                <p class="card-text">
+                    <strong>Breed:</strong> {{ pet.breed or 'N/A' }}<br>
+                    <strong>Age:</strong> {{ pet.age or 'N/A' }} years<br>
+                    <strong>Weight:</strong> {{ pet.weight or 'N/A' }} lbs<br>
+                    {% if pet.gender %}
+                    <strong>Sex:</strong> {{ pet.gender }}<br>
+                    {% endif %}
+                    {% if pet.spayed_neutered %}
+                    <span class="badge bg-success">Spayed/Neutered</span>
+                    {% endif %}
+                    {% if pet.microchipped %}
+                    <span class="badge bg-info">Microchipped</span>
+                    {% endif %}
+                </p>
+                {% if pet.vet_name %}
+                <p class="card-text">
+                    <small class="text-muted">
+                        <strong>Vet:</strong> {{ pet.vet_name }}<br>
+                        {% if pet.vet_phone %}{{ pet.vet_phone }}{% endif %}
+                    </small>
+                </p>
+                {% endif %}
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('customer.edit_pet', pet_id=pet.id) }}" class="btn btn-sm btn-warning">
+                        <i class="fas fa-edit"></i> Edit
+                    </a>
+                    {% if pet.vaccination_record_path %}
+                    <a href="{{ url_for('static', filename='uploads/' + pet.vaccination_record_path) }}" class="btn btn-sm btn-primary" target="_blank">
+                        <i class="fas fa-file-medical"></i> View Vaccine Records
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if pets|length == 0 %}
+<div class="alert alert-info text-center" role="alert">
+    <i class="fas fa-info-circle fa-3x mb-3"></i>
+    <h4>No pets yet</h4>
+    <p class="mb-3">Add your first pet to get started!</p>
+    <a href="{{ url_for('customer.add_pet') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Add Your First Pet
+    </a>
+</div>
+{% endif %}
+{% endblock %}

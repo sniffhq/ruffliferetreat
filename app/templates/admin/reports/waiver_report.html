@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% block title %}Waiver Acceptance Report — Ruff Life Retreat{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-file-signature me-2" style="color:#B07A8E;"></i>Waiver Acceptance Report</h2>
+        <a href="{{ url_for('reports.reports_dashboard') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>Back to Reports
+        </a>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center py-3">
+                <div class="display-6 fw-bold text-success">{{ accepted|length }}</div>
+                <div class="text-muted small">Waiver Accepted</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center py-3">
+                <div class="display-6 fw-bold text-danger">{{ not_accepted|length }}</div>
+                <div class="text-muted small">Not Accepted</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center py-3">
+                <div class="display-6 fw-bold" style="color:#B07A8E;">{{ total }}</div>
+                <div class="text-muted small">Total Customers</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center py-3">
+                <div class="display-6 fw-bold text-primary">
+                    {{ ((accepted|length / total) * 100)|round|int if total > 0 else 0 }}%
+                </div>
+                <div class="text-muted small">Acceptance Rate</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Tabs -->
+    <ul class="nav nav-tabs mb-3" id="waiverTabs">
+        <li class="nav-item">
+            <button class="nav-link active" onclick="showTab('all')">
+                All Customers <span class="badge bg-secondary ms-1">{{ total }}</span>
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" onclick="showTab('accepted')">
+                <i class="fas fa-check-circle text-success me-1"></i>Accepted
+                <span class="badge bg-success ms-1">{{ accepted|length }}</span>
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" onclick="showTab('pending')">
+                <i class="fas fa-exclamation-circle text-danger me-1"></i>Not Accepted
+                <span class="badge bg-danger ms-1">{{ not_accepted|length }}</span>
+            </button>
+        </li>
+    </ul>
+
+    <!-- Accepted Table -->
+    <div id="tab-accepted" class="tab-content-panel" style="display:none;">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex align-items-center gap-2" style="background:#1a1a2e;">
+                <i class="fas fa-check-circle text-success"></i>
+                <strong class="text-white">Customers Who Accepted</strong>
+            </div>
+            <div class="card-body p-0">
+                {% if accepted %}
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Customer</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Accepted On</th>
+                            <th>Member Since</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in accepted %}
+                        <tr>
+                            <td><strong>{{ c.first_name }} {{ c.last_name }}</strong></td>
+                            <td class="text-muted small">{{ c.email }}</td>
+                            <td class="text-muted small">{{ c.phone or '—' }}</td>
+                            <td>
+                                {% if c.waiver_accepted_at %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check me-1"></i>{{ c.waiver_accepted_at.strftime('%m/%d/%Y') }}
+                                </span>
+                                {% else %}
+                                <span class="badge bg-secondary">Prior to tracking</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-muted small">{{ c.created_at.strftime('%m/%d/%Y') if c.created_at else '—' }}</td>
+                            <td>
+                                <a href="{{ url_for('admin.customer_detail', customer_id=c.id) }}"
+                                   class="btn btn-sm btn-outline-primary">View</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="text-center py-4 text-muted">No customers have accepted the waiver yet.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Not Accepted Table -->
+    <div id="tab-pending" class="tab-content-panel" style="display:none;">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex align-items-center gap-2" style="background:#1a1a2e;">
+                <i class="fas fa-exclamation-circle text-danger"></i>
+                <strong class="text-white">Customers Who Have NOT Accepted</strong>
+            </div>
+            {% if not_accepted %}
+            <div class="alert alert-warning m-3 mb-0">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                These customers have accounts but have not accepted the waiver. This may include
+                accounts created by staff on behalf of customers.
+            </div>
+            {% endif %}
+            <div class="card-body p-0">
+                {% if not_accepted %}
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Customer</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Onboarding</th>
+                            <th>Member Since</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in not_accepted %}
+                        <tr>
+                            <td><strong>{{ c.first_name }} {{ c.last_name }}</strong></td>
+                            <td class="text-muted small">{{ c.email }}</td>
+                            <td class="text-muted small">{{ c.phone or '—' }}</td>
+                            <td>
+                                {% if c.onboarding_complete %}
+                                <span class="badge bg-warning text-dark">Onboarded</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Not Onboarded</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-muted small">{{ c.created_at.strftime('%m/%d/%Y') if c.created_at else '—' }}</td>
+                            <td>
+                                <a href="{{ url_for('admin.customer_detail', customer_id=c.id) }}"
+                                   class="btn btn-sm btn-outline-primary">View</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="text-center py-4 text-muted">
+                    <i class="fas fa-check-circle fa-2x mb-2 d-block text-success opacity-50"></i>
+                    All customers have accepted the waiver.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- All Customers Table -->
+    <div id="tab-all" class="tab-content-panel">
+        <div class="card shadow-sm">
+            <div class="card-header" style="background:#1a1a2e;">
+                <strong class="text-white"><i class="fas fa-users me-2"></i>All Customers</strong>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Customer</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Waiver Status</th>
+                            <th>Accepted On</th>
+                            <th>Member Since</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in all_customers %}
+                        <tr>
+                            <td><strong>{{ c.first_name }} {{ c.last_name }}</strong></td>
+                            <td class="text-muted small">{{ c.email }}</td>
+                            <td class="text-muted small">{{ c.phone or '—' }}</td>
+                            <td>
+                                {% if c.waiver_accepted %}
+                                <span class="badge bg-success"><i class="fas fa-check me-1"></i>Accepted</span>
+                                {% else %}
+                                <span class="badge bg-danger"><i class="fas fa-times me-1"></i>Not Accepted</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-muted small">
+                                {% if c.waiver_accepted_at %}
+                                {{ c.waiver_accepted_at.strftime('%m/%d/%Y') }}
+                                {% elif c.waiver_accepted %}
+                                Prior to tracking
+                                {% else %}
+                                —
+                                {% endif %}
+                            </td>
+                            <td class="text-muted small">{{ c.created_at.strftime('%m/%d/%Y') if c.created_at else '—' }}</td>
+                            <td>
+                                <a href="{{ url_for('admin.customer_detail', customer_id=c.id) }}"
+                                   class="btn btn-sm btn-outline-primary">View</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showTab(tab) {
+    document.querySelectorAll('.tab-content-panel').forEach(p => p.style.display = 'none');
+    document.getElementById('tab-' + tab).style.display = 'block';
+    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+    event.target.classList.add('active');
+}
+</script>
+{% endblock %}

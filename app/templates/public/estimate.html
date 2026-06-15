@@ -1,0 +1,206 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estimate — Ruff Life Retreat</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --inv-navy:       #1B2A4A;
+            --inv-mauve:      #FFC107;
+            --inv-mauve-light:#C9A0AF;
+            --inv-mauve-pale: #F5EAF0;
+            --inv-border:     #E4D4DC;
+        }
+        body { background:#f4f0f2; font-family: system-ui, sans-serif; }
+        .est-wrap  { max-width:820px; margin:30px auto; }
+        .est-header {
+            background: var(--inv-navy);
+            padding: 28px 32px;
+            border-radius: 12px 12px 0 0;
+        }
+        .est-brand  { color: var(--inv-mauve-light); font-size:1.1rem; font-weight:800; letter-spacing:1px; }
+        .est-sub    { color: rgba(192,160,175,0.7); font-size:0.82rem; }
+        .est-body   { background:white; padding:32px; border-radius:0 0 12px 12px; }
+        .est-label  { color:var(--inv-mauve); font-size:0.7rem; text-transform:uppercase; letter-spacing:1px; }
+        .est-pet-border { border-bottom: 2px solid var(--inv-navy); }
+        .est-pet-label  { color: var(--inv-navy); font-weight:700; }
+        .est-table thead th {
+            background: var(--inv-mauve-pale);
+            color: var(--inv-navy);
+            font-size:0.8rem;
+            text-transform:uppercase;
+            letter-spacing:0.5px;
+            border-bottom: 2px solid var(--inv-mauve) !important;
+        }
+        .est-subtotal-row { background: var(--inv-mauve-pale) !important; font-weight:700; color:var(--inv-navy); }
+        .est-total-row    { background: var(--inv-navy) !important; }
+        .est-total-row td { color: var(--inv-mauve-light) !important; font-weight:700; }
+        .est-addon-row td { color: var(--inv-mauve); font-size:0.82rem; }
+        .est-notice {
+            background: #fff8e1;
+            border-left: 4px solid #FFC107;
+            padding: 12px 16px;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.85rem;
+            color: #6B5000;
+        }
+        .est-badge {
+            background: #FFC107;
+            color: #1B2A4A;
+            font-size: 0.7rem;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        .est-footer { color:#6B7280; font-size:0.78rem; text-align:center; margin-top:24px; }
+        @media print {
+            body { background:white; }
+            .est-wrap { margin:0; max-width:100%; }
+            .est-header { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+            .est-table thead th { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+            .est-subtotal-row { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+            .est-total-row { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+        }
+        @media (max-width: 576px) {
+            .est-body { padding: 20px 16px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="est-wrap">
+
+    <!-- Header -->
+    <div class="est-header">
+        <div class="d-flex justify-content-between align-items-start">
+            <div>
+                <div class="est-brand">RUFF LIFE RETREAT</div>
+                <div class="est-sub">2945 Midland Rd., Guyton, GA 31312</div>
+                <div class="est-sub">(912) 648-2295 &nbsp;|&nbsp; rufflife.app</div>
+            </div>
+            <div class="text-end">
+                <div class="est-sub text-uppercase" style="letter-spacing:1px;">Estimate</div>
+                <div class="fw-bold" style="color:white;">{{ today.strftime('%B %d, %Y') }}</div>
+                <div class="mt-1"><span class="est-badge">Pre-Checkout</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Body -->
+    <div class="est-body shadow-sm">
+
+        <!-- Estimate notice -->
+        <div class="est-notice mb-4">
+            <i class="fas fa-info-circle me-2 text-warning"></i>
+            <strong>This is an estimate only.</strong> The final amount will be confirmed at checkout and may vary based on actual check-out time and any additional services. Early checkout by 10:00 AM may reduce the total.
+        </div>
+
+        <!-- Bill To / Total -->
+        <div class="row mb-4">
+            <div class="col-sm-6">
+                <div class="est-label mb-1">Prepared For</div>
+                <div class="fw-bold fs-5">{{ customer.first_name }} {{ customer.last_name }}</div>
+                <div class="text-muted small">{{ customer.email }}</div>
+                {% if customer.phone %}<div class="text-muted small">{{ customer.phone }}</div>{% endif %}
+            </div>
+            <div class="col-sm-6 text-sm-end mt-3 mt-sm-0">
+                <div class="est-label mb-1">Estimated Total</div>
+                <div class="fs-3 fw-bold" style="color:#1B2A4A;">
+                    ${{ "%.2f"|format(grand_total) }}
+                </div>
+                <div class="text-muted small">Based on active services as of {{ today.strftime('%b %d') }}</div>
+            </div>
+        </div>
+
+        {% if pet_sections %}
+
+        {% for section in pet_sections %}
+        <div class="mb-4">
+            <div class="d-flex align-items-center mb-2 pb-1 est-pet-border">
+                <i class="fas fa-paw text-warning me-2"></i>
+                <span class="est-pet-label">{{ section.pet.name }}</span>
+                <span class="text-muted small ms-2">— {{ section.pet.breed or section.pet.species or 'Dog' }}</span>
+            </div>
+            <table class="table table-sm mb-0 est-table" style="font-size:0.9rem;">
+                <thead>
+                    <tr>
+                        <th style="width:40%">Service</th>
+                        <th class="text-muted">Detail</th>
+                        <th class="text-end">Est. Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for line in section.lines %}
+                    <tr>
+                        <td class="fw-bold">{{ line.description }}</td>
+                        <td class="text-muted">{{ line.detail }}</td>
+                        <td class="text-end">${{ "%.2f"|format(line.amount) }}</td>
+                    </tr>
+                    {% if line.addons %}
+                    {% for addon in line.addons %}
+                    <tr class="est-addon-row">
+                        <td class="ps-4 fst-italic" colspan="2">
+                            <i class="fas fa-plus-circle text-warning me-1"></i>{{ addon }}
+                        </td>
+                        <td class="text-end">${{ "%.2f"|format(line.addon_total / line.addons|length) }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% endif %}
+                {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="est-subtotal-row">
+                        <td colspan="2" class="text-end">{{ section.pet.name }}'s Subtotal</td>
+                        <td class="text-end">${{ "%.2f"|format(section.subtotal) }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        {% endfor %}
+
+        <!-- Grand Total -->
+        <div style="border-top:2px solid var(--inv-mauve-pale);" class="pt-3 mt-2">
+            <div class="row justify-content-end">
+                <div class="col-sm-5">
+                    <table class="table table-sm mb-0" style="font-size:0.9rem;">
+                        <tr class="est-total-row">
+                            <td>Estimated Total</td>
+                            <td class="text-end">${{ "%.2f"|format(grand_total) }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fas fa-paw fa-3x mb-3 d-block opacity-25"></i>
+            <h5>No Active Services</h5>
+            <p class="mb-0">No current boarding or daycare sessions found for this account.</p>
+        </div>
+        {% endif %}
+
+        <!-- Payment methods -->
+        <div class="mt-4 p-3 rounded" style="background:var(--inv-mauve-pale);font-size:0.82rem;">
+            <div class="fw-bold mb-1" style="color:var(--inv-navy);">
+                <i class="fas fa-credit-card me-2"></i>We Accept
+            </div>
+            <div class="text-muted">Cash &nbsp;·&nbsp; Zelle</div>
+        </div>
+
+        <div class="est-footer mt-4">
+            Questions about this estimate? Call us at (912) 648-2295 or visit rufflife.app<br>
+            <small>This estimate was prepared on {{ today.strftime('%B %d, %Y') }} and reflects services currently on file.</small>
+        </div>
+
+    </div>
+</div>
+
+</body>
+</html>
+

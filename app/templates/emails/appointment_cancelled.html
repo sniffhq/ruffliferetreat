@@ -1,0 +1,51 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #FFC107; color: #333; padding: 20px; text-align: center; }
+        .content { padding: 20px; background: #f8f9fa; }
+        .appointment-details { background: white; padding: 15px; border-left: 4px solid #FFC107; margin: 20px 0; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Appointment Cancelled</h1>
+        </div>
+        <div class="content">
+            <h2>Hello {{ user.first_name }},</h2>
+            <p>This confirms that your appointment has been cancelled.</p>
+            
+            <div class="appointment-details">
+                <h3>Cancelled Appointment</h3>
+                <p><strong>Service:</strong> {{ service.name }}</p>
+                <p><strong>Pet:</strong> {{ pet.name }}</p>
+                <p><strong>Date:</strong> {{ appointment.appointment_date.strftime('%A, %B %d, %Y') }}</p>
+                <p><strong>Time:</strong> {{ appointment.start_time.strftime('%I:%M %p') }}</p>
+                <p><strong>Status:</strong> <span style="color: #dc3545;">Cancelled</span></p>
+            </div>
+            
+            <h3>Want to Reschedule?</h3>
+            <p>We'd love to see you and {{ pet.name }} again! Contact us:</p>
+            <ul>
+                <li>Call us at {{ config.BUSINESS_PHONE }}</li>
+                <li>Email us at {{ config.MAIL_DEFAULT_SENDER }}</li>
+            </ul>
+            
+            <p>Thank you for choosing {{ config.BUSINESS_NAME }}.</p>
+            
+            <p>Best regards,<br>
+            The {{ config.BUSINESS_NAME }} Team</p>
+        </div>
+        <div class="footer">
+            <p>{{ config.BUSINESS_NAME }} | {{ config.BUSINESS_ADDRESS }}</p>
+            <p>This email was sent to {{ user.email }}</p>
+        </div>
+    </div>
+</body>
+</html>
+
+

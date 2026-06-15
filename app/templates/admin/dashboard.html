@@ -1,0 +1,500 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- ── STAFF NOTICES ─────────────────────────────────────────────────────── -->
+{% if notices %}
+<div class="container-fluid pt-3 px-4">
+    {% for notice in notices %}
+    <div class="alert {% if notice.priority == 'urgent' %}alert-danger{% else %}alert-warning{% endif %}
+                d-flex justify-content-between align-items-start mb-2 shadow-sm"
+         style="border-radius:10px;" id="notice-{{ notice.id }}">
+        <div>
+            {% if notice.priority == 'urgent' %}
+            <span class="badge bg-danger me-2">URGENT</span>
+            {% endif %}
+            <strong>{{ notice.title }}</strong>
+            <div style="font-size:0.88rem; margin-top:4px;">{{ notice.body }}</div>
+            <div style="font-size:0.75rem; opacity:0.65; margin-top:4px;">
+                Posted by {{ notice.author.first_name if notice.author else 'Staff' }}
+                &bull; Expires {{ notice.expires_at.strftime('%b %d') }}
+            </div>
+        </div>
+        <div class="d-flex gap-2 ms-3 flex-shrink-0">
+            <button class="btn btn-sm btn-outline-secondary py-0"
+                    onclick="dismissNotice({{ notice.id }})"
+                    title="Dismiss for me">
+                <i class="fas fa-times"></i>
+            </button>
+            {% if current_user.id == notice.created_by %}
+            <form method="POST"
+                  action="{{ url_for('admin.delete_notice', notice_id=notice.id) }}"
+                  onsubmit="return confirm('Delete this notice for everyone?');">
+                <button type="submit" class="btn btn-sm btn-outline-danger py-0"
+                        title="Delete for everyone">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- ── POST A NOTICE ─────────────────────────────────────────────────────── -->
+<div class="container-fluid px-4 pt-2 pb-0">
+    <div x-data="{ open: false }">
+        <button class="btn btn-sm btn-outline-secondary mb-3"
+                data-bs-toggle="collapse" data-bs-target="#noticeForm"
+                style="font-size:0.78rem;">
+            <i class="fas fa-bullhorn me-1"></i>Post a Staff Notice
+        </button>
+        <div class="collapse" id="noticeForm">
+            <div class="card shadow-sm mb-3" style="border-left:4px solid #FFC107;max-width:680px;">
+                <div class="card-body py-3">
+                    <form method="POST" action="{{ url_for('admin.create_notice') }}">
+                        <div class="row g-2">
+                            <div class="col-md-5">
+                                <input type="text" name="title" class="form-control form-control-sm"
+                                       placeholder="Notice title" required>
+                            </div>
+                            <div class="col-md-5">
+                                <input type="text" name="body" class="form-control form-control-sm"
+                                       placeholder="Message" required>
+                            </div>
+                            <div class="col-md-2">
+                                <select name="priority" class="form-select form-select-sm">
+                                    <option value="normal">Normal</option>
+                                    <option value="urgent">Urgent</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <select name="expires_in" class="form-select form-select-sm">
+                                    <option value="1">Expires today</option>
+                                    <option value="2">Expires in 2 days</option>
+                                    <option value="3" selected>Expires in 3 days</option>
+                                    <option value="7">Expires in 7 days</option>
+                                    <option value="14">Expires in 14 days</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" class="btn btn-warning btn-sm text-dark fw-bold w-100">
+                                    Post
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function dismissNotice(id) {
+    fetch(`/admin/notices/${id}/dismiss`, { method: 'POST' })
+        .then(() => {
+            const el = document.getElementById('notice-' + id);
+            if (el) el.style.display = 'none';
+        });
+}
+</script>
+
+<h2>Admin Dashboard</h2>
+
+<!-- Statistics Cards -->
+<div class="row mt-4">
+    <div class="col-md-3">
+        <a href="{{ url_for('admin.customers') }}" class="text-decoration-none">
+            <div class="card text-center bg-primary text-white hover-card">
+                <div class="card-body">
+                    <i class="fas fa-users fa-2x mb-2"></i>
+                    <h3>{{ total_customers }}</h3>
+                    <p class="mb-0">Total Customers</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3">
+        <a href="{{ url_for('admin.pets') }}" class="text-decoration-none">
+            <div class="card text-center bg-success text-white hover-card">
+                <div class="card-body">
+                    <i class="fas fa-paw fa-2x mb-2"></i>
+                    <h3>{{ total_pets }}</h3>
+                    <p class="mb-0">Total Pets</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3">
+        <a href="{{ url_for('admin.appointments') }}" class="text-decoration-none">
+            <div class="card text-center bg-info text-white hover-card">
+                <div class="card-body">
+                    <i class="fas fa-calendar-check fa-2x mb-2"></i>
+                    <h3>{{ total_appointments }}</h3>
+                    <p class="mb-0">Total Appointments</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3">
+        <a href="{{ url_for('admin.appointments', status='pending') }}" class="text-decoration-none">
+            <div class="card text-center bg-warning text-white hover-card">
+                <div class="card-body">
+                    <i class="fas fa-clock fa-2x mb-2"></i>
+                    <h3>{{ pending_count }}</h3>
+                    <p class="mb-0">Pending Approvals</p>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+
+<!-- Quick Actions Row -->
+<div class="row mt-3">
+    <div class="col-md-3">
+        <a href="{{ url_for('admin.users') }}" class="text-decoration-none">
+            <div class="card text-center bg-dark text-white hover-card">
+                <div class="card-body">
+                    <i class="fas fa-users-cog fa-2x mb-2"></i>
+                    <p class="mb-0 fw-bold">User Management</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3">
+        <a href="{{ url_for('admin.payments') }}" class="text-decoration-none">
+            <div class="card text-center bg-success text-white hover-card">
+                <div class="card-body">
+                    <i class="fas fa-dollar-sign fa-2x mb-2"></i>
+                    <p class="mb-0 fw-bold">Payments</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3">
+        <a href="{{ url_for('admin.blocks') }}" class="text-decoration-none">
+            <div class="card text-center bg-danger text-white hover-card">
+                <div class="card-body">
+                    <i class="fas fa-ban fa-2x mb-2"></i>
+                    <p class="mb-0 fw-bold">Service Blocks</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3">
+        <a href="{{ url_for('admin.daycare_dashboard') }}" class="text-decoration-none">
+            <div class="card text-center bg-info text-white hover-card">
+                <div class="card-body">
+                    <i class="fas fa-paw fa-2x mb-2"></i>
+                    <p class="mb-0 fw-bold">Daycare</p>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<!-- Second row — reporting shortcuts -->
+<div class="row g-3 mb-4 mt-4">
+    <div class="col-md-3">
+        <a href="{{ url_for('admin.outstanding_balances') }}" class="text-decoration-none">
+            <div class="card text-center hover-card" style="background:#dc3545;color:white;">
+                <div class="card-body">
+                    <i class="fas fa-file-invoice-dollar fa-2x mb-2"></i>
+                    <p class="mb-0 fw-bold">Outstanding Balances</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3">
+        <a href="{{ url_for('public.gallery') }}" class="text-decoration-none">
+            <div class="card text-center hover-card" style="background:#1B2A4A;color:white;">
+                <div class="card-body">
+                    <i class="fas fa-images fa-2x mb-2" style="color:#B07A8E;"></i>
+                    <p class="mb-0 fw-bold">Photo Gallery</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3">
+        <a href="{{ url_for('admin.daily_log') }}" class="text-decoration-none">
+            <div class="card text-center hover-card" style="background:#B07A8E;color:white;">
+                <div class="card-body">
+                    <i class="fas fa-clipboard-list fa-2x mb-2"></i>
+                    <p class="mb-0 fw-bold">Daily Log</p>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<!-- Weekly Calendar -->
+<div class="card mt-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="fas fa-calendar-week"></i> Week of {{ start_of_week.strftime('%B %d') }} - {{ end_of_week.strftime('%B %d, %Y') }}
+        </h5>
+        <div>
+            <a href="{{ url_for('admin.dashboard', week=week_offset-1) }}" class="btn btn-sm btn-outline-primary">
+                <i class="fas fa-chevron-left"></i> Previous Week
+            </a>
+            {% if week_offset != 0 %}
+            <a href="{{ url_for('admin.dashboard') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-calendar-day"></i> This Week
+            </a>
+            {% endif %}
+            <a href="{{ url_for('admin.dashboard', week=week_offset+1) }}" class="btn btn-sm btn-outline-primary">
+                Next Week <i class="fas fa-chevron-right"></i>
+            </a>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            {% for day, appointments in appointments_by_day.items() %}
+            <div class="col">
+                <div class="calendar-day {% if day == today %}today{% endif %}">
+                    <div class="day-header">
+                        <strong>{{ day.strftime('%a') }}</strong>
+                        <div class="day-number">{{ day.strftime('%d') }}</div>
+                    </div>
+                    <div class="appointments-list">
+                        {% if appointments %}
+                            {% for appt in appointments %}
+                            <div class="appointment-item status-{{ appt.status }}" 
+                                 data-bs-toggle="tooltip" 
+                                 title="{{ appt.user.first_name }} {{ appt.user.last_name }} - {{ appt.pet.name }}">
+                                <div class="time">{{ appt.start_time.strftime('%I:%M %p') if appt.start_time else 'N/A' }}</div>
+                                <div class="service">{{ appt.service_type.name }}</div>
+                                <div class="pet-name">{{ appt.pet.name }}</div>
+                                {% if appt.status == 'pending' %}
+                                <form method="POST" action="{{ url_for('admin.complete_appointment', appt_id=appt.id) }}" class="d-inline">
+                                    <button type="submit" class="btn btn-xs btn-success mt-1" onclick="return confirm('Confirm this appointment?')">
+                                        <i class="fas fa-check"></i> Approve
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="no-appointments">No appointments</div>
+                        {% endif %}
+
+                        {# Daycare pets scheduled for this day #}
+                        {% set daycare_pets = daycare_by_day.get(day, []) %}
+                        {% if daycare_pets %}
+                            {% if appointments %}<hr class="daycare-divider">{% endif %}
+                            <div class="daycare-label"><i class="fas fa-paw"></i> Daycare</div>
+                            {% for enrollment in daycare_pets %}
+                            <div class="daycare-item"
+                                 data-bs-toggle="tooltip"
+                                 title="{{ enrollment.pet.name }}{% if enrollment.notes %} — {{ enrollment.notes }}{% endif %}">
+                                <div class="pet-name">{{ enrollment.pet.name }}</div>
+                                <div class="owner-name">{{ enrollment.pet.owner.first_name }} {{ enrollment.pet.owner.last_name }}</div>
+                            </div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Recent Appointments Table -->
+<h3 class="mt-5">Recent Appointments</h3>
+<div class="card">
+    <div class="card-body">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Customer</th>
+                    <th>Pet</th>
+                    <th>Service</th>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for appt in recent_appointments %}
+                <tr>
+                    <td>#{{ appt.id }}</td>
+                    <td>{{ appt.user.first_name }} {{ appt.user.last_name }}</td>
+                    <td>{{ appt.pet.name }}</td>
+                    <td>{{ appt.service_type.name }}</td>
+                    <td>{{ appt.appointment_date.strftime('%m/%d/%Y') }}</td>
+                    <td>{{ appt.start_time.strftime('%I:%M %p') if appt.start_time else 'N/A' }}</td>
+                    <td>
+                        <span class="badge bg-{% if appt.status == 'confirmed' %}success{% elif appt.status == 'pending' %}warning{% elif appt.status == 'cancelled' %}danger{% else %}secondary{% endif %}">
+                            {{ appt.status|upper }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if appt.status == 'pending' %}
+                        <form method="POST" action="{{ url_for('admin.complete_appointment', appt_id=appt.id) }}" class="d-inline">
+                            <button type="submit" class="btn btn-sm btn-success" title="Approve">
+                                <i class="fas fa-check"></i>
+                            </button>
+                        </form>
+                        <form method="POST" action="{{ url_for('admin.cancel_appointment', appt_id=appt.id) }}" class="d-inline">
+                            <button type="submit" class="btn btn-sm btn-danger" title="Cancel" onclick="return confirm('Cancel this appointment?')">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </form>
+                        {% elif appt.status == 'confirmed' %}
+                        <form method="POST" action="{{ url_for('admin.complete_appointment', appt_id=appt.id) }}" class="d-inline">
+                            <button type="submit" class="btn btn-sm btn-primary" title="Mark Complete">
+                                <i class="fas fa-check-double"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+.hover-card {
+    transition: transform 0.2s;
+    cursor: pointer;
+}
+
+.hover-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+}
+
+.calendar-day {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    min-height: 300px;
+    padding: 10px;
+    background: white;
+}
+
+.calendar-day.today {
+    border: 2px solid #6366f1;
+    background: #f8f9ff;
+}
+
+.day-header {
+    text-align: center;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e9ecef;
+    margin-bottom: 10px;
+}
+
+.day-number {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #6366f1;
+}
+
+.appointments-list {
+    overflow-y: auto;
+    max-height: 400px;
+}
+
+.appointment-item {
+    background: #f8f9fa;
+    border-left: 4px solid #6c757d;
+    padding: 8px;
+    margin-bottom: 8px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+
+.appointment-item.status-pending {
+    border-left-color: #ffc107;
+    background: #fff9e6;
+}
+
+.appointment-item.status-confirmed {
+    border-left-color: #28a745;
+    background: #e6f9ec;
+}
+
+.appointment-item.status-cancelled {
+    border-left-color: #dc3545;
+    background: #ffe6e6;
+    opacity: 0.7;
+}
+
+.appointment-item .time {
+    font-weight: bold;
+    color: #495057;
+}
+
+.appointment-item .service {
+    color: #6366f1;
+    font-size: 0.8rem;
+}
+
+.appointment-item .pet-name {
+    color: #6c757d;
+    font-size: 0.75rem;
+}
+
+.no-appointments {
+    text-align: center;
+    color: #adb5bd;
+    padding: 20px;
+    font-style: italic;
+}
+
+.btn-xs {
+    padding: 2px 6px;
+    font-size: 0.7rem;
+}
+
+.daycare-divider {
+    margin: 8px 0;
+    border-color: #17a2b8;
+    opacity: 0.4;
+}
+
+.daycare-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #0e7490;
+    margin-bottom: 5px;
+}
+
+.daycare-item {
+    background: #e0f7fa;
+    border-left: 4px solid #17a2b8;
+    padding: 6px 8px;
+    margin-bottom: 6px;
+    border-radius: 4px;
+    font-size: 0.82rem;
+}
+
+.daycare-item .pet-name {
+    font-weight: 600;
+    color: #0e7490;
+}
+
+.daycare-item .owner-name {
+    font-size: 0.72rem;
+    color: #6c757d;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+{% endblock %}

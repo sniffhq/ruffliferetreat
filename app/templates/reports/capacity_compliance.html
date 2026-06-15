@@ -1,0 +1,157 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Capacity Compliance Report - Ruff Life Retreat{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="fas fa-users"></i> Capacity Compliance Report</h1>
+        <a href="{{ url_for('reports.reports_dashboard') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fas fa-filter"></i> Date Range</h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('reports.capacity_compliance_report') }}" class="row g-3">
+                <div class="col-md-4">
+                    <label for="start_date" class="form-label">Start Date</label>
+                    <input type="date" class="form-control" id="start_date" name="start_date" 
+                           value="{{ start_date }}" required>
+                </div>
+                <div class="col-md-4">
+                    <label for="end_date" class="form-label">End Date</label>
+                    <input type="date" class="form-control" id="end_date" name="end_date" 
+                           value="{{ end_date }}" required>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search"></i> Generate Report
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Summary Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-primary">{{ summary.total_days }}</h3>
+                    <p class="mb-0">Total Days</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-success">{{ "%.1f"|format(summary.compliance_rate) }}%</h3>
+                    <p class="mb-0">Compliance Rate</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-warning">{{ "%.1f"|format(summary.avg_total) }}</h3>
+                    <p class="mb-0">Avg Daily Capacity</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-danger">{{ summary.over_capacity_days }}</h3>
+                    <p class="mb-0">Over Capacity Days</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Capacity Table -->
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Daily Capacity Log</h5>
+        </div>
+        <div class="card-body">
+            {% if capacity_logs %}
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Daycare</th>
+                            <th>Boarding</th>
+                            <th>Grooming</th>
+                            <th>Total</th>
+                            <th>Capacity %</th>
+                            <th>Status</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in capacity_logs %}
+                        <tr class="{% if log.over_capacity %}table-danger{% endif %}">
+                            <td><strong>{{ log.log_date.strftime('%m/%d/%Y') }}</strong></td>
+                            <td>{{ log.daycare_count }} / {{ log.daycare_limit }}</td>
+                            <td>{{ log.boarding_count }} / {{ log.boarding_limit }}</td>
+                            <td>{{ log.grooming_count }}</td>
+                            <td><strong>{{ log.total_count }} / {{ log.total_limit }}</strong></td>
+                            <td>
+                                <div class="progress" style="min-width: 100px;">
+                                    <div class="progress-bar 
+                                        {% if log.total_percentage > 100 %}bg-danger
+                                        {% elif log.total_percentage > 90 %}bg-warning
+                                        {% else %}bg-success{% endif %}" 
+                                        role="progressbar" 
+                                        style="width: {{ [log.total_percentage, 100]|min }}%">
+                                        {{ "%.0f"|format(log.total_percentage) }}%
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                {% if log.over_capacity %}
+                                <span class="badge bg-danger">Over Capacity</span>
+                                {% elif log.total_percentage > 90 %}
+                                <span class="badge bg-warning text-dark">Near Capacity</span>
+                                {% else %}
+                                <span class="badge bg-success">Within Limits</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ log.notes or '' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> No capacity data found for the selected date range.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Compliance Note -->
+    <div class="card mt-3">
+        <div class="card-body">
+            <h6><i class="fas fa-info-circle"></i> Capacity Limits:</h6>
+            <ul class="mb-0">
+                <li>Daycare: 30 pets</li>
+                <li>Boarding: 20 pets</li>
+                <li>Total Facility: 50 pets</li>
+            </ul>
+            <p class="mt-2 mb-0 text-muted">
+                <small>Note: Capacity logs are automatically calculated from daily attendance data.</small>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+

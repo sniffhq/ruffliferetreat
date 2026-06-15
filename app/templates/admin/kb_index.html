@@ -1,0 +1,175 @@
+﻿{% extends "base.html" %}
+{% block title %}Knowledge Base — Ruff Life Retreat{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0"><i class="fas fa-book me-2 text-warning"></i>Knowledge Base</h2>
+            <div class="text-muted small">{{ total }} article{{ 's' if total != 1 }}</div>
+        </div>
+        <a href="{{ url_for('admin.kb_new') }}" class="btn btn-warning text-dark fw-bold">
+            <i class="fas fa-plus me-2"></i>New Article
+        </a>
+    </div>
+
+    <!-- Search & Filter bar -->
+    <form method="GET" action="{{ url_for('admin.kb_index') }}" class="mb-4">
+        <div class="row g-2">
+            <div class="col-md-7">
+                <div class="input-group">
+                    <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
+                    <input type="text" name="q" class="form-control"
+                           placeholder="Search articles..." value="{{ q }}"
+                           id="kb-search" autocomplete="off">
+                    {% if q %}
+                    <a href="{{ url_for('admin.kb_index') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-times"></i>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col-md-4">
+                <select name="category" class="form-select" onchange="this.form.submit()">
+                    <option value="">All Categories</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat }}" {% if category == cat %}selected{% endif %}>{{ cat }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-1">
+                <button type="submit" class="btn btn-warning w-100 text-dark fw-bold">Go</button>
+            </div>
+        </div>
+    </form>
+
+    {% if q or category %}
+    <!-- Search results -->
+    <div class="mb-3">
+        <h5 class="text-muted">
+            {% if q %}Results for "{{ q }}"{% endif %}
+            {% if category %} in {{ category }}{% endif %}
+            — {{ total }} found
+        </h5>
+    </div>
+    {% if total == 0 %}
+    <div class="text-center py-5 text-muted">
+        <i class="fas fa-search fa-3x mb-3 d-block opacity-25"></i>
+        <p>No articles found. Try different search terms or <a href="{{ url_for('admin.kb_new') }}">create a new article</a>.</p>
+    </div>
+    {% endif %}
+    {% for cat, arts in grouped.items() %}
+    <div class="mb-4">
+        <div class="text-uppercase fw-bold text-muted small mb-2" style="letter-spacing:1px;">{{ cat }}</div>
+        {% for art in arts %}
+        <a href="{{ url_for('admin.kb_article', article_id=art.id) }}"
+           class="d-block text-decoration-none mb-2 p-3 bg-white rounded shadow-sm"
+           style="border-left:3px solid #FFC107; transition:transform 0.15s;"
+           onmouseover="this.style.transform='translateX(4px)'"
+           onmouseout="this.style.transform='translateX(0)'">
+            <div class="fw-bold text-dark">{{ art.title }}</div>
+            <div class="text-muted small">{{ art.category }} &bull; Updated {{ art.updated_at.strftime('%m/%d/%Y') }}</div>
+        </a>
+        {% endfor %}
+    </div>
+    {% endfor %}
+
+    {% else %}
+    <!-- Normal browse view -->
+
+    <!-- Pinned articles -->
+    {% if pinned %}
+    <div class="mb-4">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <i class="fas fa-thumbtack text-warning"></i>
+            <span class="text-uppercase fw-bold text-muted small" style="letter-spacing:1px;">Pinned</span>
+        </div>
+        <div class="row g-3">
+            {% for art in pinned %}
+            <div class="col-md-6 col-lg-4">
+                <a href="{{ url_for('admin.kb_article', article_id=art.id) }}"
+                   class="card h-100 text-decoration-none shadow-sm"
+                   style="border-top:3px solid #FFC107;">
+                    <div class="card-body">
+                        <div class="fw-bold text-dark mb-1">{{ art.title }}</div>
+                        <div class="badge bg-warning text-dark" style="font-size:0.7rem;">{{ art.category }}</div>
+                    </div>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Category groups -->
+    {% for cat, arts in grouped.items() %}
+    <div class="card shadow-sm mb-3">
+        <div class="card-header" style="background:#1a1a2e; cursor:pointer;"
+             onclick="toggleCat('cat-{{ loop.index }}')">
+            <div class="d-flex justify-content-between align-items-center">
+                <strong class="text-white"><i class="fas fa-folder-open me-2 text-warning"></i>{{ cat }}</strong>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-warning text-dark">{{ arts|length }}</span>
+                    <i class="fas fa-chevron-down text-white" id="chevron-cat-{{ loop.index }}"></i>
+                </div>
+            </div>
+        </div>
+        <div id="cat-{{ loop.index }}" class="list-group list-group-flush">
+            {% for art in arts %}
+            <a href="{{ url_for('admin.kb_article', article_id=art.id) }}"
+               class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2">
+                <span>{{ art.title }}</span>
+                <span class="text-muted small">{{ art.updated_at.strftime('%m/%d/%Y') }}</span>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if not grouped and not pinned %}
+    <div class="text-center py-5">
+        <i class="fas fa-book-open fa-3x mb-3 d-block text-warning opacity-50"></i>
+        <h5 class="text-muted">Knowledge base is empty</h5>
+        <p class="text-muted">Start by seeding it with the runbook content or create your first article.</p>
+        <div class="d-flex gap-3 justify-content-center">
+            <form method="POST" action="{{ url_for('admin.kb_seed') }}">
+                <button type="submit" class="btn btn-warning text-dark fw-bold">
+                    <i class="fas fa-magic me-2"></i>Seed from Runbook
+                </button>
+            </form>
+            <a href="{{ url_for('admin.kb_new') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-plus me-2"></i>Create First Article
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    {% endif %}
+</div>
+
+<script>
+// Collapse/expand category sections
+function toggleCat(id) {
+    const el  = document.getElementById(id);
+    const idx = id.split('-')[1];
+    const ch  = document.getElementById('chevron-cat-' + idx);
+    if (el.style.display === 'none') {
+        el.style.display = '';
+        ch.className = 'fas fa-chevron-down text-white';
+    } else {
+        el.style.display = 'none';
+        ch.className = 'fas fa-chevron-right text-white';
+    }
+}
+
+// Live search filter on keyup
+const searchInput = document.getElementById('kb-search');
+if (searchInput) {
+    searchInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { this.form.submit(); }
+    });
+}
+</script>
+{% endblock %}
+

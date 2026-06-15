@@ -1,0 +1,196 @@
+﻿{% extends "base.html" %}
+{% block title %}Broadcast SMS — Ruff Life Retreat{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+
+    <!-- Header with tabs -->
+    <div class="d-flex align-items-center gap-3 mb-3">
+        <a href="{{ url_for('admin.sms_inbox') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-arrow-left"></i> Inbox
+        </a>
+        <h4 class="mb-0"><i class="fas fa-bullhorn me-2 text-warning"></i>Broadcast SMS</h4>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-7">
+
+            {% if preview_recipients is not none %}
+            <!-- ── PREVIEW STEP ── -->
+            <div class="card shadow-sm mb-4 border-warning">
+                <div class="card-header bg-warning text-dark fw-bold">
+                    <i class="fas fa-eye me-2"></i>Preview — Confirm Before Sending
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="text-muted small text-uppercase fw-bold mb-1">Audience</div>
+                        <div>{{ preview_label }} — <strong>{{ preview_recipients|length }} recipient(s)</strong></div>
+                    </div>
+                    <div class="mb-4">
+                        <div class="text-muted small text-uppercase fw-bold mb-1">Message</div>
+                        <div style="background:#f8f9fa; border-radius:10px; padding:14px; font-size:0.95rem; border-left:4px solid #FFC107;">
+                            {{ preview_message }}
+                        </div>
+                    </div>
+
+                    <!-- Recipient list -->
+                    <div class="mb-4">
+                        <div class="text-muted small text-uppercase fw-bold mb-2">Recipients</div>
+                        <div style="max-height:200px; overflow-y:auto; border:1px solid #eee; border-radius:8px;">
+                            <table class="table table-sm mb-0" style="font-size:0.82rem;">
+                                <thead class="table-light">
+                                    <tr><th>Name</th><th>Phone</th></tr>
+                                </thead>
+                                <tbody>
+                                    {% for r in preview_recipients %}
+                                    <tr>
+                                        <td>{{ r.first_name }} {{ r.last_name }}</td>
+                                        <td>
+                                            {% if r.phone %}
+                                                {{ r.phone }}
+                                            {% else %}
+                                                <span class="text-muted">No phone — will be skipped</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Confirm form -->
+                    <form method="POST" action="{{ url_for('admin.sms_broadcast') }}">
+                        <input type="hidden" name="audience" value="{{ preview_audience }}">
+                        <input type="hidden" name="message"  value="{{ preview_message }}">
+                        <input type="hidden" name="confirm"  value="1">
+                        <div class="d-flex gap-3">
+                            <button type="submit" class="btn btn-warning text-dark fw-bold px-5">
+                                <i class="fas fa-paper-plane me-2"></i>
+                                Send to {{ preview_recipients|length }} Recipient(s)
+                            </button>
+                            <a href="{{ url_for('admin.sms_broadcast') }}" class="btn btn-outline-secondary">
+                                Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            {% else %}
+            <!-- ── COMPOSE STEP ── -->
+            <div class="card shadow-sm">
+                <div class="card-header" style="background:#1a1a2e;">
+                    <strong class="text-white"><i class="fas fa-bullhorn me-2"></i>Compose Broadcast</strong>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('admin.sms_broadcast') }}">
+
+                        <!-- Audience -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Select Audience</label>
+                            <div class="d-flex flex-column gap-2">
+
+                                <label style="cursor:pointer;">
+                                    <input type="radio" name="audience" value="opted_in" class="me-2" required>
+                                    <strong>All Opted-In Customers</strong>
+                                    <span class="badge bg-secondary ms-2">{{ opted_in|length }}</span>
+                                    <div class="text-muted small ms-4">Every customer with SMS notifications enabled</div>
+                                </label>
+
+                                <label style="cursor:pointer;">
+                                    <input type="radio" name="audience" value="daycare" class="me-2">
+                                    <strong>Active Daycare Enrollments</strong>
+                                    <span class="badge bg-warning text-dark ms-2">{{ daycare_owners|length }}</span>
+                                    <div class="text-muted small ms-4">Owners of currently enrolled daycare pets</div>
+                                </label>
+
+                                <label style="cursor:pointer;">
+                                    <input type="radio" name="audience" value="boarding" class="me-2">
+                                    <strong>Current Boarding Guests</strong>
+                                    <span class="badge bg-primary ms-2">{{ boarding_owners|length }}</span>
+                                    <div class="text-muted small ms-4">Owners of pets currently checked in to boarding</div>
+                                </label>
+
+                            </div>
+                        </div>
+
+                        <!-- Message -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Message</label>
+                            <textarea name="message" class="form-control" rows="4"
+                                      placeholder="Type your message here..." required
+                                      maxlength="320" id="broadcast-msg"></textarea>
+                            <div class="d-flex justify-content-between mt-1">
+                                <div class="text-muted small">Keep it concise — SMS messages over 160 characters count as two messages.</div>
+                                <div class="text-muted small" id="char-count">0 / 320</div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-warning text-dark fw-bold px-5">
+                            <i class="fas fa-eye me-2"></i>Preview Broadcast
+                        </button>
+
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+
+        <!-- Right: info panel -->
+        <div class="col-lg-5">
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-light fw-bold">
+                    <i class="fas fa-info-circle text-primary me-2"></i>About Broadcasts
+                </div>
+                <div class="card-body" style="font-size:0.88rem;">
+                    <p>A broadcast sends the same SMS to every member of the selected group. Use this for:</p>
+                    <ul>
+                        <li>Holiday or closure announcements</li>
+                        <li>Schedule change notifications</li>
+                        <li>Daycare day cancellations</li>
+                        <li>Vaccination reminder campaigns</li>
+                        <li>New service announcements</li>
+                    </ul>
+                    <div class="alert alert-warning py-2 mb-0">
+                        <strong>⚠️ Important:</strong> Broadcasts cannot be undone once sent. Always review the preview before confirming.
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-light fw-bold">
+                    <i class="fas fa-users text-success me-2"></i>Current Audience Sizes
+                </div>
+                <div class="card-body p-0">
+                    {% for label, count, color in [
+                        ('All Opted-In Customers', opted_in|length, 'secondary'),
+                        ('Active Daycare Enrollments', daycare_owners|length, 'warning'),
+                        ('Current Boarding Guests', boarding_owners|length, 'primary')
+                    ] %}
+                    <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+                        <span style="font-size:0.85rem;">{{ label }}</span>
+                        <span class="badge bg-{{ color }} {% if color == 'warning' %}text-dark{% endif %}">
+                            {{ count }}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const msg = document.getElementById('broadcast-msg');
+    const counter = document.getElementById('char-count');
+    if (msg && counter) {
+        msg.addEventListener('input', () => {
+            const len = msg.value.length;
+            counter.textContent = len + ' / 320';
+            counter.style.color = len > 160 ? '#dc3545' : '#888';
+        });
+    }
+</script>
+{% endblock %}
+

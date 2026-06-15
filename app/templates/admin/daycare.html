@@ -1,0 +1,218 @@
+﻿{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">
+        <i class="fas fa-dog"></i> Daycare Management
+    </h1>
+    
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h4 class="mb-0"><i class="fas fa-calendar-day"></i> Today's Daycare Attendance - {{ today.strftime('%B %d, %Y') }}</h4>
+                </div>
+                <div class="card-body">
+                    {% if today_attendance %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Pet</th>
+                                    <th>Owner</th>
+                                    <th>Check-In</th>
+                                    <th>Check-Out</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for attendance in today_attendance %}
+                                <tr>
+                                    <td><strong>{{ attendance.pet.name }}</strong></td>
+                                    <td>{{ attendance.pet.owner.first_name }} {{ attendance.pet.owner.last_name }}</td>
+                                    <td>
+                                        {% if attendance.check_in_time %}
+                                        {{ attendance.check_in_time.strftime('%I:%M %p') }}
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if attendance.check_out_time %}
+                                        {{ attendance.check_out_time.strftime('%I:%M %p') }}
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if attendance.checked_out %}
+                                        <span class="badge bg-success">Checked Out</span>
+                                        {% elif attendance.checked_in %}
+                                        <span class="badge bg-info">Here Now</span>
+                                        {% else %}
+                                        <span class="badge bg-warning text-dark">Not Checked In</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-center text-muted my-4">No daycare attendance today.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0"><i class="fas fa-users"></i> Enrolled Pets ({{ enrollments|length }})</h4>
+                </div>
+                <div class="card-body">
+                    {% if enrollments %}
+                    <div class="list-group">
+                        {% for enrollment in enrollments %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h5 class="mb-1">{{ enrollment.pet.name }}</h5>
+                                    <p class="mb-1 text-muted">
+                                        Owner: {{ enrollment.pet.owner.first_name }} {{ enrollment.pet.owner.last_name }}<br>
+                                        Breed: {{ enrollment.pet.breed if enrollment.pet.breed else 'Not specified' }}
+                                    </p>
+                                    <small class="text-muted">
+                                        Schedule: 
+                                        {% if enrollment.monday %}M{% endif %}
+                                        {% if enrollment.tuesday %}T{% endif %}
+                                        {% if enrollment.wednesday %}W{% endif %}
+                                        {% if enrollment.thursday %}Th{% endif %}
+                                        {% if enrollment.friday %}F{% endif %}
+                                        {% if enrollment.saturday %}Sa{% endif %}
+                                        {% if enrollment.sunday %}Su{% endif %}
+                                    </small>
+                                    {% if enrollment.notes %}
+                                    <p class="mb-0 mt-2"><small><strong>Notes:</strong> {{ enrollment.notes }}</small></p>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <form method="POST" action="{{ url_for('unenroll_daycare', enrollment_id=enrollment.id) }}"
+                                          onsubmit="return confirm('Remove {{ enrollment.pet.name }} from daycare?');">
+                                        <button type="submit" class="btn btn-sm btn-danger">
+                                            <i class="fas fa-times"></i> Remove
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-center text-muted my-4">No pets enrolled in daycare.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-plus"></i> Enroll New Pet</h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('enroll_daycare', pet_id=0) }}" id="enrollForm">
+                        <div class="mb-3">
+                            <label for="pet_select" class="form-label">Select Pet</label>
+                            <select class="form-select" id="pet_select" name="pet_id" required>
+                                <option value="">Choose a pet...</option>
+                                {% for pet in all_pets %}
+                                <option value="{{ pet.id }}">
+                                    {{ pet.name }} - {{ pet.owner.last_name }}, {{ pet.owner.first_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Daycare Schedule</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="monday" id="monday" checked>
+                                <label class="form-check-label" for="monday">Monday</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="tuesday" id="tuesday" checked>
+                                <label class="form-check-label" for="tuesday">Tuesday</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="wednesday" id="wednesday" checked>
+                                <label class="form-check-label" for="wednesday">Wednesday</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="thursday" id="thursday" checked>
+                                <label class="form-check-label" for="thursday">Thursday</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="friday" id="friday" checked>
+                                <label class="form-check-label" for="friday">Friday</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="saturday" id="saturday">
+                                <label class="form-check-label" for="saturday">Saturday</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="sunday" id="sunday">
+                                <label class="form-check-label" for="sunday">Sunday</label>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Notes (Optional)</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="3" 
+                                      placeholder="Special instructions, preferences, etc."></textarea>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-plus"></i> Enroll Pet
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12 text-center">
+            <a href="{{ url_for('daycare_attendance') }}" class="btn btn-info me-2">
+                <i class="fas fa-history"></i> View Attendance History
+            </a>
+            <a href="/" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('enrollForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const petId = document.getElementById('pet_select').value;
+    this.action = this.action.replace('/0', '/' + petId);
+    this.submit();
+});
+</script>
+
+<style>
+.card {
+    border-radius: 10px;
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.card-header {
+    border-radius: 10px 10px 0 0;
+}
+</style>
+{% endblock %}
+

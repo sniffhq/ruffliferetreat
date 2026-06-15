@@ -1,0 +1,243 @@
+﻿{% extends "base.html" %}
+{% block title %}Report Card — {{ pet.name }}{% endblock %}
+{% block content %}
+<div class="container mt-4" style="max-width:680px;">
+
+    <div class="d-flex align-items-center gap-3 mb-4">
+        <a href="{{ url_for('admin.report_cards') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-arrow-left"></i> Roster
+        </a>
+        <div>
+            <h4 class="mb-0">
+                {% if card_type == 'daycare' %}
+                    <i class="fas fa-paw text-warning me-2"></i>
+                {% else %}
+                    <i class="fas fa-hotel text-primary me-2"></i>
+                {% endif %}
+                {{ pet.name }}'s {{ card_type|title }} Report Card
+            </h4>
+            <div class="text-muted small">{{ today.strftime('%A, %B %d, %Y') }}</div>
+        </div>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data">
+
+        <!-- MOOD -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-light fw-bold">😊 Mood</div>
+            <div class="card-body">
+                <div class="d-flex gap-3 flex-wrap">
+                    {% for val, label, emoji, color in [('happy','Happy','😊','success'),('neutral','Neutral','😐','warning'),('anxious','Anxious','😟','danger')] %}
+                    <div>
+                        <input type="radio" class="btn-check" name="mood" id="mood_{{ val }}"
+                               value="{{ val }}" {% if existing and existing.mood == val %}checked{% endif %} required>
+                        <label class="btn btn-outline-{{ color }} btn-lg" for="mood_{{ val }}">
+                            {{ emoji }} {{ label }}
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- ENERGY -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-light fw-bold">⚡ Energy Level</div>
+            <div class="card-body">
+                <div class="d-flex gap-3 flex-wrap">
+                    {% for val, label, color in [('high','High ⚡','danger'),('medium','Medium 🔋','warning'),('low','Low 😴','secondary')] %}
+                    <div>
+                        <input type="radio" class="btn-check" name="energy" id="energy_{{ val }}"
+                               value="{{ val }}" {% if existing and existing.energy == val %}checked{% endif %} required>
+                        <label class="btn btn-outline-{{ color }}" for="energy_{{ val }}">{{ label }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- PLAYED WELL -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-light fw-bold">🐶 Played Well With Others</div>
+            <div class="card-body">
+                <div class="d-flex gap-3 flex-wrap">
+                    {% for val, label, color in [('yes','Yes 🐾','success'),('mostly','Mostly 👍','warning'),('no','No 🙅','danger')] %}
+                    <div>
+                        <input type="radio" class="btn-check" name="played_well" id="played_{{ val }}"
+                               value="{{ val }}" {% if existing and existing.played_well == val %}checked{% endif %} required>
+                        <label class="btn btn-outline-{{ color }}" for="played_{{ val }}">{{ label }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- HYDRATED -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-light fw-bold">💧 Drank Water / Stayed Hydrated</div>
+            <div class="card-body">
+                <div class="d-flex gap-3">
+                    {% for val, label, color in [('1','Yes 💧','success'),('0','Not Much 😕','warning')] %}
+                    <div>
+                        <input type="radio" class="btn-check" name="hydrated" id="hydrated_{{ val }}"
+                               value="{{ val }}"
+                               {% if existing %}{% if (val == '1' and existing.hydrated) or (val == '0' and not existing.hydrated) %}checked{% endif %}{% endif %}
+                               required>
+                        <label class="btn btn-outline-{{ color }}" for="hydrated_{{ val }}">{{ label }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        {% if card_type == 'boarding' %}
+
+        <!-- APPETITE (boarding only) -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-light fw-bold">🍖 Appetite</div>
+            <div class="card-body">
+                <div class="d-flex gap-3 flex-wrap">
+                    {% for val, label, color in [('all','Ate Everything 🍽️','success'),('some','Ate Some 🤏','warning'),('none','Didn\'t Eat 😞','danger')] %}
+                    <div>
+                        <input type="radio" class="btn-check" name="appetite" id="appetite_{{ val }}"
+                               value="{{ val }}" {% if existing and existing.appetite == val %}checked{% endif %} required>
+                        <label class="btn btn-outline-{{ color }}" for="appetite_{{ val }}">{{ label }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- SLEEP (boarding only) -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-light fw-bold">😴 Sleep</div>
+            <div class="card-body">
+                <div class="d-flex gap-3">
+                    {% for val, label, color in [('well','Slept Well 😴','success'),('restless','Restless 😬','warning')] %}
+                    <div>
+                        <input type="radio" class="btn-check" name="sleep" id="sleep_{{ val }}"
+                               value="{{ val }}" {% if existing and existing.sleep == val %}checked{% endif %} required>
+                        <label class="btn btn-outline-{{ color }}" for="sleep_{{ val }}">{{ label }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- TEMPERAMENT (boarding only) -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-light fw-bold">🧠 Overall Temperament</div>
+            <div class="card-body">
+                <div class="d-flex gap-3 flex-wrap">
+                    {% for val, label, color in [('relaxed','Relaxed 😌','success'),('normal','Normal 🙂','primary'),('anxious','Anxious 😰','warning'),('unsettled','Unsettled 😤','danger')] %}
+                    <div>
+                        <input type="radio" class="btn-check" name="temperament" id="temp_{{ val }}"
+                               value="{{ val }}" {% if existing and existing.temperament == val %}checked{% endif %} required>
+                        <label class="btn btn-outline-{{ color }}" for="temp_{{ val }}">{{ label }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- MEDICATIONS (boarding only) -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-light fw-bold">💊 Medications Given</div>
+            <div class="card-body">
+                <div class="d-flex gap-3">
+                    {% for val, label, color in [('1','Yes ✅','success'),('0','N/A','secondary')] %}
+                    <div>
+                        <input type="radio" class="btn-check" name="medications_given" id="meds_{{ val }}"
+                               value="{{ val }}"
+                               {% if existing %}{% if (val == '1' and existing.medications_given) or (val == '0' and not existing.medications_given) %}checked{% endif %}{% else %}{% if val == '0' %}checked{% endif %}{% endif %}
+                               required>
+                        <label class="btn btn-outline-{{ color }}" for="meds_{{ val }}">{{ label }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- BATHROOM (boarding only) -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-light fw-bold">🌿 Bathroom Habits</div>
+            <div class="card-body">
+                <div class="d-flex gap-3 flex-wrap">
+                    {% for val, label, color in [('normal','Normal ✅','success'),('loose','Loose ⚠️','warning'),('none','Didn\'t Go ❓','secondary')] %}
+                    <div>
+                        <input type="radio" class="btn-check" name="bathroom" id="bath_{{ val }}"
+                               value="{{ val }}" {% if existing and existing.bathroom == val %}checked{% endif %} required>
+                        <label class="btn btn-outline-{{ color }}" for="bath_{{ val }}">{{ label }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        {% endif %}
+
+        <!-- PHOTO -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-light fw-bold">📷 Photo (optional)</div>
+            <div class="card-body">
+                {% if existing and existing.photo_filename %}
+                <div class="mb-2">
+                    <img src="{{ existing.photo_url }}" alt="Current photo"
+                         style="max-height:160px; border-radius:10px; object-fit:cover;">
+                    <div class="text-muted small mt-1">Current photo — upload a new one to replace it.</div>
+                </div>
+                {% endif %}
+                <input type="file" name="photo" class="form-control" accept="image/*">
+            </div>
+        </div>
+
+        <!-- NOTES -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-light fw-bold">📝 Staff Notes (optional)</div>
+            <div class="card-body">
+                <textarea name="notes" class="form-control" rows="3"
+                          placeholder="Any fun moments, things to mention to the owner, or notes for the team...">{{ existing.notes if existing and existing.notes else '' }}</textarea>
+            </div>
+        </div>
+
+        <!-- SEND OPTIONS -->
+        <div class="card shadow-sm mb-4" style="border:2px solid #FFC107;">
+            <div class="card-header bg-warning text-dark fw-bold">📱 Send to Owner</div>
+            <div class="card-body">
+                {% if pet.owner and pet.owner.phone %}
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" name="send_sms" id="send_sms" value="1" checked>
+                    <label class="form-check-label" for="send_sms">
+                        Send SMS to {{ pet.owner.first_name }} ({{ pet.owner.phone }})
+                    </label>
+                </div>
+                {% if existing and existing.sent_at %}
+                <div class="text-muted small">
+                    <i class="fas fa-check-circle text-success me-1"></i>
+                    Previously sent {{ existing.sent_at.strftime('%m/%d at %I:%M %p') }}
+                </div>
+                {% endif %}
+                {% if not pet.owner.sms_opt_in %}
+                <div class="alert alert-warning py-2 mt-2 mb-0">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    {{ pet.owner.first_name }} has not opted in to SMS. The report card will be saved but not sent.
+                </div>
+                {% endif %}
+                {% else %}
+                <div class="text-muted small">No phone number on file — cannot send SMS.</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="d-flex gap-3 mb-5">
+            <button type="submit" class="btn btn-warning text-dark fw-bold px-5">
+                <i class="fas fa-paper-plane me-2"></i>
+                {% if existing %}Update & Send{% else %}Send Report Card{% endif %}
+            </button>
+            <a href="{{ url_for('admin.report_cards') }}" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+
+    </form>
+</div>
+{% endblock %}
+

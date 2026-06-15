@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Terms of Service — Ruff Life Retreat{% endblock %}
+
+{% block content %}
+<div class="container mt-5 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-body p-4 p-lg-5">
+
+                    <h1 class="mb-1">Terms of Service</h1>
+                    <p class="text-muted small mb-4">Last updated: April 27, 2026</p>
+
+                    <p>Welcome to Ruff Life Retreat. By creating an account or using our services at
+                    <strong>rufflife.app</strong>, you agree to the following terms.</p>
+
+                    <hr>
+
+                    <h4 class="mt-4">1. Services</h4>
+                    <p>Ruff Life Retreat provides pet boarding, daycare, and grooming services at
+                    2945 Midland Rd, Guyton, GA 31312. Use of this web application is provided to
+                    facilitate booking, communication, and account management for our customers.</p>
+
+                    <h4 class="mt-4">2. Vaccination Requirements</h4>
+                    <p>All pets must have current vaccination records on file prior to receiving any services.
+                    Required vaccinations include Rabies, DHPP, and Bordetella. Ruff Life Retreat reserves
+                    the right to refuse service to any pet whose vaccination records are expired or unavailable.</p>
+
+                    <h4 class="mt-4">3. SMS Notifications</h4>
+                    <p>By opting in to SMS notifications during registration, you consent to receive text
+                    messages from Ruff Life Retreat at the phone number you provide. These messages include
+                    appointment confirmations, reminders, daycare check-in and check-out alerts, and other
+                    service-related notifications.</p>
+                    <ul>
+                        <li>Message and data rates may apply</li>
+                        <li>Message frequency varies based on your service activity</li>
+                        <li>Reply <strong>STOP</strong> at any time to unsubscribe</li>
+                        <li>Reply <strong>HELP</strong> for assistance</li>
+                        <li>Your mobile information will never be shared with third parties for marketing purposes</li>
+                    </ul>
+
+                    <h4 class="mt-4">4. Account Responsibility</h4>
+                    <p>You are responsible for maintaining the confidentiality of your account credentials and
+                    for all activity that occurs under your account. Please notify us immediately of any
+                    unauthorized use of your account.</p>
+
+                    <h4 class="mt-4">5. Accuracy of Information</h4>
+                    <p>You agree to provide accurate and current information when creating your account and
+                    using our services. Inaccurate pet health or vaccination information that results in harm
+                    to other animals in our care is solely your responsibility.</p>
+
+                    <h4 class="mt-4">6. Liability</h4>
+                    <p>Ruff Life Retreat takes every precaution to ensure the safety and wellbeing of pets
+                    in our care. However, we cannot be held liable for illness, injury, or death resulting
+                    from pre-existing conditions, interactions with other animals, or circumstances beyond
+                    our reasonable control. We will make every effort to notify you of any incidents
+                    involving your pet promptly.</p>
+
+                    <h4 class="mt-4">7. Cancellation Policy</h4>
+                    <p>Please contact us as soon as possible if you need to cancel or reschedule an appointment.
+                    Repeated last-minute cancellations may affect your ability to book future services.</p>
+
+                    <h4 class="mt-4">8. Changes to Terms</h4>
+                    <p>We reserve the right to update these Terms of Service at any time. Continued use of
+                    our services following any changes constitutes your acceptance of the new terms.</p>
+
+                    <h4 class="mt-4">9. Contact</h4>
+                    <ul class="list-unstyled">
+                        <li><strong>Ruff Life Retreat</strong></li>
+                        <li>2945 Midland Rd, Guyton, GA 31312</li>
+                        <li>Phone: (912) 648-2295</li>
+                        <li>Website: <a href="https://rufflife.app">rufflife.app</a></li>
+                    </ul>
+
+                    <hr class="mt-4">
+                    <div class="text-center mt-3">
+                        <a href="{{ url_for('public.privacy') }}" class="btn btn-outline-secondary btn-sm me-2">
+                            View Privacy Policy
+                        </a>
+                        <a href="{{ url_for('auth.register') }}" class="btn btn-warning btn-sm text-dark">
+                            Back to Registration
+                        </a>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

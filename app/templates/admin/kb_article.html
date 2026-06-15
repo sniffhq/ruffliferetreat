@@ -1,0 +1,109 @@
+﻿{% extends "base.html" %}
+{% block title %}{{ article.title }} — Knowledge Base{% endblock %}
+{% block content %}
+<div class="container mt-4" style="max-width:860px;">
+
+    <!-- Breadcrumb -->
+    <nav class="mb-3" style="font-size:0.85rem;">
+        <a href="{{ url_for('admin.kb_index') }}" class="text-decoration-none text-muted">
+            <i class="fas fa-book me-1"></i>Knowledge Base
+        </a>
+        <span class="text-muted mx-2">/</span>
+        <a href="{{ url_for('admin.kb_index', category=article.category) }}"
+           class="text-decoration-none text-muted">{{ article.category }}</a>
+        <span class="text-muted mx-2">/</span>
+        <span class="text-dark">{{ article.title }}</span>
+    </nav>
+
+    <div class="row g-4">
+        <!-- Article -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center"
+                     style="background:#1a1a2e;">
+                    <div>
+                        <span class="badge bg-warning text-dark me-2">{{ article.category }}</span>
+                        {% if article.pinned %}
+                        <span class="badge bg-secondary"><i class="fas fa-thumbtack me-1"></i>Pinned</span>
+                        {% endif %}
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('admin.kb_edit', article_id=article.id) }}"
+                           class="btn btn-sm btn-outline-light">
+                            <i class="fas fa-pencil-alt me-1"></i>Edit
+                        </a>
+                        <form method="POST"
+                              action="{{ url_for('admin.kb_delete', article_id=article.id) }}"
+                              onsubmit="return confirm('Delete this article? This cannot be undone.');">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                <div class="card-body p-4">
+                    <h2 style="font-weight:800; color:#1a1a2e; margin-bottom:6px;">{{ article.title }}</h2>
+                    <div class="text-muted small mb-4">
+                        Last updated {{ article.updated_at.strftime('%B %d, %Y') }}
+                        {% if article.author %} by {{ article.author.first_name }}{% endif %}
+                    </div>
+
+                    <!-- Article content rendered as HTML -->
+                    <div class="kb-content" style="line-height:1.75; font-size:0.95rem; color:#333;">
+                        {{ article.content | safe }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Related articles -->
+            {% if related %}
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-warning text-dark fw-bold py-2">
+                    <i class="fas fa-link me-1"></i> Related Articles
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for rel in related %}
+                    <a href="{{ url_for('admin.kb_article', article_id=rel.id) }}"
+                       class="list-group-item list-group-item-action py-2"
+                       style="font-size:0.875rem;">
+                        {{ rel.title }}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Browse by category -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-light fw-bold py-2">
+                    <i class="fas fa-folder me-1"></i> Browse Categories
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for cat in ['Getting Started','Daycare','Boarding','Customers','SMS & Messaging','Report Cards','Vaccinations','Payments','Troubleshooting'] %}
+                    <a href="{{ url_for('admin.kb_index', category=cat) }}"
+                       class="list-group-item list-group-item-action py-2 {% if cat == article.category %}active{% endif %}"
+                       style="font-size:0.85rem;">
+                        {{ cat }}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<style>
+.kb-content h3 { font-size:1.1rem; font-weight:700; color:#1a1a2e; margin-top:1.5rem; margin-bottom:0.5rem; }
+.kb-content h2 { font-size:1.3rem; font-weight:700; color:#1a1a2e; margin-top:1.5rem; }
+.kb-content ul, .kb-content ol { padding-left:1.5rem; margin-bottom:1rem; }
+.kb-content li { margin-bottom:0.35rem; }
+.kb-content p { margin-bottom:0.75rem; }
+.kb-content strong { color:#1a1a2e; }
+</style>
+
+{% endblock %}
+

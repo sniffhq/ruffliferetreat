@@ -1,0 +1,178 @@
+﻿{% extends "base.html" %}
+{% block title %}Gallery — Ruff Life Retreat{% endblock %}
+{% block content %}
+
+<!-- Hero -->
+<div style="background:linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+            margin-top:-1.5rem; padding:70px 0 60px; text-align:center; position:relative; overflow:hidden;">
+    <div style="position:absolute;top:10px;right:60px;font-size:6rem;opacity:0.04;transform:rotate(15deg);">🐾</div>
+    <div class="container position-relative">
+        <div style="display:inline-block; background:rgba(255,193,7,0.15); border:1px solid rgba(255,193,7,0.3);
+                    border-radius:50px; padding:6px 20px; font-size:0.8rem; letter-spacing:2px;
+                    text-transform:uppercase; color:#FFC107; margin-bottom:16px;">
+            Our Furry Guests
+        </div>
+        <h1 style="font-size:clamp(2rem,4vw,3.2rem); font-weight:800; color:white; margin-bottom:14px;">
+            The Ruff Life <span style="color:#FFC107;">Gallery</span>
+        </h1>
+        <p style="color:rgba(255,255,255,0.65); font-size:1.05rem; max-width:480px; margin:0 auto;">
+            A peek at the happy faces, wagging tails, and clean coats coming through our doors every day.
+        </p>
+    </div>
+</div>
+
+<!-- Filter tabs -->
+<div style="background:white; border-bottom:1px solid #eee; position:sticky; top:0; z-index:100;">
+    <div class="container">
+        <div style="display:flex; gap:0; overflow-x:auto;">
+            {% for tab in ['All','Boarding','Daycare','Grooming'] %}
+            <button onclick="filterGallery('{{ tab }}')"
+                    id="tab-{{ tab }}"
+                    style="padding:14px 24px; border:none; background:none; font-weight:600;
+                           font-size:0.88rem; color:{% if tab == 'All' %}#1a1a2e{% else %}#888{% endif %};
+                           border-bottom:3px solid {% if tab == 'All' %}#FFC107{% else %}transparent{% endif %};
+                           cursor:pointer; white-space:nowrap; transition:all 0.2s;"
+                    class="gallery-tab">
+                {{ tab }}
+            </button>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Gallery Grid -->
+<div class="container" style="padding:50px 15px;">
+    {% if photos %}
+    <div id="gallery-grid" style="columns:3 260px; gap:16px;">
+        {% for photo in photos %}
+        <div class="gallery-item" data-category="{{ photo.category }}"
+             style="break-inside:avoid; margin-bottom:16px; border-radius:12px; overflow:hidden;
+                    cursor:pointer; position:relative; box-shadow:0 2px 12px rgba(0,0,0,0.1);"
+             onclick="openLightbox('{{ photo.url }}', '{{ photo.caption }}')">
+            <img src="{{ photo.url }}" alt="{{ photo.caption }}"
+                 style="width:100%; display:block; transition:transform 0.3s;"
+                 onmouseover="this.style.transform='scale(1.03)'"
+                 onmouseout="this.style.transform='scale(1)'">
+            <div style="position:absolute; bottom:0; left:0; right:0; padding:16px 14px 12px;
+                        background:linear-gradient(transparent, rgba(0,0,0,0.7));">
+                <div style="color:white; font-size:0.82rem; font-weight:600;">{{ photo.caption }}</div>
+                <div style="color:rgba(255,255,255,0.65); font-size:0.72rem; text-transform:uppercase;
+                            letter-spacing:1px;">{{ photo.category }}</div>
+            </div>
+            {% if current_user.is_authenticated and current_user.is_admin %}
+            <form method="POST"
+                  action="{{ url_for('admin.gallery_delete', photo_id=photo.id) }}"
+                  onclick="event.stopPropagation();"
+                  onsubmit="return confirm('Delete this photo? This cannot be undone.');">
+                <button type="submit"
+                        style="position:absolute; top:8px; right:8px; background:rgba(220,53,69,0.85);
+                               border:none; border-radius:50%; width:32px; height:32px; color:white;
+                               font-size:0.85rem; cursor:pointer; display:flex; align-items:center;
+                               justify-content:center; backdrop-filter:blur(4px);"
+                        title="Delete photo">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </form>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <!-- Empty state — shown until photos are uploaded -->
+    <div style="text-align:center; padding:80px 20px;">
+        <div style="font-size:5rem; margin-bottom:20px; opacity:0.3;">📷</div>
+        <h3 style="color:#1a1a2e; font-weight:700; margin-bottom:10px;">Photos Coming Soon!</h3>
+        <p class="text-muted" style="max-width:400px; margin:0 auto;">
+            We're busy capturing all the happy moments. Check back soon to see our furry guests in action!
+        </p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Lightbox -->
+<div id="lightbox" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0;
+                           background:rgba(0,0,0,0.92); z-index:9999; align-items:center;
+                           justify-content:center; flex-direction:column; padding:20px;">
+    <button onclick="closeLightbox()"
+            style="position:absolute; top:20px; right:24px; background:none; border:none;
+                   color:white; font-size:2rem; cursor:pointer; opacity:0.7; line-height:1;">×</button>
+    <img id="lightbox-img" src="" alt=""
+         style="max-width:90vw; max-height:80vh; border-radius:12px; object-fit:contain;">
+    <div id="lightbox-caption"
+         style="color:rgba(255,255,255,0.8); margin-top:14px; font-size:0.9rem; text-align:center;"></div>
+</div>
+
+{% if current_user.is_authenticated and current_user.is_admin %}
+<!-- Admin Upload Panel -->
+<div style="background:#f8f9fa; border-top:1px solid #eee; padding:40px 0;">
+    <div class="container">
+        <div style="max-width:560px; margin:0 auto;">
+            <h5 style="font-weight:700; color:#1a1a2e; margin-bottom:20px;">
+                <i class="fas fa-upload me-2 text-warning"></i>Add a Photo
+            </h5>
+            <form method="POST" action="{{ url_for('admin.gallery_upload') }}" enctype="multipart/form-data">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <input type="file" name="photo" class="form-control" accept="image/*" required>
+                    </div>
+                    <div class="col-md-6">
+                        <input type="text" name="caption" class="form-control"
+                               placeholder="Caption (e.g. Max after his spa day)" required>
+                    </div>
+                    <div class="col-md-6">
+                        <select name="category" class="form-select" required>
+                            <option value="">— Category —</option>
+                            <option value="Boarding">Boarding</option>
+                            <option value="Daycare">Daycare</option>
+                            <option value="Grooming">Grooming</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-warning text-dark fw-bold w-100">
+                            <i class="fas fa-upload me-1"></i>Upload Photo
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+function filterGallery(category) {
+    // Update tab styles
+    document.querySelectorAll('.gallery-tab').forEach(tab => {
+        const isActive = tab.id === 'tab-' + category;
+        tab.style.color = isActive ? '#1a1a2e' : '#888';
+        tab.style.borderBottom = isActive ? '3px solid #FFC107' : '3px solid transparent';
+    });
+    // Filter items
+    document.querySelectorAll('.gallery-item').forEach(item => {
+        const show = category === 'All' || item.dataset.category === category;
+        item.style.display = show ? 'block' : 'none';
+    });
+}
+
+function openLightbox(url, caption) {
+    document.getElementById('lightbox-img').src = url;
+    document.getElementById('lightbox-caption').textContent = caption;
+    const lb = document.getElementById('lightbox');
+    lb.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox() {
+    document.getElementById('lightbox').style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+// Close on background click
+document.getElementById('lightbox').addEventListener('click', function(e) {
+    if (e.target === this) closeLightbox();
+});
+</script>
+
+{% endblock %}
+
+

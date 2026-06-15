@@ -1,0 +1,58 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #FFC107; color: #333; padding: 20px; text-align: center; }
+        .content { padding: 20px; background: #f8f9fa; }
+        .details-box { background: white; padding: 15px; border-left: 4px solid #FFC107; margin: 20px 0; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Daycare Waitlist Confirmation</h1>
+        </div>
+        <div class="content">
+            <h2>Hello {{ entry.first_name }},</h2>
+            <p>Thank you for joining our daycare waitlist!</p>
+            
+            <div class="details-box">
+                <h3>Your Waitlist Details</h3>
+                <p><strong>Name:</strong> {{ entry.first_name }} {{ entry.last_name }}</p>
+                <p><strong>Days Interested:</strong> {{ days_text }}</p>
+                <p><strong>Contact Email:</strong> {{ entry.email }}</p>
+                <p><strong>Contact Phone:</strong> {{ entry.phone }}</p>
+                <p><strong>Submitted:</strong> {{ entry.submitted_date.strftime('%B %d, %Y at %I:%M %p') }}</p>
+            </div>
+            
+            <h3>What Happens Next?</h3>
+            <ol>
+                <li>We'll review your submission</li>
+                <li>You'll be contacted when spots become available</li>
+                <li>Complete your registration to speed up enrollment</li>
+            </ol>
+            
+            <h3>Questions?</h3>
+            <p>Contact us anytime:</p>
+            <ul>
+                <li><strong>Phone:</strong> {{ config.BUSINESS_PHONE }}</li>
+                <li><strong>Email:</strong> {{ config.MAIL_DEFAULT_SENDER }}</li>
+            </ul>
+            
+            <p>Thank you for your interest in {{ config.BUSINESS_NAME }}!</p>
+            
+            <p>Best regards,<br>
+            The {{ config.BUSINESS_NAME }} Team</p>
+        </div>
+        <div class="footer">
+            <p>{{ config.BUSINESS_NAME }} | {{ config.BUSINESS_ADDRESS }}</p>
+            <p>This email was sent to {{ entry.email }}</p>
+        </div>
+    </div>
+</body>
+</html>
+
+

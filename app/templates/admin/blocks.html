@@ -1,0 +1,105 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Service Blocks - Admin{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h2><i class="fas fa-ban"></i> Service Blocks</h2>
+            <p class="text-muted">Block dates for services when unavailable</p>
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addBlockModal">
+                <i class="fas fa-plus"></i> Add Service Block
+            </button>
+        </div>
+    </div>
+
+    {% if service_blocks %}
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Service</th>
+                            <th>Start Date</th>
+                            <th>End Date</th>
+                            <th>Reason</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for block in service_blocks %}
+                        <tr>
+                            <td>
+                                <span class="badge bg-primary">{{ block.service_type.name }}</span>
+                            </td>
+                            <td>{{ block.start_date.strftime('%m/%d/%Y') }}</td>
+                            <td>{{ block.end_date.strftime('%m/%d/%Y') }}</td>
+                            <td>{{ block.reason or 'No reason provided' }}</td>
+                            <td>
+                                <form method="POST" action="{{ url_for('admin.delete_block', block_id=block.id) }}" style="display: inline;">
+                                    <button type="submit" class="btn btn-sm btn-danger" 
+                                            onclick="return confirm('Delete this service block?')">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> No service blocks configured. Click "Add Service Block" to create one.
+    </div>
+    {% endif %}
+</div>
+
+<!-- Add Block Modal -->
+<div class="modal fade" id="addBlockModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Service Block</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.create_block') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="service_type_id" class="form-label">Service Type</label>
+                        <select class="form-select" id="service_type_id" name="service_type_id" required>
+                            <option value="">Select a service...</option>
+                            {% for service in service_types %}
+                            <option value="{{ service.id }}">{{ service.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="start_date" class="form-label">Start Date</label>
+                        <input type="date" class="form-control" id="start_date" name="start_date" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="end_date" class="form-label">End Date</label>
+                        <input type="date" class="form-control" id="end_date" name="end_date" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="reason" class="form-label">Reason (Optional)</label>
+                        <textarea class="form-control" id="reason" name="reason" rows="3" 
+                                  placeholder="e.g., Thanksgiving holiday, Staff vacation, etc."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Block</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,206 @@
+﻿{% extends "base.html" %}
+{% block title %}Dog Daycare — Ruff Life Retreat{% endblock %}
+{% block content %}
+
+<!-- Hero -->
+<div style="background:linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+            margin-top:-1.5rem; padding:90px 0 80px; position:relative; overflow:hidden;">
+    <div style="position:absolute;top:20px;right:80px;font-size:6rem;opacity:0.04;transform:rotate(15deg);">🐾</div>
+    <div style="position:absolute;bottom:10px;left:60px;font-size:8rem;opacity:0.04;transform:rotate(-10deg);">🐾</div>
+    <div class="container text-center text-white position-relative">
+        <div style="display:inline-block; background:rgba(255,193,7,0.15); border:1px solid rgba(255,193,7,0.3);
+                    border-radius:50px; padding:6px 20px; font-size:0.8rem; letter-spacing:2px;
+                    text-transform:uppercase; color:#FFC107; margin-bottom:20px;">
+            Dog Daycare
+        </div>
+        <h1 style="font-size:clamp(2.2rem,5vw,3.8rem); font-weight:800; line-height:1.15; margin-bottom:18px;">
+            Fun, Safe &amp; Supervised<br>
+            <span style="color:#FFC107;">Every Single Day</span>
+        </h1>
+        <p style="font-size:1.15rem; color:rgba(255,255,255,0.7); max-width:520px; margin:0 auto 36px;">
+            More than a place to play — a daily adventure with friends, exercise, and expert care.
+        </p>
+        <a href="{{ url_for('public.daycare_waitlist') }}"
+           class="btn btn-warning btn-lg text-dark fw-bold px-5">
+            <i class="fas fa-clipboard-list me-2"></i>Join The Waitlist
+        </a>
+    </div>
+</div>
+
+<!-- Stats bar -->
+<div style="background:#FFC107;">
+    <div class="container">
+        <div class="row text-center g-0">
+            {% for stat, label in [('Mon–Thu','Daycare Days'),('Fridays','Trial Days Only'),('7 AM–3 PM','Operating Hours'),('Size-Grouped','Safe Play')] %}
+            <div class="col-6 col-md-3" style="padding:18px 10px; border-right:1px solid rgba(0,0,0,0.1);">
+                <div style="font-size:1.05rem; font-weight:800; color:#1a1a2e;">{{ stat }}</div>
+                <div style="font-size:0.75rem; letter-spacing:1px; text-transform:uppercase; color:rgba(0,0,0,0.6);">{{ label }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Benefits -->
+<div class="container" style="padding:70px 15px;">
+    <div class="text-center mb-5">
+        <h2 style="font-size:2rem; font-weight:800; color:#1a1a2e;">Why Daycare?</h2>
+        <p class="text-muted">More than just a place to play — it's a daily adventure!</p>
+    </div>
+    <div class="row g-4">
+        {% for icon, color, title, desc in [
+            ('fas fa-users','#0d6efd','Socialization','Helps your dog develop healthy social skills with other dogs in a supervised environment'),
+            ('fas fa-dumbbell','#198754','Exercise','Active play sessions keep your dog physically fit and mentally stimulated throughout the day'),
+            ('fas fa-brain','#0dcaf0','Mental Stimulation','Prevents boredom and reduces destructive behaviors at home through engaging activities'),
+            ('fas fa-smile-beam','#FFC107','Happy Pet','A tired dog is a happy dog! Your pup goes home content and well-exercised')
+        ] %}
+        <div class="col-md-3 col-6">
+            <div style="text-align:center; padding:28px 20px; background:white; border-radius:16px;
+                        box-shadow:0 4px 20px rgba(0,0,0,0.07); height:100%;
+                        border-top:4px solid {{ color }};
+                        transition:transform 0.2s;"
+                 onmouseover="this.style.transform='translateY(-6px)'"
+                 onmouseout="this.style.transform='translateY(0)'">
+                <i class="{{ icon }} fa-3x mb-3" style="color:{{ color }};"></i>
+                <h5 style="font-weight:700; color:#1a1a2e;">{{ title }}</h5>
+                <p class="text-muted small mb-0">{{ desc }}</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Daily Schedule -->
+<div style="background:#f8f9fa; margin-top:-1.5rem; padding:70px 0;">
+    <div class="container">
+        <h3 class="text-center mb-5" style="font-weight:800; color:#1a1a2e;">
+            A Day in the Life at Daycare
+        </h3>
+        <div class="row g-3">
+            <div class="col-md-6">
+                {% for time, icon, color, title, desc in [
+                    ('7:00–9:00 AM','fas fa-door-open','#0d6efd','Morning Drop-off & Assessment','Health check and grouping by size and temperament'),
+                    ('9:00–11:00 AM','fas fa-running','#198754','Active Play Session','High-energy playtime in our indoor/outdoor play areas'),
+                    ('11:00 AM–12:00 PM','fas fa-bed','#0dcaf0','Rest & Relaxation','Quiet time with soft music and individual rest areas'),
+                    ('12:00–1:00 PM','fas fa-bone','#FFC107','Lunch & Treats','Optional meal service and healthy snack time')
+                ] %}
+                <div style="background:white; border-radius:12px; padding:20px;
+                            box-shadow:0 2px 10px rgba(0,0,0,0.06); display:flex; gap:16px; align-items:flex-start;">
+                    <div style="min-width:40px; height:40px; border-radius:10px; background:{{ color }};
+                                display:flex; align-items:center; justify-content:center;">
+                        <i class="{{ icon }} text-white"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:0.75rem; font-weight:700; color:{{ color }};
+                                    text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">
+                            {{ time }}
+                        </div>
+                        <div style="font-weight:700; color:#1a1a2e; margin-bottom:4px;">{{ title }}</div>
+                        <div class="text-muted small">{{ desc }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="col-md-6">
+                {% for time, icon, color, title, desc in [
+                    ('1:00–2:00 PM','fas fa-gamepad','#dc3545','Enrichment Activities','Puzzle toys, training games, and structured play'),
+                    ('2:00–3:30 PM','fas fa-water','#0dcaf0','Cool Down & Pickup Prep','Calm activities, water breaks, and preparation for pickup'),
+                    ('3:30 PM','fas fa-home','#198754','Standard Pickup','Pets should be collected by 3:30 PM'),
+                    ('3:30–5:00 PM','fas fa-hotel','#6c757d','Late Pickup — Boarding','Pets not picked up by 3:30 PM transition to boarding until 5:00 PM pickup')
+                ] %}
+                <div style="background:white; border-radius:12px; padding:20px;
+                            box-shadow:0 2px 10px rgba(0,0,0,0.06); display:flex; gap:16px; align-items:flex-start;">
+                    <div style="min-width:40px; height:40px; border-radius:10px; background:{{ color }};
+                                display:flex; align-items:center; justify-content:center;">
+                        <i class="{{ icon }} text-white"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:0.75rem; font-weight:700; color:{{ color }};
+                                    text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">
+                            {{ time }}
+                        </div>
+                        <div style="font-weight:700; color:#1a1a2e; margin-bottom:4px;">{{ title }}</div>
+                        <div class="text-muted small">{{ desc }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Safety & Requirements -->
+<div class="container" style="padding:70px 15px;">
+    <div class="row g-5">
+        <div class="col-md-6">
+            <h3 style="font-weight:800; color:#1a1a2e; margin-bottom:24px;">
+                <i class="fas fa-shield-alt text-primary me-2"></i>Safety First
+            </h3>
+            <ul style="list-style:none; padding:0;">
+                {% for item in [
+                    'Dogs grouped by size, age, and play style',
+                    'Trained staff supervising at all times',
+                    'Indoor and outdoor play areas',
+                    'Climate-controlled environment',
+                    'First aid certified staff on site',
+                    'Emergency vet partnership',
+                    'Secure fencing and double-gate entry'
+                ] %}
+                <li style="padding:10px 0; border-bottom:1px solid #f0f0f0; font-size:0.95rem;">
+                    <i class="fas fa-check-circle text-success me-2"></i>{{ item }}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div class="col-md-6">
+            <h3 style="font-weight:800; color:#1a1a2e; margin-bottom:24px;">
+                <i class="fas fa-clipboard-check text-info me-2"></i>Requirements
+            </h3>
+            <ul style="list-style:none; padding:0;">
+                {% for icon, item in [
+                    ('fas fa-syringe text-primary','Current vaccinations (Rabies, DHPP, Bordetella)'),
+                    ('fas fa-notes-medical text-primary','Flea and tick prevention'),
+                    ('fas fa-paw text-primary','Spayed/neutered (6 months and older)'),
+                    ('fas fa-heartbeat text-primary','Temperament evaluation required'),
+                    ('fas fa-birthday-cake text-primary','Minimum age: 4 months old'),
+                    ('fas fa-ban text-danger','Must be non-aggressive and social')
+                ] %}
+                <li style="padding:10px 0; border-bottom:1px solid #f0f0f0; font-size:0.95rem;">
+                    <i class="{{ icon }} me-2"></i>{{ item }}
+                </li>
+                {% endfor %}
+            </ul>
+            <div class="alert alert-success mt-4" style="border-radius:12px;">
+                <strong><i class="fas fa-gift me-1"></i>New Students:</strong>
+                Trial days are held on <strong>Fridays only</strong>. Join the waitlist and we'll schedule your pup's trial day!
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CTA -->
+<div style="background:#1a1a2e; margin-top:-1.5rem; padding:70px 0; text-align:center;">
+    <div class="container">
+        <h3 style="color:white; font-weight:800; font-size:1.8rem; margin-bottom:12px;">
+            Interested in Daycare for Your Pup?
+        </h3>
+        <p style="color:rgba(255,255,255,0.6); margin-bottom:8px;">
+            Join our waitlist and we'll contact you when spots become available.
+        </p>
+        <p style="color:#FFC107; font-weight:700; margin-bottom:6px;">
+            Daycare Days: Monday – Thursday &nbsp;|&nbsp; 7:00 AM – 3:00 PM
+        </p>
+        <p style="color:rgba(255,255,255,0.5); font-size:0.85rem; margin-bottom:30px;">
+            Trial days for new students are held on Fridays only.
+            Pets not picked up by 3:30 PM will be boarded until the 5:00 PM pickup block.
+        </p>
+        <a href="{{ url_for('public.daycare_waitlist') }}"
+           class="btn btn-warning btn-lg text-dark fw-bold px-5">
+            <i class="fas fa-clipboard-list me-2"></i>Join The Waitlist
+        </a>
+    </div>
+</div>
+
+{% endblock %}
+
+

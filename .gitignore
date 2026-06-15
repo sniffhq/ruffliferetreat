@@ -1,0 +1,74 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Environment / secrets
+.env
+*.env
+
+# Database
+instance/
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# Backups & temp
+Backups/
+backups_kiosk_removal_20251005_130536/
+*.backup
+*.bak
+*.bak_*
+*.bak2
+*.bak3
+config.py.backup
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Drive sync
+.tmp.drivedownload/
+.tmp.driveupload/
+
+# Misc one-off scripts (patch/fix/check utilities)
+fix_*.py
+patch_*.py
+check_*.py
+add_*.py
+append_*.py
+backfill_*.py
+create_defaults*.py
+cleanup_*.py
+deploy_report_templates.py
+find_bad_vacc.py
+init_database.py
+list_customers.py
+migrate_role.py
+rate_resolver.py
+revert_echo.py
+send_greg.py
+show_completed.py
+test_*.py
+update_addons_and_grooming_report.py
+verify_db.py
+boarding_detail.html
+boarding_occupancy_route.py
+kennel_capacity_card.html
+pet_tags.js
+timelog.csv
+rufflifeservers.txt

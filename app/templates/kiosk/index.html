@@ -1,0 +1,144 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ruff Life Retreat — Daycare Kiosk</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: Arial, sans-serif;
+        }
+        .kiosk-card {
+            background: white;
+            border-radius: 24px;
+            padding: 48px 40px;
+            width: 100%;
+            max-width: 480px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+        }
+        .kiosk-input {
+            font-size: 1.1rem;
+            padding: 14px 18px;
+            border-radius: 12px;
+            border: 2px solid #dee2e6;
+            transition: border-color 0.2s;
+        }
+        .kiosk-input:focus {
+            border-color: #FFC107;
+            box-shadow: 0 0 0 3px rgba(255,193,7,0.2);
+        }
+        .btn-checkin {
+            background: #198754;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 800;
+            padding: 14px;
+            border-radius: 12px;
+            border: none;
+            width: 100%;
+            transition: background 0.2s;
+        }
+        .btn-checkin:hover { background: #146c43; color: white; }
+        .btn-checkout {
+            background: #1a1a2e;
+            color: #FFC107;
+            font-size: 1.1rem;
+            font-weight: 800;
+            padding: 14px;
+            border-radius: 12px;
+            border: none;
+            width: 100%;
+            transition: background 0.2s;
+        }
+        .btn-checkout:hover { background: #0f3460; color: #FFC107; }
+        .alert { border-radius: 12px; }
+        /* Number pad style for phone input on tablets */
+        input[type=tel] { -webkit-appearance: none; }
+    </style>
+</head>
+<body>
+
+<div class="kiosk-card">
+
+    <!-- Logo -->
+    <div class="text-center mb-4">
+        <div style="font-size:2.8rem; margin-bottom:8px;">🐾</div>
+        <h2 style="font-weight:800; color:#1a1a2e; margin-bottom:4px;">Ruff Life Retreat</h2>
+        <div style="color:#888; font-size:0.9rem;">Daycare Check-In / Check-Out</div>
+    </div>
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ 'success' if category == 'success' else 'danger' if category == 'danger' else 'warning' }} mb-4">
+            {{ message }}
+        </div>
+        {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <!-- Form -->
+    <form method="POST" action="{{ url_for('kiosk.index') }}" id="kiosk-form">
+
+        <div class="mb-3">
+            <label class="form-label fw-bold" style="font-size:1rem;">
+                <i class="fas fa-phone me-2 text-warning"></i>Phone Number
+            </label>
+            <input type="tel" name="phone" id="phone" class="form-control kiosk-input"
+                   placeholder="(912) 555-1234"
+                   autocomplete="off" autocorrect="off" spellcheck="false"
+                   inputmode="numeric" autofocus required>
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label fw-bold" style="font-size:1rem;">
+                <i class="fas fa-paw me-2 text-warning"></i>Pet Name
+            </label>
+            <input type="text" name="pet_name" id="pet_name" class="form-control kiosk-input"
+                   placeholder="e.g. Buddy"
+                   autocomplete="off" autocorrect="off" spellcheck="false"
+                   autocapitalize="words" required>
+        </div>
+
+        <div class="d-grid gap-3">
+            <button type="submit" name="action" value="checkin" class="btn-checkin">
+                <i class="fas fa-sign-in-alt me-2"></i>Check In
+            </button>
+            <button type="submit" name="action" value="checkout" class="btn-checkout">
+                <i class="fas fa-sign-out-alt me-2"></i>Check Out
+            </button>
+        </div>
+
+    </form>
+
+    <div style="text-align:center; margin-top:28px; color:#ccc; font-size:0.78rem;">
+        Need help? Ask a staff member.
+    </div>
+
+</div>
+
+<script>
+    // Auto-clear form after successful check-in/out (on page load with success flash)
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    {% if category == 'success' %}
+    document.getElementById('phone').value = '';
+    document.getElementById('pet_name').value = '';
+    {% endif %}
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+</script>
+
+</body>
+</html>
+

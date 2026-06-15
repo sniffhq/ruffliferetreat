@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% block title %}Boarding Occupancy Report{% endblock %}
+{% block content %}
+<div class="container mt-4">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
+        <div>
+            <h3 class="mb-1">
+                <i class="fas fa-hotel me-2" style="color:#1a1a2e;"></i>Boarding Occupancy
+            </h3>
+            <div class="text-muted" style="font-size:0.88rem;">
+                Drop-offs, pick-ups, and kennel assignments &bull;
+                {{ start_date.strftime('%b %d') }} – {{ end_date.strftime('%b %d, %Y') }}
+            </div>
+        </div>
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            <!-- Date range picker -->
+            <form method="GET" class="d-flex gap-2 align-items-center">
+                <input type="date" name="start" class="form-control form-control-sm"
+                       value="{{ start_date.isoformat() }}" style="width:145px;">
+                <span class="text-muted small">to</span>
+                <input type="date" name="end" class="form-control form-control-sm"
+                       value="{{ end_date.isoformat() }}" style="width:145px;">
+                <button type="submit" class="btn btn-sm btn-primary fw-bold">Go</button>
+            </form>
+            <button onclick="window.print()" class="btn btn-sm btn-outline-secondary fw-bold">
+                <i class="fas fa-print me-1"></i>Print
+            </button>
+        </div>
+    </div>
+
+    <!-- Prev / Next nav -->
+    <div class="d-flex justify-content-between mb-4">
+        <a href="{{ url_for('admin.boarding_occupancy_report', start=prev_start.isoformat(), end=(prev_start + timedelta(days=13)).isoformat()) }}"
+           class="btn btn-sm btn-outline-secondary">
+            <i class="fas fa-chevron-left me-1"></i>Previous 2 Weeks
+        </a>
+        <a href="{{ url_for('admin.boarding_occupancy_report') }}"
+           class="btn btn-sm btn-outline-secondary">Today</a>
+        <a href="{{ url_for('admin.boarding_occupancy_report', start=next_start.isoformat(), end=(next_start + timedelta(days=13)).isoformat()) }}"
+           class="btn btn-sm btn-outline-secondary">
+            Next 2 Weeks<i class="fas fa-chevron-right ms-1"></i>
+        </a>
+    </div>
+
+    <!-- Day cards -->
+    {% for day in days %}
+    <div class="card shadow-sm mb-3 {% if day.is_today %}border-primary border-2{% endif %}"
+         id="day-{{ day.date.isoformat() }}">
+        <!-- Day header -->
+        <div class="card-header d-flex justify-content-between align-items-center py-2 px-3"
+             style="background:{% if day.is_today %}#1a1a2e{% elif day.is_past %}#f8f9fa{% else %}#f0f4ff{% endif %};">
+            <div>
+                <strong style="font-size:0.95rem;color:{% if day.is_today %}white{% else %}#1a1a2e{% endif %};">
+                    {% if day.is_today %}<span class="badge bg-warning text-dark me-2" style="font-size:0.7rem;">TODAY</span>{% endif %}
+                    {{ day.date.strftime('%A, %B %d, %Y') }}
+                </strong>
+            </div>
+            <div class="d-flex gap-2">
+                {% if day.dropoffs %}
+                <span class="badge bg-success" title="Drop-offs">
+                    <i class="fas fa-sign-in-alt me-1"></i>{{ day.dropoffs|length }} in
+                </span>
+                {% endif %}
+                {% if day.pickups %}
+                <span class="badge bg-warning text-dark" title="Pick-ups">
+                    <i class="fas fa-sign-out-alt me-1"></i>{{ day.pickups|length }} out
+                </span>
+                {% endif %}
+                {% if day.staying %}
+                <span class="badge bg-secondary" title="Staying">
+                    <i class="fas fa-bed me-1"></i>{{ day.staying|length }} staying
+                </span>
+                {% endif %}
+                {% if not day.dropoffs and not day.pickups and not day.staying %}
+                <span class="badge bg-light text-muted border">No activity</span>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if day.dropoffs or day.pickups or day.staying %}
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0" style="font-size:0.85rem;">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width:90px;">Time</th>
+                        <th>Pet</th>
+                        <th>Owner</th>
+                        <th>Phone</th>
+                        <th>Kennel</th>
+                        <th>Nights</th>
+                        <th style="width:100px;">Type</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if day.dropoffs %}
+                    <tr>
+                        <td colspan="7" class="py-1 px-3"
+                            style="background:#e6f9f0;font-size:0.75rem;font-weight:700;color:#16a34a;letter-spacing:.05em;">
+                            <i class="fas fa-sign-in-alt me-1"></i>DROP-OFFS
+                        </td>
+                    </tr>
+                    {% for e in day.dropoffs %}
+                    <tr>
+                        <td class="fw-bold text-success">{{ e.check_in_time }}</td>
+                        <td>
+                            <strong>{{ e.pet_name }}</strong>
+                            {% if e.pet_breed %}<span class="text-muted ms-1" style="font-size:0.78rem;">{{ e.pet_breed }}</span>{% endif %}
+                        </td>
+                        <td>{{ e.owner_name }}</td>
+                        <td class="text-muted">{{ e.owner_phone }}</td>
+                        <td>
+                            {% if e.kennel_number != '—' %}
+                            <span class="badge {% if e.kennel_type == 'Suite' %}bg-primary{% else %}bg-secondary{% endif %}">
+                                {{ e.kennel_label }}
+                            </span>
+                            {% else %}
+                            <span class="text-muted fst-italic" style="font-size:0.78rem;">Unassigned</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted">{{ e.nights }}n</td>
+                        <td><span class="badge bg-success">Drop-off</span></td>
+                    </tr>
+                    {% endfor %}
+                    {% endif %}
+
+                    {% if day.pickups %}
+                    <tr>
+                        <td colspan="7" class="py-1 px-3"
+                            style="background:#fff7e0;font-size:0.75rem;font-weight:700;color:#b45309;letter-spacing:.05em;">
+                            <i class="fas fa-sign-out-alt me-1"></i>PICK-UPS
+                        </td>
+                    </tr>
+                    {% for e in day.pickups %}
+                    <tr>
+                        <td class="fw-bold" style="color:#b45309;">{{ e.check_out_time }}</td>
+                        <td>
+                            <strong>{{ e.pet_name }}</strong>
+                            {% if e.pet_breed %}<span class="text-muted ms-1" style="font-size:0.78rem;">{{ e.pet_breed }}</span>{% endif %}
+                        </td>
+                        <td>{{ e.owner_name }}</td>
+                        <td class="text-muted">{{ e.owner_phone }}</td>
+                        <td>
+                            {% if e.kennel_number != '—' %}
+                            <span class="badge {% if e.kennel_type == 'Suite' %}bg-primary{% else %}bg-secondary{% endif %}">
+                                {{ e.kennel_label }}
+                            </span>
+                            {% else %}
+                            <span class="text-muted fst-italic" style="font-size:0.78rem;">Unassigned</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted">{{ e.nights }}n</td>
+                        <td><span class="badge bg-warning text-dark">Pick-up</span></td>
+                    </tr>
+                    {% endfor %}
+                    {% endif %}
+
+                    {% if day.staying %}
+                    <tr>
+                        <td colspan="7" class="py-1 px-3"
+                            style="background:#f0f4ff;font-size:0.75rem;font-weight:700;color:#4b5563;letter-spacing:.05em;">
+                            <i class="fas fa-bed me-1"></i>STAYING
+                        </td>
+                    </tr>
+                    {% for e in day.staying %}
+                    <tr style="opacity:0.75;">
+                        <td class="text-muted">—</td>
+                        <td>
+                            <strong>{{ e.pet_name }}</strong>
+                            {% if e.pet_breed %}<span class="text-muted ms-1" style="font-size:0.78rem;">{{ e.pet_breed }}</span>{% endif %}
+                        </td>
+                        <td>{{ e.owner_name }}</td>
+                        <td class="text-muted">{{ e.owner_phone }}</td>
+                        <td>
+                            {% if e.kennel_number != '—' %}
+                            <span class="badge {% if e.kennel_type == 'Suite' %}bg-primary{% else %}bg-secondary{% endif %}">
+                                {{ e.kennel_label }}
+                            </span>
+                            {% else %}
+                            <span class="text-muted fst-italic" style="font-size:0.78rem;">Unassigned</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted">{{ e.nights }}n</td>
+                        <td><span class="badge bg-light text-muted border">Staying</span></td>
+                    </tr>
+                    {% endfor %}
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+</div>
+
+<style>
+@media print {
+    .btn, form, nav, .navbar { display: none !important; }
+    .card { break-inside: avoid; box-shadow: none !important; border: 1px solid #ddd !important; }
+    .container { max-width: 100% !important; }
+    body { font-size: 11px; }
+}
+</style>
+{% endblock %}

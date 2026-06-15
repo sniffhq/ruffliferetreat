@@ -1,0 +1,163 @@
+﻿{% extends "base.html" %}
+{% block title %}Outstanding Balances — Ruff Life Retreat{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0"><i class="fas fa-file-invoice-dollar me-2 text-warning"></i>Outstanding Balances</h2>
+            <div class="text-muted small">As of {{ today.strftime('%B %d, %Y') }}</div>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('admin.payments') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>All Payments
+            </a>
+            <button onclick="window.print()" class="btn btn-outline-dark">
+                <i class="fas fa-print me-1"></i>Print
+            </button>
+        </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card shadow-sm text-center p-3 border-danger">
+                <div class="fs-2 fw-bold text-danger">${{ "%.2f"|format(total_outstanding) }}</div>
+                <div class="text-muted small">Total Outstanding</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm text-center p-3">
+                <div class="fs-2 fw-bold text-dark">{{ rows|length }}</div>
+                <div class="text-muted small">Customers with Balance</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm text-center p-3 {% if over_30 %}border-warning{% endif %}">
+                <div class="fs-2 fw-bold {% if over_30 %}text-warning{% else %}text-secondary{% endif %}">{{ over_30|length }}</div>
+                <div class="text-muted small">Over 30 Days</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm text-center p-3 {% if over_60 %}border-danger{% endif %}">
+                <div class="fs-2 fw-bold {% if over_60 %}text-danger{% else %}text-secondary{% endif %}">{{ over_60|length }}</div>
+                <div class="text-muted small">Over 60 Days</div>
+            </div>
+        </div>
+    </div>
+
+    {% if rows %}
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-3">Customer</th>
+                        <th>Phone</th>
+                        <th>Invoices</th>
+                        <th>Oldest Invoice</th>
+                        <th>Days Overdue</th>
+                        <th class="text-end">Total Owed</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    {% set days_overdue = (today - row.oldest_date).days %}
+                    <tr class="{% if days_overdue > 60 %}table-danger{% elif days_overdue > 30 %}table-warning{% endif %}">
+                        <td class="ps-3">
+                            <a href="{{ url_for('admin.customer_detail', customer_id=row.customer.id) }}"
+                               class="fw-bold text-decoration-none">
+                                {{ row.customer.first_name }} {{ row.customer.last_name }}
+                            </a>
+                            <div class="text-muted small">{{ row.customer.email }}</div>
+                        </td>
+                        <td>{{ row.customer.phone or '—' }}</td>
+                        <td>
+                            <span class="badge bg-secondary">{{ row.payments|length }}</span>
+                            <div class="mt-1">
+                                {% for p in row.payments %}
+                                <div class="text-muted" style="font-size:0.75rem;">
+                                    ${{ "%.2f"|format(p.amount) }}
+                                    {% if p.service_type %} — {{ p.service_type }}{% endif %}
+                                    <span class="text-muted">({{ p.payment_date.strftime('%m/%d/%Y') }})</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td>{{ row.oldest_date.strftime('%b %d, %Y') }}</td>
+                        <td>
+                            {% if days_overdue > 60 %}
+                            <span class="badge bg-danger">{{ days_overdue }} days</span>
+                            {% elif days_overdue > 30 %}
+                            <span class="badge bg-warning text-dark">{{ days_overdue }} days</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ days_overdue }} days</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end fw-bold text-danger">
+                            ${{ "%.2f"|format(row.total) }}
+                        </td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <a href="{{ url_for('admin.customer_detail', customer_id=row.customer.id) }}"
+                                   class="btn btn-sm btn-outline-primary" title="View Profile">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <form method="POST"
+                                      action="{{ url_for('admin.send_balance_reminder', customer_id=row.customer.id) }}">
+                                    <button type="submit"
+                                            class="btn btn-sm btn-warning text-dark"
+                                            title="Send SMS Reminder"
+                                            onclick="return confirm('Send balance reminder to {{ row.customer.first_name }}?')">
+                                        <i class="fas fa-sms"></i>
+                                    </button>
+                                </form>
+                                <a href="{{ url_for('admin.customer_invoice', customer_id=row.customer.id) }}"
+                                   class="btn btn-sm btn-outline-secondary" title="View Invoice"
+                                   target="_blank">
+                                    <i class="fas fa-file-invoice"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-light">
+                    <tr>
+                        <td colspan="5" class="ps-3 fw-bold text-end">Total Outstanding:</td>
+                        <td class="fw-bold text-danger text-end">${{ "%.2f"|format(total_outstanding) }}</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <div class="mt-3 d-flex gap-4" style="font-size:0.82rem;">
+        <span><span class="d-inline-block me-1" style="width:14px;height:14px;background:#fff3cd;border:1px solid #dee2e6;"></span>Over 30 days</span>
+        <span><span class="d-inline-block me-1" style="width:14px;height:14px;background:#f8d7da;border:1px solid #dee2e6;"></span>Over 60 days</span>
+    </div>
+
+    {% else %}
+    <div class="card shadow-sm">
+        <div class="card-body text-center py-5 text-muted">
+            <i class="fas fa-check-circle fa-3x mb-3 d-block text-success opacity-50"></i>
+            <h5>No Outstanding Balances</h5>
+            <p class="mb-0">All customers are paid up.</p>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<style>
+@media print {
+    .btn, nav, .navbar, form { display: none !important; }
+    .card { border: 1px solid #dee2e6 !important; box-shadow: none !important; }
+    .container-fluid { padding: 0 !important; }
+}
+</style>
+
+{% endblock %}
+

@@ -1,0 +1,540 @@
+{% extends "base.html" %}
+{% block title %}Invoice — {{ customer.first_name }} {{ customer.last_name }}{% endblock %}
+{% block content %}
+<div class="container mt-4 mb-5" style="max-width:860px;">
+
+    <!-- Toolbar (hidden on print) -->
+    <div class="d-flex justify-content-between align-items-center mb-4 no-print">
+        <a href="{{ url_for('admin.customer_detail', customer_id=customer.id) }}"
+           class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i>Back to Profile
+        </a>
+        <div class="d-flex gap-2 align-items-center">
+            <!-- Invoice type switcher -->
+            <div class="btn-group btn-group-sm" role="group">
+                <a href="{{ url_for('admin.customer_invoice', customer_id=customer.id, type='boarding') }}"
+                   class="btn {% if invoice_type == 'boarding' %}btn-dark{% else %}btn-outline-secondary{% endif %}">
+                    <i class="fas fa-hotel me-1"></i>Boarding
+                </a>
+                <a href="{{ url_for('admin.customer_invoice', customer_id=customer.id, type='daycare') }}"
+                   class="btn {% if invoice_type == 'daycare' %}btn-dark{% else %}btn-outline-secondary{% endif %}">
+                    <i class="fas fa-paw me-1"></i>Daycare
+                </a>
+            </div>
+            <a href="{{ url_for('admin.invoice_audit') }}"
+               class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-history me-1"></i>Audit Log
+            </a>
+            <form method="POST"
+                  action="{{ url_for('admin.send_estimate_sms', customer_id=customer.id) }}"
+                  onsubmit="return confirm('Send estimated balance to {{ customer.first_name }} at {{ customer.phone }}? This is based on current active services.');">
+                <button type="submit" class="btn btn-warning text-dark fw-bold">
+                    <i class="fas fa-calculator me-2"></i>Send Estimate
+                </button>
+            </form>
+            <form method="POST"
+                  action="{{ url_for('admin.send_invoice_sms', customer_id=customer.id) }}"
+                  onsubmit="return confirm('Send invoice link to {{ customer.first_name }} at {{ customer.phone }}?');">
+                <button type="submit" class="btn btn-info text-white fw-bold">
+                    <i class="fas fa-sms me-2"></i>Send Invoice
+                </button>
+            </form>
+            {% set true_balance = [total_outstanding - total_paid, 0]|max %}
+            {% if pet_sections and true_balance > 0 %}
+            <button class="btn btn-success fw-bold" data-bs-toggle="modal" data-bs-target="#markPaidModal">
+                <i class="fas fa-check-circle me-2"></i>Mark All as Paid
+            </button>
+            {% endif %}
+            <button onclick="window.print()" class="btn btn-outline-dark">
+                <i class="fas fa-print me-1"></i>Print / Save PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- Invoice Card -->
+    <div class="card shadow-sm" id="invoice-card">
+
+        <!-- Header -->
+        <div class="card-header p-4 inv-header">
+            <div class="row align-items-center">
+                <div class="col">
+                    <div class="inv-brand">RUFF LIFE RETREAT</div>
+                    <div class="small" style="color:rgba(192,160,175,0.7);">2945 Midland Rd., Guyton, GA 31312</div>
+                    <div class="small" style="color:rgba(192,160,175,0.7);">(912) 648-2295 &nbsp;|&nbsp; rufflife.app</div>
+                </div>
+                <div class="col-auto text-end">
+                    <div class="small text-uppercase" style="color:rgba(192,160,175,0.7);letter-spacing:1px;">{{ invoice_type|capitalize }} Invoice</div>
+                    <div class="fw-bold" style="color:white;">{{ today.strftime('%B %d, %Y') }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-body p-4">
+
+            <!-- Bill To -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="inv-label mb-1">Bill To</div>
+                    <div class="fw-bold fs-5">{{ customer.first_name }} {{ customer.last_name }}</div>
+                    {% if customer.address %}
+                    <div class="text-muted small">{{ customer.address }}</div>
+                    {% endif %}
+                    {% if customer.city or customer.state %}
+                    <div class="text-muted small">
+                        {{ customer.city or '' }}{% if customer.city and customer.state %}, {% endif %}{{ customer.state or '' }} {{ customer.zip_code or '' }}
+                    </div>
+                    {% endif %}
+                    <div class="text-muted small">{{ customer.email }}</div>
+                    {% if customer.phone %}<div class="text-muted small">{{ customer.phone }}</div>{% endif %}
+                </div>
+                <div class="col-md-6 text-md-end mt-3 mt-md-0">
+                    <div class="inv-label mb-1">Summary</div>
+                    {% set true_balance = [total_outstanding - total_paid, 0]|max %}
+                    <div class="fs-3 fw-bold {% if true_balance > 0 %}inv-balance-due{% else %}inv-balance-clear{% endif %}">
+                        ${{ "%.2f"|format(true_balance) }}
+                    </div>
+                    <div class="text-muted small">
+                        {% if true_balance > 0 %}Balance Due{% else %}Paid in Full{% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {% if pet_sections %}
+
+            {% for section in pet_sections %}
+            <!-- Pet Section -->
+            <div class="mb-4">
+                <div class="d-flex align-items-center mb-2 pb-1 inv-pet-border">
+                    <i class="fas fa-paw text-warning me-2"></i>
+                    <span class="inv-pet-label">
+                        {{ section.pet.name }}
+                    </span>
+                    <span class="text-muted small ms-2">— {{ section.pet.breed or section.pet.species or 'Dog' }}</span>
+                </div>
+
+                <table class="table table-sm mb-0 inv-table" style="font-size:0.9rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:38%">Service</th>
+                            <th class="text-muted">Detail</th>
+                            <th class="text-end">Amount</th>
+                            <th class="no-print" style="width:36px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for line in section.lines %}
+                        <tr>
+                            <td class="fw-bold">
+                                {{ line.description }}
+                                {% if line.override %}
+                                <span class="badge bg-warning text-dark ms-1" style="font-size:0.65rem;">Edited</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-muted">{{ line.detail }}</td>
+                            <td class="text-end">
+                                {% if line.override %}
+                                <span class="text-decoration-line-through text-muted small me-1">${{ "%.2f"|format(line.amount + line.addon_total) }}</span>
+                                <strong>${{ "%.2f"|format(line.display_amount) }}</strong>
+                                {% else %}
+                                ${{ "%.2f"|format(line.display_amount) }}
+                                {% endif %}
+                            </td>
+                            <td class="no-print text-end">
+                                <button type="button"
+                                        class="btn btn-xs btn-outline-secondary py-0 px-1"
+                                        style="font-size:0.7rem;"
+                                        onclick="openOverrideModal('{{ line.line_key }}','{{ line.description|replace("'","\\'")|replace('"','\\"') }}','{{ '%.2f'|format(line.display_amount) }}','{{ line.override.id if line.override else '' }}')"
+                                        title="Edit amount">
+                                    <i class="fas fa-pencil-alt"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% if line.addons %}
+                        {% for addon in line.addons %}
+                        <tr class="inv-addon-row">
+                            <td class="ps-4 text-muted fst-italic" colspan="2">
+                                <i class="fas fa-plus-circle text-warning me-1"></i>{{ addon }}
+                            </td>
+                            <td class="text-end text-muted">${{ "%.2f"|format(line.addon_total / line.addons|length) }}</td>
+                            <td class="no-print"></td>
+                        </tr>
+                        {% endfor %}
+                        {% endif %}
+                    {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="inv-subtotal-row">
+                            <td colspan="2" class="text-end fw-bold">{{ section.pet.name }}'s Subtotal</td>
+                            <td class="text-end fw-bold">${{ "%.2f"|format(section.subtotal) }}</td>
+                            <td class="no-print"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% endfor %}
+
+            <!-- Custom adjustments (discounts / extra charges) -->
+            {% if custom_lines %}
+            <div class="mb-3">
+                <div class="d-flex align-items-center mb-2">
+                    <span class="fw-bold" style="color:#1B2A4A;font-size:0.85rem;">
+                        <i class="fas fa-sliders-h me-2 text-warning"></i>Adjustments
+                    </span>
+                </div>
+                <table class="table table-sm mb-0 inv-table" style="font-size:0.9rem;">
+                    <tbody>
+                    {% for adj in custom_lines %}
+                    <tr>
+                        <td class="fw-bold" style="width:60%;">{{ adj.description }}</td>
+                        <td class="text-end {% if adj.amount < 0 %}text-success{% endif %}">
+                            {% if adj.amount < 0 %}−${{ "%.2f"|format(adj.amount|abs) }}
+                            {% else %}+${{ "%.2f"|format(adj.amount) }}{% endif %}
+                        </td>
+                        <td class="no-print text-end" style="width:36px;">
+                            <form method="POST"
+                                  action="{{ url_for('admin.invoice_delete_custom_line', customer_id=customer.id, adj_id=adj.id) }}"
+                                  onsubmit="return confirm('Remove this line?');">
+                                <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1" style="font-size:0.7rem;">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+
+            <!-- Add adjustment (no-print) -->
+            <div class="no-print mb-4">
+                <button type="button" class="btn btn-sm btn-outline-secondary"
+                        data-bs-toggle="collapse" data-bs-target="#addAdjPanel">
+                    <i class="fas fa-plus me-1"></i>Add Charge / Discount
+                </button>
+                <div id="addAdjPanel" class="collapse mt-2">
+                    <form method="POST"
+                          action="{{ url_for('admin.invoice_add_custom_line', customer_id=customer.id) }}"
+                          class="row g-2 align-items-end p-3 rounded"
+                          style="background:#f8f4f6;">
+                            <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold mb-1">Description</label>
+                            <input type="text" name="description" class="form-control form-control-sm"
+                                   placeholder="e.g. Discount, Damaged item, Late fee" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold mb-1">Amount</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text">$</span>
+                                <input type="number" name="amount" step="0.01"
+                                       class="form-control form-control-sm"
+                                       placeholder="e.g. -10 for discount" required>
+                            </div>
+                            <div class="form-text">Use negative for discounts</div>
+                        </div>
+                        <div class="col-md-3">
+                            <button type="submit" class="btn btn-sm btn-warning text-dark fw-bold w-100">
+                                <i class="fas fa-plus me-1"></i>Add Line
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Grand Total -->
+            <div class="inv-divider pt-3 mt-2">
+                <div class="row justify-content-end">
+                    <div class="col-md-4">
+                        <table class="table table-sm mb-0 inv-table" style="font-size:0.9rem;">
+                            <tr>
+                                <td class="text-muted">Services Total</td>
+                                <td class="text-end fw-bold">${{ "%.2f"|format(grand_total) }}</td>
+                            </tr>
+                            {% if total_paid > 0 %}
+                            <tr>
+                                <td class="text-muted">Amount Paid</td>
+                                <td class="text-end text-success">−${{ "%.2f"|format(total_paid) }}</td>
+                            </tr>
+                            {% endif %}
+                            {% set true_balance = [total_outstanding - total_paid, 0]|max %}
+                            <tr class="balance-row">
+                                <td class="fw-bold">Balance Due</td>
+                                <td class="text-end fw-bold {% if true_balance > 0 %}text-warning{% else %}text-success{% endif %}">
+                                    {% if true_balance > 0 %}
+                                        ${{ "%.2f"|format(true_balance) }}
+                                    {% else %}
+                                        <span class="inv-paid-text">Paid in Full</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-check-circle fa-3x mb-3 d-block text-success opacity-50"></i>
+                <h5>No Outstanding Services</h5>
+                <p class="mb-0">All completed boardings and daycare sessions have been paid.</p>
+            </div>
+            {% endif %}
+
+            {% if payments %}
+            <!-- Payment History -->
+            <div class="mt-4 pt-3 border-top">
+                <div class="inv-label mb-2">Payment History</div>
+                <table class="table table-sm" style="font-size:0.85rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Date</th>
+                            <th>Description</th>
+                            <th>Method</th>
+                            <th class="text-end">Amount</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for p in payments %}
+                    <tr>
+                        <td>{{ p.payment_date.strftime('%m/%d/%Y') }}</td>
+                        <td class="text-muted">{{ p.service_type or p.notes or '—' }}</td>
+                        <td class="text-muted">{{ p.payment_method or '—' }}</td>
+                        <td class="text-end">${{ "%.2f"|format(p.amount) }}</td>
+                        <td>
+                            {% if p.status == 'paid' %}
+                            <span class="badge bg-success">Paid</span>
+                            {% else %}
+                            <span class="badge bg-danger">Outstanding</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+
+            <!-- Footer note -->
+            <div class="inv-footer text-center mt-4">
+                Thank you for trusting Ruff Life Retreat with your pet's care.
+                Questions? Call (912) 648-2295 or email us at rufflife.app.
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- Mark as Paid Modal -->
+<div class="modal fade" id="markPaidModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header inv-modal-header">
+                <h5 class="modal-title text-white">
+                    <i class="fas fa-check-circle me-2 text-warning"></i>Mark Invoice as Paid
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.mark_invoice_paid', customer_id=customer.id) }}">
+                <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
+                <div class="modal-body">
+                    <p class="mb-3">
+                        This will record a payment of
+                        <strong class="text-success">${{ "%.2f"|format([total_outstanding - total_paid, 0]|max) }}</strong>
+                        for {{ customer.first_name }}'s outstanding balance and mark all unpaid
+                        boarding and daycare sessions as paid.
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Payment Method</label>
+                        <select name="payment_method" class="form-select">
+                            <option value="card">Credit / Debit Card</option>
+                            <option value="cash">Cash</option>
+                            <option value="check">Check</option>
+                            <option value="venmo">Venmo</option>
+                            <option value="zelle">Zelle</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success fw-bold">
+                        <i class="fas fa-check me-1"></i>Confirm Payment
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+/* ── Ruff Life Invoice — Mauve & Navy Color Scheme ────────────────────── */
+:root {
+    --inv-navy:       #1B2A4A;
+    --inv-navy-light: #243558;
+    --inv-mauve:      #FFC107;
+    --inv-mauve-light:#C9A0AF;
+    --inv-mauve-pale: #F5EAF0;
+    --inv-gold:       #C9956A;
+    --inv-text:       #2C2C3A;
+    --inv-muted:      #6B7280;
+    --inv-border:     #E4D4DC;
+}
+
+/* Header */
+.card .inv-header,
+.inv-header {
+    background: var(--inv-navy) !important;
+    border-color: var(--inv-navy) !important;
+}
+.inv-brand {
+    color: var(--inv-mauve-light) !important;
+    font-size: 1.1rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+}
+
+/* Pet section header border */
+.inv-pet-border {
+    border-bottom: 2px solid var(--inv-navy) !important;
+}
+
+/* Table header */
+.inv-table thead {
+    background: var(--inv-mauve-pale);
+    color: var(--inv-navy);
+}
+.inv-table thead th {
+    border-bottom: 2px solid var(--inv-mauve) !important;
+    color: var(--inv-navy);
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Table subtotal row */
+.inv-subtotal-row {
+    background: var(--inv-mauve-pale) !important;
+    color: var(--inv-navy) !important;
+    font-weight: 700;
+}
+
+/* Totals table */
+.inv-totals-table .balance-row {
+    background: var(--inv-navy) !important;
+    color: white !important;
+}
+.inv-totals-table .balance-row td {
+    color: var(--inv-mauve-light) !important;
+    font-weight: 700;
+}
+
+/* Pet section label */
+.inv-pet-label {
+    color: var(--inv-navy);
+    font-weight: 700;
+}
+
+/* Summary amount — balance due */
+.inv-balance-due   { color: #c0395a !important; }
+.inv-balance-clear { color: #2e7d6f !important; }
+
+/* Paid in Full text in balance row */
+.inv-paid-text { color: #a8ddd4 !important; }
+
+/* Add-on lines */
+.inv-addon-row td { color: var(--inv-mauve) !important; font-size: 0.82rem; }
+
+/* Bill To section labels */
+.inv-label {
+    color: var(--inv-mauve);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Footer note */
+.inv-footer { color: var(--inv-muted); font-size: 0.78rem; }
+
+/* Divider accent */
+.inv-divider {
+    border-top: 2px solid var(--inv-mauve-pale);
+}
+
+/* Modal header */
+.inv-modal-header {
+    background: var(--inv-navy) !important;
+}
+
+@media print {
+    .no-print, nav, .navbar { display: none !important; }
+    .card { border: none !important; box-shadow: none !important; }
+    .container { max-width: 100% !important; padding: 0 !important; }
+    body { font-size: 12px; }
+    .inv-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .inv-table thead { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .inv-subtotal-row { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .inv-totals-table .balance-row { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+</style>
+
+<!-- Override Amount Modal -->
+<div class="modal fade" id="overrideModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#1B2A4A;">
+                <h6 class="modal-title text-white">
+                    <i class="fas fa-pencil-alt me-2 text-warning"></i>Edit Line Amount
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST"
+                  action="{{ url_for('admin.invoice_override_line', customer_id=customer.id) }}">
+                <input type="hidden" name="line_key" id="override_line_key">
+                <input type="hidden" name="description" id="override_desc">
+                <div class="modal-body">
+                    <div class="text-muted small mb-2" id="override_label"></div>
+                    <label class="form-label fw-bold small">New Amount ($)</label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="number" name="amount" id="override_amount"
+                               step="0.01" min="0" class="form-control" required>
+                    </div>
+                    <div id="override_restore_wrap" class="mt-2" style="display:none;">
+                        <form method="POST" id="override_restore_form">
+                            <button type="submit" class="btn btn-sm btn-outline-secondary w-100">
+                                <i class="fas fa-undo me-1"></i>Restore calculated amount
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning text-dark btn-sm fw-bold">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function openOverrideModal(lineKey, description, currentAmount, adjId) {
+    document.getElementById('override_line_key').value  = lineKey;
+    document.getElementById('override_desc').value      = description;
+    document.getElementById('override_amount').value    = currentAmount;
+    document.getElementById('override_label').textContent = description;
+    var restoreWrap = document.getElementById('override_restore_wrap');
+    var restoreForm = document.getElementById('override_restore_form');
+    if (adjId) {
+        restoreWrap.style.display = 'block';
+        restoreForm.action = '{{ url_for("admin.invoice_override_delete", customer_id=customer.id, adj_id=0) }}'.replace('/0', '/' + adjId);
+    } else {
+        restoreWrap.style.display = 'none';
+    }
+    new bootstrap.Modal(document.getElementById('overrideModal')).show();
+}
+</script>
+
+{% endblock %}
+

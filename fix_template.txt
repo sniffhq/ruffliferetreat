@@ -1,0 +1,34 @@
+# Fix the blocks.html template to remove bad link
+# Save as: C:\RuffLifeRetreat\fix_template.py
+
+template_path = r'C:\RuffLifeRetreat\app\templates\admin\blocks.html'
+
+print("Reading blocks.html template...")
+with open(template_path, 'r', encoding='utf-8') as f:
+    content = f.read()
+
+print("Fixing admin_dashboard reference...")
+
+# Replace the back button that references admin_dashboard
+old_back_button = '''<a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Admin Dashboard
+            </a>'''
+
+new_back_button = '''<a href="/" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Home
+            </a>'''
+
+if 'admin_dashboard' in content:
+    content = content.replace(old_back_button, new_back_button)
+    # Also try a simpler replacement in case formatting is different
+    content = content.replace("url_for('admin_dashboard')", "'/'")
+    
+    print("Saving updated template...")
+    with open(template_path, 'w', encoding='utf-8') as f:
+        f.write(content)
+    
+    print("✓✓✓ Template fixed successfully!")
+else:
+    print("✓ Template doesn't reference admin_dashboard")
+
+print("\nRestart Flask and try again!")

@@ -1,0 +1,156 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ card.pet.name }}'s Report Card — Ruff Life Retreat</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background: #f0f2f5; font-family: Arial, sans-serif; }
+        .report-card { max-width: 480px; margin: 30px auto; padding: 0 12px 40px; }
+        .header-card { background: linear-gradient(135deg, #1a1a2e, #0f3460); border-radius: 20px; padding: 32px 24px; text-align: center; color: white; margin-bottom: 20px; }
+        .pet-avatar { width: 80px; height: 80px; border-radius: 50%; background: #FFC107; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 2rem; }
+        .stat-card { background: white; border-radius: 14px; padding: 16px 20px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); display: flex; align-items: center; justify-content: space-between; }
+        .stat-label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: #888; font-weight: 600; }
+        .stat-value { font-size: 1.05rem; font-weight: 700; color: #1a1a2e; }
+        .badge-pill { padding: 6px 14px; border-radius: 50px; font-size: 0.85rem; font-weight: 700; }
+        .photo-card { background: white; border-radius: 14px; overflow: hidden; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .notes-card { background: white; border-radius: 14px; padding: 16px 20px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .footer-brand { text-align: center; color: #aaa; font-size: 0.8rem; margin-top: 24px; }
+    </style>
+</head>
+<body>
+
+<div class="report-card">
+
+    <!-- Header -->
+    <div class="header-card">
+        <div class="pet-avatar">🐾</div>
+        <h2 style="font-weight:800; margin-bottom:4px;">{{ card.pet.name }}'s Report Card</h2>
+        <div style="color:rgba(255,255,255,0.7); font-size:0.9rem; margin-bottom:8px;">
+            {{ card.card_date.strftime('%A, %B %d, %Y') }}
+        </div>
+        <span style="background:rgba(255,193,7,0.2); border:1px solid #FFC107; color:#FFC107;
+                     padding:4px 16px; border-radius:50px; font-size:0.75rem; letter-spacing:1.5px; text-transform:uppercase;">
+            {% if card.card_type == 'daycare' %}🐶 Daycare{% else %}🏨 Boarding{% endif %}
+        </span>
+    </div>
+
+    <!-- Photo -->
+    {% if card.photo_filename %}
+    <div class="photo-card">
+        <img src="{{ card.photo_url }}" alt="{{ card.pet.name }}"
+             style="width:100%; max-height:320px; object-fit:cover; display:block;">
+        <div style="padding:10px 16px; font-size:0.8rem; color:#888; text-align:center;">
+            📸 {{ card.pet.name }} today at Ruff Life Retreat
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Stats -->
+    {% macro badge(val, mapping) %}
+        {% set color = mapping.get(val, '#888') %}
+        <span class="badge-pill" style="background:{{ color }}20; color:{{ color }}; border:1px solid {{ color }}40;">
+            {{ val|title if val else '—' }}
+        </span>
+    {% endmacro %}
+
+    {% set mood_colors    = {'happy':'#198754','neutral':'#fd7e14','anxious':'#dc3545'} %}
+    {% set energy_colors  = {'high':'#dc3545','medium':'#fd7e14','low':'#6c757d'} %}
+    {% set played_colors  = {'yes':'#198754','mostly':'#fd7e14','no':'#dc3545'} %}
+    {% set yn_colors      = {true:'#198754', false:'#6c757d'} %}
+
+    <div class="stat-card">
+        <div><div class="stat-label">Mood</div></div>
+        {% if card.mood == 'happy' %}<span class="stat-value">😊 Happy</span>
+        {% elif card.mood == 'neutral' %}<span class="stat-value">😐 Neutral</span>
+        {% elif card.mood == 'anxious' %}<span class="stat-value">😟 Anxious</span>
+        {% else %}<span class="stat-value text-muted">—</span>{% endif %}
+    </div>
+
+    <div class="stat-card">
+        <div><div class="stat-label">Energy Level</div></div>
+        {% if card.energy == 'high' %}<span class="stat-value">⚡ High</span>
+        {% elif card.energy == 'medium' %}<span class="stat-value">🔋 Medium</span>
+        {% elif card.energy == 'low' %}<span class="stat-value">😴 Low</span>
+        {% else %}<span class="stat-value text-muted">—</span>{% endif %}
+    </div>
+
+    <div class="stat-card">
+        <div><div class="stat-label">Played Well With Others</div></div>
+        {% if card.played_well == 'yes' %}<span class="stat-value">🐾 Yes!</span>
+        {% elif card.played_well == 'mostly' %}<span class="stat-value">👍 Mostly</span>
+        {% elif card.played_well == 'no' %}<span class="stat-value">🙅 Not Today</span>
+        {% else %}<span class="stat-value text-muted">—</span>{% endif %}
+    </div>
+
+    <div class="stat-card">
+        <div><div class="stat-label">Stayed Hydrated</div></div>
+        {% if card.hydrated %}<span class="stat-value">💧 Yes</span>
+        {% else %}<span class="stat-value">😕 Not Much</span>{% endif %}
+    </div>
+
+    {% if card.card_type == 'boarding' %}
+
+    <div class="stat-card">
+        <div><div class="stat-label">Appetite</div></div>
+        {% if card.appetite == 'all' %}<span class="stat-value">🍽️ Ate Everything</span>
+        {% elif card.appetite == 'some' %}<span class="stat-value">🤏 Ate Some</span>
+        {% elif card.appetite == 'none' %}<span class="stat-value">😞 Didn't Eat</span>
+        {% else %}<span class="stat-value text-muted">—</span>{% endif %}
+    </div>
+
+    <div class="stat-card">
+        <div><div class="stat-label">Sleep</div></div>
+        {% if card.sleep == 'well' %}<span class="stat-value">😴 Slept Well</span>
+        {% elif card.sleep == 'restless' %}<span class="stat-value">😬 Restless</span>
+        {% else %}<span class="stat-value text-muted">—</span>{% endif %}
+    </div>
+
+    <div class="stat-card">
+        <div><div class="stat-label">Temperament</div></div>
+        {% if card.temperament == 'relaxed' %}<span class="stat-value">😌 Relaxed</span>
+        {% elif card.temperament == 'normal' %}<span class="stat-value">🙂 Normal</span>
+        {% elif card.temperament == 'anxious' %}<span class="stat-value">😰 Anxious</span>
+        {% elif card.temperament == 'unsettled' %}<span class="stat-value">😤 Unsettled</span>
+        {% else %}<span class="stat-value text-muted">—</span>{% endif %}
+    </div>
+
+    <div class="stat-card">
+        <div><div class="stat-label">Medications Given</div></div>
+        {% if card.medications_given %}<span class="stat-value">✅ Yes</span>
+        {% else %}<span class="stat-value" style="color:#6c757d;">N/A</span>{% endif %}
+    </div>
+
+    <div class="stat-card">
+        <div><div class="stat-label">Bathroom Habits</div></div>
+        {% if card.bathroom == 'normal' %}<span class="stat-value">✅ Normal</span>
+        {% elif card.bathroom == 'loose' %}<span class="stat-value">⚠️ Loose</span>
+        {% elif card.bathroom == 'none' %}<span class="stat-value">❓ Didn't Go</span>
+        {% else %}<span class="stat-value text-muted">—</span>{% endif %}
+    </div>
+
+    {% endif %}
+
+    <!-- Notes -->
+    {% if card.notes %}
+    <div class="notes-card">
+        <div class="stat-label mb-2">📝 Staff Note</div>
+        <div style="font-size:0.95rem; color:#333; line-height:1.6;">{{ card.notes }}</div>
+    </div>
+    {% endif %}
+
+    <!-- Footer -->
+    <div class="footer-brand">
+        <div style="font-size:1.5rem; margin-bottom:6px;">🐾</div>
+        <div style="font-weight:700; color:#1a1a2e;">Ruff Life Retreat</div>
+        <div>2945 Midland Rd, Guyton, GA 31312</div>
+        <div>(912) 648-2295 &nbsp;|&nbsp; rufflife.app</div>
+    </div>
+
+</div>
+
+</body>
+</html>
+

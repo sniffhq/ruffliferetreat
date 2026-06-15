@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+
+{% block title %}Add Pet - Ruff Life Retreat{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4"><i class="fas fa-paw"></i> Add New Pet</h1>
+
+    <form method="POST" enctype="multipart/form-data" id="addPetForm">
+        <!-- Basic Pet Information -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Basic Information</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="name" class="form-label">Pet Name *</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="breed" class="form-label">Breed</label>
+                        <input type="text" class="form-control" id="breed" name="breed">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="age" class="form-label">Age</label>
+                        <input type="number" class="form-control" id="age" name="age" min="0">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="weight" class="form-label">Weight (lbs)</label>
+                        <input type="number" step="0.1" class="form-control" id="weight" name="weight">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="gender" class="form-label">Gender</label>
+                        <select class="form-select" id="gender" name="gender">
+                            <option value="">Select...</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="spayed_neutered" name="spayed_neutered" value="yes">
+                            <label class="form-check-label" for="spayed_neutered">
+                                Spayed/Neutered
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="microchipped" name="microchipped" value="yes">
+                            <label class="form-check-label" for="microchipped">
+                                Microchipped
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-12 mb-3" id="microchip_number_div" style="display: none;">
+                        <label for="microchip_number" class="form-label">Microchip Number</label>
+                        <input type="text" class="form-control" id="microchip_number" name="microchip_number">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Veterinary Information -->
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+                <h4 class="mb-0">Veterinary Information</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="vet_name" class="form-label">Veterinarian Name</label>
+                        <input type="text" class="form-control" id="vet_name" name="vet_name">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="vet_phone" class="form-label">Veterinarian Phone</label>
+                        <input type="tel" class="form-control" id="vet_phone" name="vet_phone">
+                    </div>
+                    <div class="col-md-12 mb-3">
+                        <label for="medical_notes" class="form-label">Medical Notes</label>
+                        <textarea class="form-control" id="medical_notes" name="medical_notes" rows="3"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vaccination Records - NEW SECTION -->
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0"><i class="fas fa-syringe"></i> Vaccination Records</h4>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">
+                    <i class="fas fa-info-circle"></i> Please enter vaccination details. This helps us track expiration dates for compliance.
+                </p>
+
+                <!-- Vaccination Document Upload -->
+                <div class="mb-4">
+                    <label for="vaccination_record" class="form-label">
+                        <i class="fas fa-file-upload"></i> Upload Vaccination Document (Optional)
+                    </label>
+                    <input type="file" class="form-control" id="vaccination_record" name="vaccination_record" accept=".pdf,.jpg,.jpeg,.png">
+                    <small class="text-muted">Upload a copy of vaccination records (PDF or image)</small>
+                </div>
+
+                <hr>
+
+                <!-- Dynamic Vaccination Entries -->
+                <div id="vaccination-entries">
+                    <!-- First entry -->
+                    <div class="vaccination-entry border rounded p-3 mb-3" data-index="0">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h5 class="mb-0">Vaccination #1</h5>
+                            <button type="button" class="btn btn-sm btn-danger remove-vaccine" style="display: none;">
+                                <i class="fas fa-trash"></i> Remove
+                            </button>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Vaccine Name *</label>
+                                <select class="form-select vaccine-select" name="vaccine_name[]">
+                                    <option value="">Select vaccine...</option>
+                                    <option value="Rabies">Rabies</option>
+                                    <option value="DHPP">DHPP (Distemper/Parvo)</option>
+                                    <option value="Bordetella">Bordetella (Kennel Cough)</option>
+                                    <option value="Leptospirosis">Leptospirosis</option>
+                                    <option value="Lyme Disease">Lyme Disease</option>
+                                    <option value="Influenza">Canine Influenza</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3 other-vaccine-name" style="display: none;">
+                                <label class="form-label">Specify Vaccine Name</label>
+                                <input type="text" class="form-control other-vaccine-input" name="other_vaccine_name[]" placeholder="Enter vaccine name">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Vaccination Date *</label>
+                                <input type="date" class="form-control" name="vaccination_date[]">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Expiration Date *</label>
+                                <input type="date" class="form-control" name="expiration_date[]">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Veterinarian</label>
+                                <input type="text" class="form-control" name="veterinarian[]">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Clinic Name</label>
+                                <input type="text" class="form-control" name="clinic_name[]">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Lot Number</label>
+                                <input type="text" class="form-control" name="lot_number[]" placeholder="Optional">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Notes</label>
+                                <input type="text" class="form-control" name="vaccine_notes[]" placeholder="Optional">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="button" class="btn btn-outline-success" id="add-vaccine-btn">
+                    <i class="fas fa-plus"></i> Add Another Vaccine
+                </button>
+            </div>
+        </div>
+
+        <!-- Pet Photo Upload -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4 class="mb-0">Pet Photo</h4>
+            </div>
+            <div class="card-body">
+                <input type="file" class="form-control" id="photo" name="photo" accept="image/*">
+            </div>
+        </div>
+
+        <!-- Submit Buttons -->
+        <div class="d-flex justify-content-between mb-4">
+            <a href="{{ url_for('customer.pets') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Cancel
+            </a>
+            <button type="submit" class="btn btn-primary btn-lg">
+                <i class="fas fa-save"></i> Add Pet
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+// Microchip toggle
+document.getElementById('microchipped').addEventListener('change', function() {
+    document.getElementById('microchip_number_div').style.display = this.checked ? 'block' : 'none';
+});
+
+// Vaccination entry management
+let vaccineIndex = 1;
+
+// Handle "Other" vaccine name
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('vaccine-select')) {
+        const entry = e.target.closest('.vaccination-entry');
+        const otherDiv = entry.querySelector('.other-vaccine-name');
+        const otherInput = entry.querySelector('.other-vaccine-input');
+        
+        if (e.target.value === 'Other') {
+            otherDiv.style.display = 'block';
+            otherInput.required = true;
+        } else {
+            otherDiv.style.display = 'none';
+            otherInput.required = false;
+            otherInput.value = '';
+        }
+    }
+});
+
+// Add new vaccine entry
+document.getElementById('add-vaccine-btn').addEventListener('click', function() {
+    vaccineIndex++;
+    
+    const newEntry = document.querySelector('.vaccination-entry').cloneNode(true);
+    newEntry.setAttribute('data-index', vaccineIndex);
+    
+    // Update heading
+    newEntry.querySelector('h5').textContent = 'Vaccination #' + vaccineIndex;
+    
+    // Clear all inputs
+    newEntry.querySelectorAll('input, select, textarea').forEach(input => {
+        if (input.type === 'checkbox' || input.type === 'radio') {
+            input.checked = false;
+        } else {
+            input.value = '';
+        }
+    });
+    
+    // Show remove button
+    newEntry.querySelector('.remove-vaccine').style.display = 'inline-block';
+    
+    // Hide "other" vaccine name field
+    newEntry.querySelector('.other-vaccine-name').style.display = 'none';
+    
+    document.getElementById('vaccination-entries').appendChild(newEntry);
+    
+    // Show remove buttons on all entries if more than 1
+    updateRemoveButtons();
+});
+
+// Remove vaccine entry
+document.addEventListener('click', function(e) {
+    if (e.target.closest('.remove-vaccine')) {
+        e.target.closest('.vaccination-entry').remove();
+        updateRemoveButtons();
+        renumberEntries();
+    }
+});
+
+function updateRemoveButtons() {
+    const entries = document.querySelectorAll('.vaccination-entry');
+    entries.forEach((entry, index) => {
+        const removeBtn = entry.querySelector('.remove-vaccine');
+        if (entries.length > 1) {
+            removeBtn.style.display = 'inline-block';
+        } else {
+            removeBtn.style.display = 'none';
+        }
+    });
+}
+
+function renumberEntries() {
+    document.querySelectorAll('.vaccination-entry').forEach((entry, index) => {
+        entry.querySelector('h5').textContent = 'Vaccination #' + (index + 1);
+    });
+}
+
+// Form validation
+document.getElementById('addPetForm').addEventListener('submit', function(e) {
+    const vaccineEntries = document.querySelectorAll('.vaccination-entry');
+    let hasValidVaccine = false;
+    
+    vaccineEntries.forEach(entry => {
+        const name = entry.querySelector('[name="vaccine_name[]"]').value;
+        const date = entry.querySelector('[name="vaccination_date[]"]').value;
+        const expiration = entry.querySelector('[name="expiration_date[]"]').value;
+        
+        if (name && date && expiration) {
+            hasValidVaccine = true;
+        }
+    });
+    
+    if (!hasValidVaccine) {
+        e.preventDefault();
+        alert('Please add at least one complete vaccination record (name, date, and expiration date).');
+        return false;
+    }
+});
+</script>
+
+<style>
+.vaccination-entry {
+    background-color: #f8f9fa;
+}
+
+.vaccination-entry:hover {
+    background-color: #e9ecef;
+}
+
+.other-vaccine-name {
+    transition: all 0.3s ease;
+}
+</style>
+{% endblock %}

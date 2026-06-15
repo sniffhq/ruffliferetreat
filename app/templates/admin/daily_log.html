@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+{% block title %}Daily Log — Ruff Life Retreat{% endblock %}
+{% block content %}
+<div class="container-fluid px-4 py-3" style="max-width:1100px;">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0" style="color:#1B2A4A;">
+                <i class="fas fa-clipboard-list me-2" style="color:#B07A8E;"></i>Daily Log
+            </h2>
+            <div class="text-muted small">End-of-day notes &amp; pet flags — {{ today.strftime('%A, %B %d, %Y') }}</div>
+        </div>
+        <button onclick="window.print()" class="btn btn-outline-secondary btn-sm no-print">
+            <i class="fas fa-print me-1"></i>Print
+        </button>
+    </div>
+
+    <div class="row g-4">
+
+        <!-- ── LEFT: Today's Entry Form ──────────────────────────── -->
+        <div class="col-lg-7">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header text-white d-flex justify-content-between align-items-center"
+                     style="background:#1B2A4A;">
+                    <span class="fw-bold">
+                        <i class="fas fa-pen me-2" style="color:#B07A8E;"></i>
+                        Today's Entry
+                        {% if today_entry %}
+                        <span class="badge ms-2" style="background:#B07A8E;">Saved</span>
+                        {% endif %}
+                    </span>
+                    <span class="text-muted small">{{ today.strftime('%m/%d/%Y') }}</span>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('admin.save_daily_log') }}" id="logForm">
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-sticky-note me-1" style="color:#B07A8E;"></i>
+                                General Notes
+                            </label>
+                            <textarea name="notes" class="form-control" rows="4"
+                                      placeholder="How did the day go? Any observations about pets, facility, or operations...">{{ today_entry.notes if today_entry else '' }}</textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-exclamation-triangle me-1 text-warning"></i>
+                                Incidents / Concerns
+                            </label>
+                            <textarea name="incidents" class="form-control" rows="3"
+                                      placeholder="Any incidents, injuries, altercations, or health concerns today...">{{ today_entry.incidents if today_entry else '' }}</textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-users me-1 text-info"></i>
+                                Staffing Notes
+                            </label>
+                            <textarea name="staffing" class="form-control" rows="2"
+                                      placeholder="Staffing observations, handoff notes for tomorrow's team...">{{ today_entry.staffing if today_entry else '' }}</textarea>
+                        </div>
+
+                        <!-- Pet Flags -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-paw me-1" style="color:#B07A8E;"></i>
+                                Pet Flags
+                            </label>
+
+                            {% if today_entry and today_entry.pet_flags %}
+                            <div class="mb-2">
+                                {% for flag in today_entry.pet_flags %}
+                                <span class="badge me-1 mb-1
+                                    {% if flag.flag_type == 'health_concern' %}bg-danger
+                                    {% elif flag.flag_type == 'behavioral' %}bg-warning text-dark
+                                    {% elif flag.flag_type == 'positive' %}bg-success
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ flag.pet.name }}
+                                    — {{ flag.flag_type|replace('_',' ')|title }}
+                                    {% if flag.note %}: {{ flag.note }}{% endif %}
+                                </span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+
+                            <div id="petFlagsContainer">
+                                <div class="pet-flag-row row g-2 mb-2 align-items-center">
+                                    <div class="col-md-4">
+                                        <select name="flagged_pet_ids" class="form-select form-select-sm">
+                                            <option value="">— Select Pet —</option>
+                                            {% for item in todays_pets %}
+                                            <option value="{{ item.pet.id }}">
+                                                {{ item.pet.name }} ({{ item.service }})
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <select name="flag_types" class="form-select form-select-sm">
+                                            <option value="needs_followup">Needs Follow-up</option>
+                                            <option value="health_concern">Health Concern</option>
+                                            <option value="behavioral">Behavioral</option>
+                                            <option value="positive">Positive Note</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="text" name="flag_notes" class="form-control form-control-sm"
+                                               placeholder="Brief note...">
+                                    </div>
+                                    <div class="col-md-1">
+                                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                                onclick="removeFlagRow(this)">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button type="button" class="btn btn-sm btn-outline-secondary mt-1"
+                                    onclick="addFlagRow()">
+                                <i class="fas fa-plus me-1"></i>Add Pet Flag
+                            </button>
+
+                            {% if not todays_pets %}
+                            <div class="text-muted small mt-1">
+                                <i class="fas fa-info-circle me-1"></i>
+                                No pets currently checked in today.
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-flex gap-2 mt-3">
+                            <button type="submit" class="btn btn-primary fw-bold">
+                                <i class="fas fa-save me-1"></i>
+                                {{ 'Update' if today_entry else 'Save' }} Today's Log
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── RIGHT: Recent Entries ──────────────────────────────── -->
+        <div class="col-lg-5">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header text-white" style="background:#1B2A4A;">
+                    <span class="fw-bold">
+                        <i class="fas fa-history me-2" style="color:#B07A8E;"></i>
+                        Recent Entries (14 days)
+                    </span>
+                </div>
+                <div class="card-body p-0" style="max-height:680px; overflow-y:auto;">
+                    {% if entries %}
+                    {% for entry in entries %}
+                    <div class="p-3 border-bottom {% if entry.log_date == today %}bg-light{% endif %}">
+                        <div class="d-flex justify-content-between align-items-start mb-1">
+                            <div>
+                                <span class="fw-bold" style="color:#1B2A4A;">
+                                    {{ entry.log_date.strftime('%a, %b %d') }}
+                                </span>
+                                {% if entry.log_date == today %}
+                                <span class="badge ms-1" style="background:#B07A8E;font-size:0.65rem;">Today</span>
+                                {% endif %}
+                            </div>
+                            <span class="text-muted small">{{ entry.author.first_name }}</span>
+                        </div>
+
+                        {% if entry.notes %}
+                        <div class="small text-muted mb-1">
+                            <i class="fas fa-sticky-note me-1"></i>
+                            {{ entry.notes[:120] }}{% if entry.notes|length > 120 %}…{% endif %}
+                        </div>
+                        {% endif %}
+
+                        {% if entry.incidents %}
+                        <div class="small text-danger mb-1">
+                            <i class="fas fa-exclamation-triangle me-1"></i>
+                            {{ entry.incidents[:100] }}{% if entry.incidents|length > 100 %}…{% endif %}
+                        </div>
+                        {% endif %}
+
+                        {% if entry.pet_flags %}
+                        <div class="mt-1">
+                            {% for flag in entry.pet_flags %}
+                            <span class="badge me-1"
+                                  style="font-size:0.65rem;
+                                  background:{% if flag.flag_type == 'health_concern' %}#dc3545
+                                  {% elif flag.flag_type == 'behavioral' %}#fd7e14
+                                  {% elif flag.flag_type == 'positive' %}#198754
+                                  {% else %}#6c757d{% endif %};">
+                                <i class="fas fa-paw me-1"></i>{{ flag.pet.name }}
+                            </span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        {% if not entry.notes and not entry.incidents and not entry.pet_flags %}
+                        <div class="small text-muted fst-italic">No notes recorded.</div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="fas fa-clipboard fa-3x mb-3 d-block opacity-25"></i>
+                        <p class="mb-0">No log entries yet.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+function addFlagRow() {
+    const container = document.getElementById('petFlagsContainer');
+    const first = container.querySelector('.pet-flag-row');
+    const clone = first.cloneNode(true);
+    clone.querySelectorAll('input').forEach(el => el.value = '');
+    clone.querySelectorAll('select').forEach(el => el.selectedIndex = 0);
+    clone.querySelector('button').addEventListener('click', function() { removeFlagRow(this); });
+    container.appendChild(clone);
+}
+
+function removeFlagRow(btn) {
+    const rows = document.querySelectorAll('.pet-flag-row');
+    if (rows.length > 1) {
+        btn.closest('.pet-flag-row').remove();
+    } else {
+        btn.closest('.pet-flag-row').querySelectorAll('input').forEach(el => el.value = '');
+        btn.closest('.pet-flag-row').querySelectorAll('select').forEach(el => el.selectedIndex = 0);
+    }
+}
+</script>
+
+<style>
+@media print {
+    .no-print, nav, .navbar, form, button { display: none !important; }
+    .card { box-shadow: none !important; border: 1px solid #dee2e6 !important; }
+}
+</style>
+{% endblock %}

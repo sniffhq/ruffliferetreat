@@ -1,0 +1,271 @@
+﻿{% extends "base.html" %}
+{% block title %}Ticket #{{ ticket.id }} — {{ ticket.subject }}{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <a href="{{ url_for('admin.support') }}" class="btn btn-sm btn-outline-secondary mb-2">
+                <i class="fas fa-arrow-left me-1"></i>Back to Support
+            </a>
+            <h3 class="mb-0">{{ ticket.subject }}</h3>
+            <div class="text-muted small mt-1">
+                Ticket #{{ ticket.id }} &bull;
+                {{ ticket.type_label }} &bull;
+                Submitted {{ ticket.created_at.strftime('%b %d, %Y at %I:%M %p') }}
+                {% if ticket.submitter %}by {{ ticket.submitter.first_name }} {{ ticket.submitter.last_name }}{% endif %}
+            </div>
+        </div>
+        <div class="text-end">
+            <span class="badge bg-{{ ticket.status_color }} fs-6 px-3 py-2">
+                {% if ticket.status == 'working' %}<i class="fas fa-circle-notch fa-spin me-1"></i>{% endif %}
+                {{ ticket.status.replace('_',' ').title() }}
+            </span>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Left: Ticket content -->
+        <div class="col-lg-8">
+
+            <!-- Description -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-header" style="background:#1a1a2e;">
+                    <strong class="text-white"><i class="fas fa-file-alt me-2"></i>Description</strong>
+                </div>
+                <div class="card-body">
+                    <p style="white-space:pre-wrap;">{{ ticket.description }}</p>
+                </div>
+            </div>
+
+            <!-- Comments -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-light fw-bold">
+                    <i class="fas fa-comments me-2"></i>Comments
+                    <span class="badge bg-secondary ms-1">{{ ticket.comments|length }}</span>
+                </div>
+                <div class="card-body p-0">
+                    {% if ticket.comments %}
+                    <div class="list-group list-group-flush">
+                        {% for comment in ticket.comments %}
+                        <div class="list-group-item py-3">
+                            <div class="d-flex justify-content-between mb-1">
+                                <strong style="font-size:0.85rem;">
+                                    {% if comment.author %}
+                                        {{ comment.author.first_name }} {{ comment.author.last_name }}
+                                        {% if comment.author.is_admin %}
+                                        <span class="badge bg-primary ms-1" style="font-size:0.65rem;">Staff</span>
+                                        {% endif %}
+                                    {% else %}
+                                        System
+                                    {% endif %}
+                                </strong>
+                                <span class="text-muted" style="font-size:0.75rem;">
+                                    {{ comment.created_at.strftime('%b %d, %Y at %I:%M %p') }}
+                                </span>
+                            </div>
+                            <p class="mb-0" style="white-space:pre-wrap;font-size:0.9rem;">{{ comment.body }}</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="fas fa-comment-slash fa-2x mb-2 d-block opacity-25"></i>
+                        No comments yet.
+                    </div>
+                    {% endif %}
+                </div>
+                {% if ticket.status != 'resolved' %}
+                <div class="card-footer bg-white">
+                    <form method="POST" action="{{ url_for('admin.support_ticket_reply', ticket_id=ticket.id) }}">
+                        <div class="mb-2">
+                            <textarea name="body" class="form-control" rows="3"
+                                      placeholder="Add a comment…" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm fw-bold">
+                            <i class="fas fa-paper-plane me-1"></i>Post Comment
+                        </button>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Work Sessions Log -->
+            {% if ticket.time_sessions or ticket.is_active_session %}
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-light fw-bold">
+                    <i class="fas fa-history me-2"></i>Work Sessions
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0" style="font-size:0.85rem;">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Staff</th>
+                                <th>Started</th>
+                                <th>Ended</th>
+                                <th>Duration</th>
+                                <th>Note</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for s in ticket.time_sessions %}
+                            <tr>
+                                <td>{{ s.worker.first_name if s.worker else '—' }}</td>
+                                <td>{{ s.started_at.strftime('%b %d, %I:%M %p') }}</td>
+                                <td>{{ s.ended_at.strftime('%I:%M %p') if s.ended_at else '—' }}</td>
+                                <td>
+                                    {% if s.minutes %}
+                                        {% set h = s.minutes // 60 %}
+                                        {% set m = s.minutes % 60 %}
+                                        {{ h ~ 'h ' if h else '' }}{{ m }}m
+                                    {% else %}—{% endif %}
+                                </td>
+                                <td class="text-muted">{{ s.note or '—' }}</td>
+                            </tr>
+                            {% endfor %}
+                            {% if ticket.is_active_session %}
+                            <tr class="table-success">
+                                <td>{{ ticket.active_worker.first_name if ticket.active_worker else '—' }}</td>
+                                <td>{{ ticket.active_session_started.strftime('%b %d, %I:%M %p') }}</td>
+                                <td><span class="badge bg-success"><i class="fas fa-circle-notch fa-spin me-1"></i>Active</span></td>
+                                <td id="live-timer">—</td>
+                                <td class="text-muted">In progress…</td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+
+        <!-- Right: Actions + Time Tracker -->
+        <div class="col-lg-4">
+
+            <!-- Time Tracker Card -->
+            <div class="card shadow-sm mb-3 {% if ticket.is_active_session %}border-success border-2{% endif %}">
+                <div class="card-header {% if ticket.is_active_session %}bg-success text-white{% else %}bg-light{% endif %} fw-bold">
+                    <i class="fas fa-clock me-2"></i>Time Tracker
+                </div>
+                <div class="card-body text-center py-4">
+                    <div class="display-5 fw-bold mb-1" id="total-display"
+                         style="color:{% if ticket.is_active_session %}#198754{% else %}#1a1a2e{% endif %};">
+                        {{ ticket.format_time() }}
+                    </div>
+                    <div class="text-muted small mb-3">Total time logged</div>
+
+                    {% if ticket.status != 'resolved' %}
+                        {% if ticket.is_active_session %}
+                        <!-- Active session controls -->
+                        <div class="alert alert-success py-2 mb-3" style="font-size:0.85rem;">
+                            <i class="fas fa-circle-notch fa-spin me-1"></i>
+                            Timer running since {{ ticket.active_session_started.strftime('%I:%M %p') }}
+                        </div>
+                        <form method="POST" action="{{ url_for('admin.ticket_pause_work', ticket_id=ticket.id) }}">
+                            <div class="mb-2">
+                                <input type="text" name="note" class="form-control form-control-sm"
+                                       placeholder="Optional note for this session…">
+                            </div>
+                            <button type="submit" class="btn btn-warning text-dark fw-bold w-100">
+                                <i class="fas fa-pause me-2"></i>Pause Work
+                            </button>
+                        </form>
+                        {% else %}
+                        <!-- Start work button -->
+                        <form method="POST" action="{{ url_for('admin.ticket_start_work', ticket_id=ticket.id) }}">
+                            <button type="submit" class="btn btn-success fw-bold w-100">
+                                <i class="fas fa-play me-2"></i>Start Work
+                            </button>
+                        </form>
+                        <div class="text-muted small mt-2">
+                            Timer only runs while status is "Working"
+                        </div>
+                        {% endif %}
+                    {% else %}
+                    <div class="text-muted small">Ticket resolved — time tracking complete.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Status -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-light fw-bold">
+                    <i class="fas fa-exchange-alt me-2"></i>Status
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('admin.update_ticket_status', ticket_id=ticket.id) }}">
+                        <select name="status" class="form-select mb-2" onchange="this.form.submit()">
+                            <option value="open"        {% if ticket.status == 'open' %}selected{% endif %}>Open</option>
+                            <option value="in_progress" {% if ticket.status == 'in_progress' %}selected{% endif %}>In Progress</option>
+                            <option value="resolved"    {% if ticket.status == 'resolved' %}selected{% endif %}>Resolved</option>
+                        </select>
+                    </form>
+                    <div class="text-muted small">
+                        Use <strong>Start Work</strong> above to activate the timer.
+                        Pausing or resolving automatically stops it.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Summary -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-light fw-bold">
+                    <i class="fas fa-info-circle me-2"></i>Details
+                </div>
+                <div class="card-body" style="font-size:0.85rem;">
+                    <div class="mb-2">
+                        <span class="text-muted">Type:</span>
+                        <strong class="ms-1">{{ ticket.type_label }}</strong>
+                    </div>
+                    <div class="mb-2">
+                        <span class="text-muted">Submitted by:</span>
+                        <strong class="ms-1">
+                            {% if ticket.submitter %}
+                            <a href="{{ url_for('admin.customer_detail', customer_id=ticket.submitter.id) }}">
+                                {{ ticket.submitter.first_name }} {{ ticket.submitter.last_name }}
+                            </a>
+                            {% else %}—{% endif %}
+                        </strong>
+                    </div>
+                    <div class="mb-2">
+                        <span class="text-muted">Opened:</span>
+                        <strong class="ms-1">{{ ticket.created_at.strftime('%b %d, %Y') }}</strong>
+                    </div>
+                    <div class="mb-2">
+                        <span class="text-muted">Last updated:</span>
+                        <strong class="ms-1">{{ ticket.updated_at.strftime('%b %d, %Y') if ticket.updated_at else '—' }}</strong>
+                    </div>
+                    <div>
+                        <span class="text-muted">Work sessions:</span>
+                        <strong class="ms-1">{{ ticket.time_sessions|length }}</strong>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+{% if ticket.is_active_session %}
+<script>
+// Live timer update
+var sessionStart = new Date("{{ ticket.active_session_started.strftime('%Y-%m-%dT%H:%M:%S') }}");
+var savedMinutes = {{ ticket.total_minutes or 0 }};
+
+function updateTimer() {
+    var now     = new Date();
+    var elapsed = Math.floor((now - sessionStart) / 1000 / 60);
+    var total   = savedMinutes + elapsed;
+    var h = Math.floor(total / 60);
+    var m = total % 60;
+    var display = h > 0 ? h + 'h ' + m + 'm' : m + 'm';
+    var liveEl  = document.getElementById('live-timer');
+    var totalEl = document.getElementById('total-display');
+    if (liveEl)  liveEl.textContent  = (h > 0 ? h + 'h ' : '') + elapsed + 'm';
+    if (totalEl) totalEl.textContent = display;
+}
+updateTimer();
+setInterval(updateTimer, 30000);
+</script>
+{% endif %}
+{% endblock %}
