@@ -9,125 +9,22 @@
         </a>
     </div>
 
-    <!-- Waitlist Summary Section -->
-    <div class="card mb-4 border-info">
-        <div class="card-header bg-info text-white">
-            <div class="d-flex justify-content-between align-items-center">
-                <h4 class="mb-0">
-                    <i class="fas fa-list"></i> Daycare Waitlist Summary
-                    <span class="badge bg-light text-info">{{ all_waitlist|length }}</span>
-                </h4>
-            </div>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-4">
-                    <div class="text-center p-3 border-end">
-                        <h5><span class="badge bg-warning">{{ pending_waitlist|length }}</span></h5>
-                        <small class="text-muted">Pending (Not Contacted)</small>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="text-center p-3 border-end">
-                        <h5><span class="badge bg-success">{{ contacted_waitlist|length }}</span></h5>
-                        <small class="text-muted">Contacted</small>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="text-center p-3">
-                        <h5><span class="badge bg-primary">{{ all_waitlist|length }}</span></h5>
-                        <small class="text-muted">Total Entries</small>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <!-- Waitlist banner -->
+    <div class="alert d-flex justify-content-between align-items-center py-2 mb-4
+                {% if pending_waitlist|length > 0 %}alert-warning{% else %}alert-success{% endif %}">
+        <span>
+            {% if pending_waitlist|length > 0 %}
+                <i class="fas fa-clock me-2"></i>
+                <strong>{{ pending_waitlist|length }}</strong> waitlist entr{{ 'y' if pending_waitlist|length == 1 else 'ies' }} pending contact
+                &nbsp;·&nbsp; {{ contacted_waitlist|length }} contacted
+            {% else %}
+                <i class="fas fa-check-circle me-2"></i>All waitlist entries have been contacted &nbsp;·&nbsp; {{ contacted_waitlist|length }} total
+            {% endif %}
+        </span>
+        <a href="{{ url_for('admin.daycare_waitlist_admin') }}" class="btn btn-sm btn-dark">
+            <i class="fas fa-clipboard-list me-1"></i>View Waitlist
+        </a>
     </div>
-
-    <!-- Pending Waitlist Section -->
-    {% if pending_waitlist %}
-    <div class="card mb-4 border-warning">
-        <div class="card-header bg-warning text-dark">
-            <div class="d-flex justify-content-between align-items-center">
-                <h4 class="mb-0">
-                    <i class="fas fa-clock"></i> Pending Waitlist 
-                    <span class="badge bg-dark">{{ pending_waitlist|length }}</span>
-                </h4>
-                <a href="{{ url_for('admin.daycare_waitlist_admin') }}" class="btn btn-sm btn-dark">
-                    <i class="fas fa-list"></i> View All Waitlist
-                </a>
-            </div>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-sm table-hover">
-                    <thead>
-                        <tr>
-                            <th>Submitted</th>
-                            <th>Name</th>
-                            <th>Contact</th>
-                            <th>Days</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for entry in pending_waitlist[:5] %}
-                        <tr>
-                            <td>{{ entry.submitted_date.strftime('%m/%d %I:%M %p') }}</td>
-                            <td><strong>{{ entry.first_name }} {{ entry.last_name }}</strong></td>
-                            <td>
-                                <small>
-                                    <i class="fas fa-envelope"></i> {{ entry.email }}<br>
-                                    <i class="fas fa-phone"></i> {{ entry.phone }}
-                                </small>
-                            </td>
-                            <td>
-                                {% if entry.monday or entry.tuesday or entry.wednesday or entry.thursday or entry.friday %}
-                                    {% if entry.monday %}<span class="badge bg-primary me-1">M</span>{% endif %}
-                                    {% if entry.tuesday %}<span class="badge bg-primary me-1">T</span>{% endif %}
-                                    {% if entry.wednesday %}<span class="badge bg-primary me-1">W</span>{% endif %}
-                                    {% if entry.thursday %}<span class="badge bg-primary me-1">Th</span>{% endif %}
-                                    {% if entry.friday %}<span class="badge bg-primary">F</span>{% endif %}
-                                {% else %}
-                                    <span class="text-muted">None</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <form method="POST" action="{{ url_for('admin.mark_waitlist_contacted', entry_id=entry.id) }}" style="display: inline;">
-                                    <button type="submit" class="btn btn-sm btn-success" title="Mark as Contacted">
-                                        <i class="fas fa-check"></i>
-                                    </button>
-                                </form>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% if pending_waitlist|length > 5 %}
-                <div class="text-center mt-2">
-                    <small class="text-muted">Showing 5 of {{ pending_waitlist|length }} pending entries</small>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-    {% else %}
-    <div class="card mb-4 border-warning">
-        <div class="card-header bg-warning text-dark">
-            <div class="d-flex justify-content-between align-items-center">
-                <h4 class="mb-0">
-                    <i class="fas fa-clock"></i> Pending Waitlist 
-                    <span class="badge bg-dark">0</span>
-                </h4>
-                <a href="{{ url_for('admin.daycare_waitlist_admin') }}" class="btn btn-sm btn-dark">
-                    <i class="fas fa-list"></i> View All Waitlist
-                </a>
-            </div>
-        </div>
-        <div class="card-body">
-            <p class="text-muted mb-0"><i class="fas fa-check-circle text-success"></i> All waitlist entries have been contacted!</p>
-        </div>
-    </div>
-    {% endif %}
 
     <!-- Currently Checked In -->
     <div class="card mb-4">
@@ -237,14 +134,21 @@
 
     <!-- Active Enrollments -->
     <div class="card">
-        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-            <h4 class="mb-0"><i class="fas fa-list"></i> Active Daycare Enrollments (<span id="enrollment-count">{{ enrollments|length }}</span>)</h4>
-            <div style="min-width:240px;">
+        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center"
+             data-bs-toggle="collapse" data-bs-target="#activeEnrollmentsBody" style="cursor:pointer;">
+            <h4 class="mb-0">
+                <i class="fas fa-list me-2"></i>Active Daycare Enrollments
+                <span class="badge bg-light text-success ms-1"><span id="enrollment-count">{{ enrollments|length }}</span></span>
+            </h4>
+            <div class="d-flex align-items-center gap-2" onclick="event.stopPropagation();">
                 <input type="text" id="enrollment-search" class="form-control form-control-sm"
                        placeholder="Search pet, breed, owner…"
-                       oninput="filterEnrollments(this.value)">
+                       oninput="filterEnrollments(this.value)"
+                       style="min-width:220px;">
+                <i class="fas fa-chevron-down text-white-50"></i>
             </div>
         </div>
+        <div class="collapse" id="activeEnrollmentsBody">
         <div class="card-body">
             {% if enrollments %}
             <div class="table-responsive">
@@ -344,6 +248,7 @@
             <p class="text-muted mb-0">No pets currently enrolled in daycare.</p>
             {% endif %}
         </div>
+        </div><!-- /#activeEnrollmentsBody -->
     </div>
 </div>
 
