@@ -822,18 +822,23 @@ def daycare_waitlist_admin():
         DaycareWaitlist.submitted_date.asc()
     ).all()
 
-    # Build pet lists per entry for the Approve modal (as plain dicts — safe for tojson)
-    entry_pets = {}
+    # Build pet lists per entry for the Approve modal — serialised to JSON here
+    # so the template never has to deal with escaping
+    import json as _json
+    entry_pets_map = {}
     for entry in pending:
         if entry.user_id:
             pets_qs = Pet.query.filter_by(user_id=entry.user_id, is_active=True).order_by(Pet.name).all()
         else:
             pets_qs = Pet.query.filter_by(is_active=True).order_by(Pet.name).all()
-        entry_pets[entry.id] = [{'id': p.id, 'name': p.name} for p in pets_qs]
+        entry_pets_map[entry.id] = [{'id': p.id, 'name': p.name} for p in pets_qs]
+
+    # JSON string keyed by string (JSON keys must be strings)
+    entry_pets_json = _json.dumps({str(k): v for k, v in entry_pets_map.items()})
 
     return render_template('admin/daycare_waitlist.html',
                            pending=pending,
-                           entry_pets=entry_pets)
+                           entry_pets_json=entry_pets_json)
 
 
 @bp.route('/daycare/waitlist/mark-contacted/<int:entry_id>', methods=['POST'])
