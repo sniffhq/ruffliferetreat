@@ -86,11 +86,9 @@
                     <!-- ── DAYCARE SECTION ── -->
                     <div class="col-12" id="daycare-section" style="display:none;">
                         <div class="alert mb-2" style="background:#e8f4fd; border:1px solid #b8daff;">
-                            <h6 class="fw-bold mb-1"><i class="fas fa-clipboard-list me-2 text-primary"></i>Daycare Waitlist</h6>
+                            <h6 class="fw-bold mb-1"><i class="fas fa-clipboard-list me-2 text-primary"></i>Daycare Request</h6>
                             <p class="mb-0 small">
-                                Daycare spots are limited. Selecting Daycare will add your pet(s) to our waitlist —
-                                we'll reach out by text as soon as a spot opens up!
-                                Pets already enrolled in daycare will be skipped automatically.
+                                Select the days you'd like to request for daycare. Our team will review your request and be in touch to confirm your schedule.
                             </p>
                         </div>
 
@@ -292,8 +290,8 @@ function selectService(choice) {
         btnBoarding.classList.add('btn-outline-secondary');
         btnDaycare.classList.remove('btn-outline-primary');
         btnDaycare.classList.add('btn-primary');
-        submitLabel.textContent = 'Join Waitlist';
-        footerHint.innerHTML = '<i class="fas fa-clipboard-list me-1"></i>We\'ll text you when a daycare spot opens';
+        submitLabel.textContent = 'Book Now';
+        footerHint.innerHTML = '<i class="fas fa-clipboard-list me-1"></i>Our team will confirm your daycare schedule';
         // Disable required on boarding fields
         boardingSection.querySelectorAll('[required]').forEach(function(el) {
             el.removeAttribute('required');
