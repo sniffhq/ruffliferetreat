@@ -1,6 +1,6 @@
 """Add OpsNote model for operational pet and day notes
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: 9f8e7d6c5b4a
 Revises: z4a5b6c7d8e9
 Create Date: 2026-06-16
 
@@ -8,7 +8,7 @@ Create Date: 2026-06-16
 from alembic import op
 import sqlalchemy as sa
 
-revision      = 'a1b2c3d4e5f6'
+revision      = '9f8e7d6c5b4a'
 down_revision = 'z4a5b6c7d8e9'
 branch_labels = None
 depends_on    = None
