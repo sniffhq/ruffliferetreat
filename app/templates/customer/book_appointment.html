@@ -287,12 +287,16 @@ function selectService(choice) {
     }
 }
 
-// Initialise on load — boarding is default but fields start as required
+// Initialise on load — boarding is default unless ?service=daycare is in the URL
 document.addEventListener('DOMContentLoaded', function() {
-    // checkin-time and checkout-time start disabled — don't mark them required until a date is picked
-    // Just ensure boarding section is visible by default
-    document.getElementById('boarding-section').style.display = 'block';
-    document.getElementById('daycare-section').style.display  = 'none';
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('service') === 'daycare') {
+        selectService('daycare');
+    } else {
+        // checkin-time and checkout-time start disabled — don't mark them required until a date is picked
+        document.getElementById('boarding-section').style.display = 'block';
+        document.getElementById('daycare-section').style.display  = 'none';
+    }
 });
 
 function toggleAllPets(cb) {
