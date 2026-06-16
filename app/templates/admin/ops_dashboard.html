@@ -442,7 +442,7 @@
                             <div class="flex-grow-1 min-w-0">
                                 <div><span class="badge me-1" style="background:#fef9c3;color:#92400e;font-size:0.65rem;"><i class="fas fa-sign-in-alt me-1"></i>Drop-off</span>
                                 <strong>{{ b.pet.name }}</strong></div>
-                                {% if b.pet.owner %}<small class="text-muted">{{ b.pet.owner.first_name }} {{ b.pet.owner.last_name }}{% if b.check_in_time %} · {{ b.check_in_time }}{% endif %}</small>{% endif %}
+                                {% if b.pet.owner %}<small class="text-muted">{{ b.pet.owner.first_name }} {{ b.pet.owner.last_name }}{% if b.check_in_time %} · {{ b.check_in_time|fmt_time }}{% endif %}</small>{% endif %}
                             </div>
                             <form method="POST" action="{{ url_for('admin.checkin_boarding', booking_id=b.id) }}" class="flex-shrink-0">
                                 <button type="submit" class="btn btn-sm btn-success py-1">
@@ -465,7 +465,7 @@
                             <div class="flex-grow-1 min-w-0">
                                 <div><span class="badge me-1" style="background:#dcfce7;color:#166534;font-size:0.65rem;"><i class="fas fa-sign-out-alt me-1"></i>Pick-up</span>
                                 <strong>{{ b.pet.name }}</strong></div>
-                                {% if b.pet.owner %}<small class="text-muted">{{ b.pet.owner.first_name }} {{ b.pet.owner.last_name }}{% if b.check_out_time %} · {{ b.check_out_time }}{% endif %}</small>{% endif %}
+                                {% if b.pet.owner %}<small class="text-muted">{{ b.pet.owner.first_name }} {{ b.pet.owner.last_name }}{% if b.check_out_time %} · {{ b.check_out_time|fmt_time }}{% endif %}</small>{% endif %}
                             </div>
                             {% if b.checked_in %}
                             <form method="POST" action="{{ url_for('admin.complete_boarding', booking_id=b.id) }}"

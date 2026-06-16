@@ -9,6 +9,17 @@ import os
 
 bp = Blueprint('admin', __name__, url_prefix='/admin')
 
+def _fmt_t(t):
+    """Convert 'HH:MM' string or time/datetime object to '2:30 PM' format."""
+    if not t:
+        return ''
+    try:
+        if isinstance(t, str):
+            return datetime.strptime(str(t)[:5], '%H:%M').strftime('%I:%M %p').lstrip('0')
+        return t.strftime('%I:%M %p').lstrip('0')
+    except Exception:
+        return str(t)
+
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -1547,8 +1558,8 @@ def boarding_dashboard():
             'phone':     owner.phone or '—' if owner else '—',
             'checkin':   b.check_in_date.isoformat(),
             'checkout':  b.check_out_date.isoformat(),
-            'cin_time':  b.check_in_time or '08:00',
-            'cout_time': b.check_out_time or '17:00',
+            'cin_time':  _fmt_t(b.check_in_time or '08:00'),
+            'cout_time': _fmt_t(b.check_out_time or '17:00'),
             'kennel':    (f'{(b.kennel_type or "Kennel").title()} #{b.kennel_number}') if b.kennel_number else None,
             'addons':    addons,
             'checked_in': bool(b.checked_in),
@@ -1694,7 +1705,7 @@ def ops_calendar():
                     'breed':      b.pet.breed or 'Dog',
                     'owner':      f'{owner.first_name} {owner.last_name}' if owner else '—',
                     'phone':      (owner.phone or '—') if owner else '—',
-                    'cin_time':   b.check_in_time or '08:00',
+                    'cin_time':   _fmt_t(b.check_in_time or '08:00'),
                     'checked_in': bool(b.checked_in),
                     'kennel':     (f'{(b.kennel_type or "Kennel").title()} #{b.kennel_number}')
                                   if b.kennel_number else None,
@@ -1711,7 +1722,7 @@ def ops_calendar():
                     'breed':     b.pet.breed or 'Dog',
                     'owner':     f'{owner.first_name} {owner.last_name}' if owner else '—',
                     'phone':     (owner.phone or '—') if owner else '—',
-                    'cout_time': b.check_out_time or '17:00',
+                    'cout_time': _fmt_t(b.check_out_time or '17:00'),
                     'checked_in': bool(b.checked_in),
                 })
 
