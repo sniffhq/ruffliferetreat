@@ -608,9 +608,7 @@ document.querySelector('form').addEventListener('submit', function(e) {
 
     // If daycare selected, require at least one day
     if (document.getElementById('service_choice').value === 'daycare') {
-        var anyDay = ['monday','tuesday','wednesday','thursday'].some(function(d) {
-            return document.getElementById('h_dc_' + d).value === '1';
-        });
+        var anyDay = dcSelectedDates.size > 0;
         if (!anyDay) {
             e.preventDefault();
             alert('Please select at least one preferred day for daycare.');
@@ -619,9 +617,7 @@ document.querySelector('form').addEventListener('submit', function(e) {
     }
 
     // Sync calendar selections to hidden inputs before submit
-    ['monday','tuesday','wednesday','thursday'].forEach(function(d) {
-        document.getElementById('h_dc_' + d).value = dcSelectedDays.has(d) ? '1' : '';
-    });
+    dcSyncInputs();
 
     // Validate dates
     if (!validateDates()) {
@@ -633,14 +629,16 @@ document.querySelector('form').addEventListener('submit', function(e) {
 });
 
 // ── Daycare Calendar Widget ──────────────────────────────────────────────────
-const DC_CAPACITY     = {{ daycare_capacity_json|safe }};
-const DC_MAX          = 15;
-const DC_DAY_NAMES    = ['monday','tuesday','wednesday','thursday'];
-const DC_DOW_MAP      = {1:'monday', 2:'tuesday', 3:'wednesday', 4:'thursday'}; // JS dow: 0=Sun
-const DC_LABELS       = {monday:'Mon', tuesday:'Tue', wednesday:'Wed', thursday:'Thu'};
-const dcSelectedDays  = new Set();
+// Selects individual dates; weekday flags are derived on submit.
+const DC_CAPACITY    = {{ daycare_capacity_json|safe }};
+const DC_MAX         = 15;
+const DC_DOW_MAP     = {1:'monday', 2:'tuesday', 3:'wednesday', 4:'thursday'};
+const DC_DAY_LABELS  = {monday:'Monday', tuesday:'Tuesday', wednesday:'Wednesday', thursday:'Thursday'};
+const dcSelectedDates = new Set(); // stores ISO date strings e.g. '2026-06-03'
 
 let dcYear, dcMonth;
+
+function dcPad(n) { return String(n).padStart(2, '0'); }
 
 function dcInit() {
     const now = new Date();
@@ -665,51 +663,39 @@ function dcRender() {
     });
     html += '</tr></thead><tbody><tr>';
 
-    // Leading blanks
-    for (let i = 0; i < first.getDay(); i++) {
-        html += '<td></td>';
-    }
+    for (let i = 0; i < first.getDay(); i++) html += '<td></td>';
 
     let dow = first.getDay();
     for (let day = 1; day <= last.getDate(); day++) {
-        const jsDow = dow % 7;
-        const dayName = DC_DOW_MAP[jsDow]; // undefined for Sun/Fri/Sat
+        const jsDow  = dow % 7;
+        const dayName = DC_DOW_MAP[jsDow];
+        const ds      = dcYear + '-' + dcPad(dcMonth + 1) + '-' + dcPad(day);
 
         if (dayName) {
             const isFull     = (DC_CAPACITY[dayName] || 0) >= DC_MAX;
-            const isSelected = dcSelectedDays.has(dayName);
-            let bg, color, cursor, title;
-
-            if (isFull) {
-                bg = '#fee2e2'; color = '#991b1b'; cursor = 'not-allowed';
-                title = DC_LABELS[dayName] + ' — Full';
-            } else if (isSelected) {
-                bg = '#1a1a2e'; color = '#fff'; cursor = 'pointer';
-                title = DC_LABELS[dayName] + ' — Selected (click to deselect)';
-            } else {
-                bg = '#eff6ff'; color = '#1d4ed8'; cursor = 'pointer';
-                title = 'Click to select ' + DC_LABELS[dayName];
-            }
+            const isSelected = dcSelectedDates.has(ds);
 
             html += '<td style="padding:3px 2px;text-align:center;">';
             if (isFull) {
-                html += '<div title="' + title + '" style="border-radius:6px;padding:5px 2px;background:' + bg +
-                        ';color:' + color + ';cursor:' + cursor + ';">' +
+                html += '<div title="' + DC_DAY_LABELS[dayName] + ' — Full" ' +
+                        'style="border-radius:6px;padding:5px 2px;background:#fee2e2;color:#991b1b;cursor:not-allowed;">' +
                         '<div style="font-weight:700;font-size:0.85rem;">' + day + '</div>' +
                         '<div style="font-size:0.6rem;font-weight:600;line-height:1;">Full</div>' +
                         '</div>';
             } else {
-                const sel = isSelected ? ' ring:2px' : '';
-                html += '<div onclick="dcToggle(\'' + dayName + '\')" title="' + title + '" ' +
+                const bg     = isSelected ? '#1a1a2e' : '#eff6ff';
+                const color  = isSelected ? '#fff'    : '#1d4ed8';
+                const border = isSelected ? '#1a1a2e' : 'transparent';
+                html += '<div onclick="dcToggle(\'' + ds + '\',\'' + dayName + '\')" ' +
+                        'title="' + (isSelected ? 'Click to deselect' : 'Click to select') + '" ' +
                         'style="border-radius:6px;padding:5px 2px;background:' + bg + ';color:' + color +
-                        ';cursor:' + cursor + ';border:2px solid ' + (isSelected ? '#1a1a2e' : 'transparent') + ';">' +
+                        ';cursor:pointer;border:2px solid ' + border + ';">' +
                         '<div style="font-weight:700;font-size:0.85rem;">' + day + '</div>' +
-                        (isSelected ? '<div style="font-size:0.6rem;line-height:1;">✓</div>' : '<div style="font-size:0.6rem;line-height:1;">&nbsp;</div>') +
+                        '<div style="font-size:0.6rem;line-height:1;">' + (isSelected ? '✓' : '&nbsp;') + '</div>' +
                         '</div>';
             }
             html += '</td>';
         } else {
-            // Not a daycare day — muted
             html += '<td style="padding:3px 2px;text-align:center;">' +
                     '<div style="border-radius:6px;padding:5px 2px;color:#ccc;font-size:0.85rem;">' + day + '</div>' +
                     '</td>';
@@ -719,40 +705,52 @@ function dcRender() {
         if (dow % 7 === 0 && day < last.getDate()) html += '</tr><tr>';
     }
 
-    // Trailing blanks
     const remaining = 7 - (dow % 7 === 0 ? 7 : dow % 7);
-    if (remaining < 7) {
-        for (let i = 0; i < remaining; i++) html += '<td></td>';
-    }
+    if (remaining < 7) for (let i = 0; i < remaining; i++) html += '<td></td>';
 
     html += '</tr></tbody></table>';
     document.getElementById('dc-calendar').innerHTML = html;
 
-    // Summary
+    // Summary: list each selected date
     const summary = document.getElementById('dc-summary');
-    if (dcSelectedDays.size === 0) {
+    if (dcSelectedDates.size === 0) {
         summary.textContent = 'No days selected yet.';
     } else {
-        const labels = Array.from(dcSelectedDays).map(function(d) {
-            return DC_LABELS[d] + 's';
+        const sorted = Array.from(dcSelectedDates).sort();
+        const labels = sorted.map(function(ds) {
+            const [y, m, d] = ds.split('-').map(Number);
+            const dt = new Date(y, m - 1, d);
+            const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+            const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            return DN[dt.getDay()] + ' ' + MN[m - 1] + ' ' + d;
         });
         summary.innerHTML = '<i class="fas fa-check-circle text-success me-1"></i>' +
                             'Selected: <strong>' + labels.join(', ') + '</strong>';
     }
 }
 
-function dcToggle(dayName) {
-    if ((DC_CAPACITY[dayName] || 0) >= DC_MAX) return; // full
-    if (dcSelectedDays.has(dayName)) {
-        dcSelectedDays.delete(dayName);
+function dcToggle(ds, dayName) {
+    if ((DC_CAPACITY[dayName] || 0) >= DC_MAX) return;
+    if (dcSelectedDates.has(ds)) {
+        dcSelectedDates.delete(ds);
     } else {
-        dcSelectedDays.add(dayName);
+        dcSelectedDates.add(ds);
     }
-    // Update hidden inputs immediately
-    ['monday','tuesday','wednesday','thursday'].forEach(function(d) {
-        document.getElementById('h_dc_' + d).value = dcSelectedDays.has(d) ? '1' : '';
-    });
+    dcSyncInputs();
     dcRender();
+}
+
+function dcSyncInputs() {
+    // Derive which weekdays are covered by selected dates
+    const coveredDays = new Set();
+    dcSelectedDates.forEach(function(ds) {
+        const [y, m, d] = ds.split('-').map(Number);
+        const jsDow = new Date(y, m - 1, d).getDay();
+        if (DC_DOW_MAP[jsDow]) coveredDays.add(DC_DOW_MAP[jsDow]);
+    });
+    ['monday','tuesday','wednesday','thursday'].forEach(function(dn) {
+        document.getElementById('h_dc_' + dn).value = coveredDays.has(dn) ? '1' : '';
+    });
 }
 
 document.getElementById('dc-prev-month').addEventListener('click', function() {
@@ -766,7 +764,6 @@ document.getElementById('dc-next-month').addEventListener('click', function() {
     dcRender();
 });
 
-// Initialize when section becomes visible (also on DOMContentLoaded)
 document.addEventListener('DOMContentLoaded', dcInit);
 </script>
 {% endblock %}
