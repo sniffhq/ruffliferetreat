@@ -93,6 +93,19 @@
                                 Pets already enrolled in daycare will be skipped automatically.
                             </p>
                         </div>
+                        <div class="mt-3">
+                            <label class="form-label fw-bold">Preferred Days <span class="text-danger">*</span></label>
+                            <div class="d-flex gap-3 flex-wrap" id="daycare-days">
+                                {% for val, label in [('monday','Mon'),('tuesday','Tue'),('wednesday','Wed'),('thursday','Thu'),('friday','Fri')] %}
+                                <div class="form-check">
+                                    <input class="form-check-input daycare-day-cb" type="checkbox"
+                                           name="daycare_{{ val }}" id="dc_{{ val }}" value="1">
+                                    <label class="form-check-label" for="dc_{{ val }}">{{ label }}</label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <div class="form-text">Select all days you'd like your pet(s) to attend.</div>
+                        </div>
                     </div>
 
                     <!-- ── BOARDING SECTION ── -->
@@ -576,7 +589,17 @@ document.querySelector('form').addEventListener('submit', function(e) {
             return;
         }
     }
-    
+
+    // If daycare selected, require at least one day
+    if (document.getElementById('service_choice').value === 'daycare') {
+        var anyDay = document.querySelectorAll('.daycare-day-cb:checked').length > 0;
+        if (!anyDay) {
+            e.preventDefault();
+            alert('Please select at least one preferred day for daycare.');
+            return;
+        }
+    }
+
     // Validate dates
     if (!validateDates()) {
         e.preventDefault();

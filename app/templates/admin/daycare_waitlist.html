@@ -210,18 +210,22 @@
 </div>
 
 <script>
-// Pet data injected server-side — no attribute escaping involved
+// Pet + day data injected server-side — no attribute escaping involved
 const ENTRY_PETS = {{ entry_pets_json|safe }};
+const ENTRY_DAYS = {{ entry_days_json|safe }};
 const BUSINESS   = "Ruff Life Retreat";
 
 function openApprove(entryId, customerName) {
     const pets = ENTRY_PETS[String(entryId)] || [];
+    const days = ENTRY_DAYS[String(entryId)] || {};
 
     document.getElementById('approveCustomerName').textContent = customerName;
     document.getElementById('approveForm').action = '/admin/daycare/waitlist/' + entryId + '/approve';
 
-    // Reset days
-    document.querySelectorAll('.approve-day').forEach(function(cb) { cb.checked = false; });
+    // Pre-select days from the customer's waitlist request (uncheck any not requested)
+    document.querySelectorAll('.approve-day').forEach(function(cb) {
+        cb.checked = !!days[cb.name];
+    });
 
     // Populate pet dropdown
     const sel = document.getElementById('approvePetSelect');

@@ -836,9 +836,22 @@ def daycare_waitlist_admin():
     # JSON string keyed by string (JSON keys must be strings)
     entry_pets_json = _json.dumps({str(k): v for k, v in entry_pets_map.items()})
 
+    # Days of interest per entry for the Approve modal pre-selection
+    entry_days_map = {}
+    for entry in pending:
+        entry_days_map[str(entry.id)] = {
+            'monday':    entry.monday,
+            'tuesday':   entry.tuesday,
+            'wednesday': entry.wednesday,
+            'thursday':  entry.thursday,
+            'friday':    entry.friday,
+        }
+    entry_days_json = _json.dumps(entry_days_map)
+
     return render_template('admin/daycare_waitlist.html',
                            pending=pending,
-                           entry_pets_json=entry_pets_json)
+                           entry_pets_json=entry_pets_json,
+                           entry_days_json=entry_days_json)
 
 
 @bp.route('/daycare/waitlist/mark-contacted/<int:entry_id>', methods=['POST'])
