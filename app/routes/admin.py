@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 from functools import wraps
 from app import db
-from app.models import User, Pet, Appointment, ServiceType, ServiceBlock, DaycareEnrollment, DaycareAttendance, DaycareWaitlist, Boarding
+from app.models import User, Pet, Appointment, ServiceType, ServiceBlock, DaycareEnrollment, DaycareAttendance, DaycareWaitlist, Boarding, OpsNote
 from datetime import datetime, timedelta
 from sqlalchemy import and_
 import os
@@ -1793,13 +1793,81 @@ def ops_dashboard():
         Boarding.check_out_date == today,
     ).all()
 
+    # ── Today's daycare capacity ──────────────────────────────────────────────
+    if dow in _dc_fields:
+        field = _dc_fields[dow]
+        daycare_capacity_today = DaycareEnrollment.query.filter_by(active=True).filter(
+            getattr(DaycareEnrollment, field) == True
+        ).count()
+    else:
+        daycare_capacity_today = 0
+    DC_MAX = 15
+
+    # ── Today's ops notes ─────────────────────────────────────────────────────
+    today_notes = OpsNote.query.filter_by(note_date=today).all()
+    pet_notes   = {}   # pet_id -> [note, ...]
+    day_notes   = []
+    for n in today_notes:
+        if n.pet_id:
+            pet_notes.setdefault(n.pet_id, []).append(n)
+        else:
+            day_notes.append(n)
+
     return render_template('admin/ops_dashboard.html',
                            daycare_checked_in=daycare_checked_in,
                            boarding_checked_in=boarding_checked_in,
                            daycare_expected_today=daycare_expected_today,
                            boarding_arrivals_today=boarding_arrivals_today,
                            boarding_departures_today=boarding_departures_today,
+                           daycare_capacity_today=daycare_capacity_today,
+                           dc_max=DC_MAX,
+                           pet_notes=pet_notes,
+                           day_notes=day_notes,
                            today=today)
+
+
+# ── OpsNote AJAX endpoints ───────────────────────────────────────────────────
+
+@bp.route('/ops/note', methods=['POST'])
+@login_required
+@admin_required
+def ops_note_create():
+    """Create a pet-level or day-level ops note."""
+    data      = request.get_json(silent=True) or {}
+    note_text = (data.get('note') or '').strip()
+    flag_type = data.get('flag_type', 'info')
+    pet_id    = data.get('pet_id')
+    note_date_str = data.get('note_date') or datetime.now().date().isoformat()
+    if not note_text:
+        return jsonify({'ok': False, 'error': 'Note cannot be empty'}), 400
+    from datetime import date as _date
+    try:
+        note_date = _date.fromisoformat(note_date_str)
+    except ValueError:
+        return jsonify({'ok': False, 'error': 'Invalid date'}), 400
+    n = OpsNote(
+        note_date  = note_date,
+        pet_id     = int(pet_id) if pet_id else None,
+        note       = note_text,
+        flag_type  = flag_type,
+        created_by = current_user.id,
+    )
+    db.session.add(n)
+    db.session.commit()
+    return jsonify({'ok': True, 'id': n.id, 'note': n.note,
+                    'flag_type': n.flag_type,
+                    'created_by': f'{current_user.first_name} {current_user.last_name}'})
+
+
+@bp.route('/ops/note/<int:note_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def ops_note_delete(note_id):
+    """Delete an ops note."""
+    n = OpsNote.query.get_or_404(note_id)
+    db.session.delete(n)
+    db.session.commit()
+    return jsonify({'ok': True})
 
 
 def _check_boarding_conflict(pet_id, check_in_date, check_out_date, exclude_booking_id=None):

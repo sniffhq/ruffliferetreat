@@ -991,6 +991,23 @@ class AuditLog(db.Model):
         }.get(a, 'secondary')
 
 
+class OpsNote(db.Model):
+    """Quick operational note on a pet or a day, visible on the Operations Dashboard/Calendar."""
+    __tablename__ = 'ops_note'
+
+    id         = db.Column(db.Integer, primary_key=True)
+    note_date  = db.Column(db.Date, nullable=False, index=True)
+    pet_id     = db.Column(db.Integer, db.ForeignKey('pet.id'), nullable=True)   # None → day-level note
+    note       = db.Column(db.String(500), nullable=False)
+    flag_type  = db.Column(db.String(20), default='info')   # 'info', 'warning', 'urgent'
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    pet     = db.relationship('Pet', backref=db.backref('ops_notes', lazy=True))
+    creator = db.relationship('User', foreign_keys=[created_by],
+                              backref=db.backref('ops_notes_created', lazy=True))
+
+
 class FacilitySetting(db.Model):
     """Key/value store for facility-wide configuration."""
     __tablename__ = 'facility_setting'

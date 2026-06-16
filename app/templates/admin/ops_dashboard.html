@@ -1,65 +1,111 @@
 {% extends "base.html" %}
 {% block title %}Operations Dashboard{% endblock %}
 {% block content %}
-<div class="container-fluid mt-4 px-4">
+<div class="container-fluid mt-3 px-3 px-md-4">
 
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <!-- ── Header ─────────────────────────────────────────────────────────── -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
         <div>
-            <h2 class="mb-0"><i class="fas fa-tachometer-alt me-2" style="color:#1a1a2e;"></i>Operations Dashboard</h2>
-            <p class="text-muted mb-0 small">{{ today.strftime('%A, %B') }} {{ today.day }}, {{ today.year }}</p>
+            <h2 class="mb-0 fs-4"><i class="fas fa-tachometer-alt me-2" style="color:#1a1a2e;"></i>Operations Dashboard</h2>
+            <p class="text-muted mb-0 small">{{ today.strftime('%A, %B') }} {{ today.day }}, {{ today.year }}
+                <span class="ms-2 text-muted" style="font-size:0.75rem;" id="last-refresh"></span>
+            </p>
         </div>
-        <div class="d-flex gap-2">
-            <span class="badge px-2 py-1" style="background:#dbeafe;color:#1d4ed8;font-size:0.8rem;">
+        <div class="d-flex gap-2 flex-wrap">
+            <span class="badge px-2 py-1" style="background:#dbeafe;color:#1d4ed8;">
                 <i class="fas fa-sun me-1"></i>Daycare
             </span>
-            <span class="badge px-2 py-1" style="background:#fef9c3;color:#92400e;font-size:0.8rem;">
+            <span class="badge px-2 py-1" style="background:#fef9c3;color:#92400e;">
                 <i class="fas fa-hotel me-1"></i>Boarding
             </span>
+            <a href="{{ url_for('admin.ops_calendar') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-calendar-alt me-1"></i>Calendar
+            </a>
         </div>
     </div>
 
-    <!-- Summary Cards -->
-    <div class="row g-3 mb-4">
+    <!-- ── Day notes ─────────────────────────────────────────────────────── -->
+    {% if day_notes %}
+    <div class="alert alert-warning d-flex align-items-start gap-2 py-2 mb-3">
+        <i class="fas fa-thumbtack mt-1 flex-shrink-0"></i>
+        <div>
+            {% for n in day_notes %}
+            <span class="me-3">{{ n.note }}
+                <button type="button" class="btn btn-link btn-sm p-0 text-danger ms-1"
+                        onclick="deleteNote({{ n.id }}, this)" title="Remove">
+                    <i class="fas fa-times"></i>
+                </button>
+            </span>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ── Summary cards ─────────────────────────────────────────────────── -->
+    <div class="row g-2 mb-3">
+        <!-- Daycare capacity -->
         <div class="col-6 col-md-3">
-            <div class="card shadow-sm text-center h-100">
-                <div class="card-body py-3">
-                    <div class="fw-bold fs-3" style="color:#1d4ed8;">{{ daycare_checked_in|length }}</div>
-                    <div class="text-muted small">Daycare In</div>
+            <div class="card shadow-sm h-100">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <small class="text-muted fw-semibold">Daycare Today</small>
+                        <span class="badge" style="background:#dbeafe;color:#1d4ed8;">{{ daycare_checked_in|length }}/{{ dc_max }}</span>
+                    </div>
+                    {% set pct = ((daycare_capacity_today / dc_max) * 100)|int %}
+                    <div class="progress" style="height:8px;">
+                        <div class="progress-bar {% if pct >= 100 %}bg-danger{% elif pct >= 80 %}bg-warning{% else %}bg-primary{% endif %}"
+                             style="width:{{ [pct, 100]|min }}%;"></div>
+                    </div>
+                    <small class="text-muted" style="font-size:0.7rem;">{{ daycare_capacity_today }} enrolled · {{ daycare_checked_in|length }} checked in</small>
                 </div>
             </div>
         </div>
+        <!-- Boarding in -->
         <div class="col-6 col-md-3">
-            <div class="card shadow-sm text-center h-100">
-                <div class="card-body py-3">
-                    <div class="fw-bold fs-3" style="color:#92400e;">{{ boarding_checked_in|length }}</div>
+            <div class="card shadow-sm h-100 text-center">
+                <div class="card-body py-2">
+                    <div class="fw-bold fs-4" style="color:#92400e;">{{ boarding_checked_in|length }}</div>
                     <div class="text-muted small">Boarding In</div>
                 </div>
             </div>
         </div>
+        <!-- Expected -->
         <div class="col-6 col-md-3">
-            <div class="card shadow-sm text-center h-100">
-                <div class="card-body py-3">
-                    <div class="fw-bold fs-3 text-warning">{{ daycare_expected_today|length }}</div>
+            <div class="card shadow-sm h-100 text-center">
+                <div class="card-body py-2">
+                    <div class="fw-bold fs-4 text-warning">{{ daycare_expected_today|length }}</div>
                     <div class="text-muted small">Daycare Expected</div>
                 </div>
             </div>
         </div>
+        <!-- Arrivals/Departures -->
         <div class="col-6 col-md-3">
-            <div class="card shadow-sm text-center h-100">
-                <div class="card-body py-3">
-                    <div class="fw-bold fs-3" style="color:#166534;">{{ boarding_arrivals_today|length + boarding_departures_today|length }}</div>
-                    <div class="text-muted small">Boarding Arrivals/Departures</div>
+            <div class="card shadow-sm h-100 text-center">
+                <div class="card-body py-2">
+                    <div class="fw-bold fs-4" style="color:#166534;">{{ (boarding_arrivals_today|length) + (boarding_departures_today|length) }}</div>
+                    <div class="text-muted small">Arrivals / Departures</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Currently Checked In -->
+    <!-- Day note add button -->
+    <div class="mb-3 d-flex justify-content-end">
+        <button class="btn btn-sm btn-outline-secondary" onclick="openDayNoteModal()">
+            <i class="fas fa-thumbtack me-1"></i>Pin a Day Note
+        </button>
+    </div>
+
+    <!-- ── Currently Checked In ───────────────────────────────────────────── -->
     <div class="card shadow-sm mb-4">
-        <div class="card-header d-flex align-items-center justify-content-between" style="background:#1a1a2e;">
-            <h5 class="mb-0 text-white"><i class="fas fa-paw me-2" style="color:#B07A8E;"></i>Currently Checked In</h5>
-            <span class="badge bg-light text-dark">{{ (daycare_checked_in|length) + (boarding_checked_in|length) }} total</span>
+        <div class="card-header d-flex align-items-center justify-content-between py-2" style="background:#1a1a2e;">
+            <h6 class="mb-0 text-white"><i class="fas fa-paw me-2" style="color:#B07A8E;"></i>Currently Checked In</h6>
+            <span class="badge bg-light text-dark">{{ (daycare_checked_in|length) + (boarding_checked_in|length) }}</span>
+        </div>
+        <!-- Search -->
+        <div class="p-2 border-bottom">
+            <input type="text" id="pet-search" class="form-control form-control-sm"
+                   placeholder="Search by pet or owner name…" oninput="filterPets()">
         </div>
         <div class="card-body p-0">
             {% set total_in = (daycare_checked_in|length) + (boarding_checked_in|length) %}
@@ -69,115 +115,265 @@
                 <p class="mb-0">No pets currently checked in.</p>
             </div>
             {% else %}
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
+
+            <!-- Desktop table (hidden on mobile) -->
+            <div class="d-none d-md-block table-responsive">
+                <table class="table table-hover align-middle mb-0" id="checkin-table">
                     <thead class="table-light">
                         <tr>
-                            <th>Service</th>
+                            <th style="width:44px;"></th>
                             <th>Pet</th>
+                            <th>Service</th>
                             <th>Owner</th>
-                            <th>Check-In Time</th>
+                            <th>Time In</th>
+                            <th>Notes</th>
                             <th class="text-end">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <!-- Daycare checked-in pets -->
-                        {% for item in daycare_checked_in %}
-                        <tr>
-                            <td>
-                                <span class="badge" style="background:#dbeafe;color:#1d4ed8;">
-                                    <i class="fas fa-sun me-1"></i>Daycare
-                                </span>
-                            </td>
-                            <td>
-                                <strong>{{ item.pet.name }}</strong>
-                                {% if item.pet.breed %}<br><small class="text-muted">{{ item.pet.breed }}</small>{% endif %}
-                            </td>
-                            <td>
-                                {% if item.owner %}
-                                <a href="{{ url_for('admin.customer_detail', customer_id=item.owner.id) }}"
-                                   class="text-decoration-none">
-                                    {{ item.owner.first_name }} {{ item.owner.last_name }}
-                                </a>
-                                {% else %}—{% endif %}
-                            </td>
-                            <td>
-                                <small class="text-muted">
-                                    {{ item.attendance.check_in_time.strftime('%I:%M %p') if item.attendance.check_in_time else '—' }}
-                                </small>
-                            </td>
-                            <td class="text-end">
-                                <form method="POST"
-                                      action="{{ url_for('admin.daycare_checkout', attendance_id=item.attendance.id) }}"
-                                      style="display:inline;"
-                                      onsubmit="return confirm('Check out {{ item.pet.name }}?');">
-                                    <button type="submit" class="btn btn-sm btn-outline-success">
-                                        <i class="fas fa-sign-out-alt me-1"></i>Check Out
-                                    </button>
-                                </form>
-                            </td>
-                        </tr>
-                        {% endfor %}
 
-                        <!-- Boarding checked-in pets -->
-                        {% for b in boarding_checked_in %}
-                        <tr>
-                            <td>
-                                <span class="badge" style="background:#fef9c3;color:#92400e;">
-                                    <i class="fas fa-hotel me-1"></i>Boarding
+                    {% for item in daycare_checked_in %}
+                    {% set notes = pet_notes.get(item.pet.id, []) %}
+                    <tr class="pet-row" data-search="{{ item.pet.name|lower }} {{ item.owner.first_name|lower if item.owner else '' }} {{ item.owner.last_name|lower if item.owner else '' }}">
+                        <td>
+                            {% if item.pet.photo_path %}
+                            <img src="{{ url_for('static', filename='uploads/' + item.pet.photo_path) }}"
+                                 class="rounded-circle" style="width:38px;height:38px;object-fit:cover;">
+                            {% else %}
+                            <div class="rounded-circle d-flex align-items-center justify-content-center"
+                                 style="width:38px;height:38px;background:#dbeafe;color:#1d4ed8;font-weight:700;font-size:0.9rem;">
+                                {{ item.pet.name[0] }}
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <strong>{{ item.pet.name }}</strong>
+                            {% if item.pet.breed %}<small class="text-muted ms-1">{{ item.pet.breed }}</small>{% endif %}
+                            {% if notes %}
+                            <div class="mt-1">
+                                {% for n in notes %}
+                                <span class="badge {% if n.flag_type == 'urgent' %}bg-danger{% elif n.flag_type == 'warning' %}bg-warning text-dark{% else %}bg-secondary{% endif %} me-1"
+                                      style="font-size:0.7rem;">
+                                    {{ n.note }}
+                                    <button type="button" class="btn-close btn-close-white ms-1" style="font-size:0.5rem;"
+                                            onclick="deleteNote({{ n.id }}, this)"></button>
                                 </span>
-                            </td>
-                            <td>
-                                <strong>{{ b.pet.name }}</strong>
-                                {% if b.pet.breed %}<br><small class="text-muted">{{ b.pet.breed }}</small>{% endif %}
-                                {% if b.kennel_number %}
-                                <br><small class="text-muted"><i class="fas fa-bed me-1"></i>{{ (b.kennel_type or 'Kennel')|title }} #{{ b.kennel_number }}</small>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if b.pet.owner %}
-                                <a href="{{ url_for('admin.customer_detail', customer_id=b.pet.owner.id) }}"
-                                   class="text-decoration-none">
-                                    {{ b.pet.owner.first_name }} {{ b.pet.owner.last_name }}
-                                </a>
-                                {% else %}—{% endif %}
-                            </td>
-                            <td>
-                                <small class="text-muted">
-                                    {% if b.checked_in_at %}{{ b.checked_in_at.strftime('%I:%M %p') }}{% else %}—{% endif %}
-                                </small>
-                            </td>
-                            <td class="text-end">
-                                <a href="{{ url_for('admin.boarding_detail', booking_id=b.id) }}"
-                                   class="btn btn-sm btn-outline-secondary me-1">
-                                    <i class="fas fa-eye"></i>
-                                </a>
-                                {% if b.check_out_date == today %}
-                                <form method="POST"
-                                      action="{{ url_for('admin.complete_boarding', booking_id=b.id) }}"
-                                      style="display:inline;"
-                                      onsubmit="return confirm('Complete boarding for {{ b.pet.name }}?');">
-                                    <button type="submit" class="btn btn-sm btn-outline-success">
-                                        <i class="fas fa-sign-out-alt me-1"></i>Check Out
-                                    </button>
-                                </form>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td><span class="badge" style="background:#dbeafe;color:#1d4ed8;"><i class="fas fa-sun me-1"></i>Daycare</span></td>
+                        <td>
+                            {% if item.owner %}
+                            <a href="{{ url_for('admin.customer_detail', customer_id=item.owner.id) }}" class="text-decoration-none small">
+                                {{ item.owner.first_name }} {{ item.owner.last_name }}
+                            </a>
+                            {% else %}—{% endif %}
+                        </td>
+                        <td>
+                            {% if item.attendance.check_in_time %}
+                            <span class="small text-muted">{{ item.attendance.check_in_time.strftime('%I:%M %p') }}</span>
+                            <span class="badge bg-light text-muted border ms-1" style="font-size:0.65rem;"
+                                  id="timer-dc-{{ item.attendance.id }}"
+                                  data-checkin="{{ item.attendance.check_in_time.isoformat() }}"></span>
+                            {% else %}—{% endif %}
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-secondary py-0 px-2"
+                                    onclick="openNoteModal({{ item.pet.id }}, '{{ item.pet.name|e }}')"
+                                    title="Add note">
+                                <i class="fas fa-sticky-note"></i>
+                            </button>
+                        </td>
+                        <td class="text-end text-nowrap">
+                            <form method="POST" action="{{ url_for('admin.daycare_checkout', attendance_id=item.attendance.id) }}"
+                                  style="display:inline;" onsubmit="return confirm('Check out {{ item.pet.name|e }}?');">
+                                <button type="submit" class="btn btn-sm btn-outline-success">
+                                    <i class="fas fa-sign-out-alt me-1"></i>Check Out
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+
+                    {% for b in boarding_checked_in %}
+                    {% set notes = pet_notes.get(b.pet.id, []) %}
+                    <tr class="pet-row" data-search="{{ b.pet.name|lower }} {{ b.pet.owner.first_name|lower if b.pet.owner else '' }} {{ b.pet.owner.last_name|lower if b.pet.owner else '' }}">
+                        <td>
+                            {% if b.pet.photo_path %}
+                            <img src="{{ url_for('static', filename='uploads/' + b.pet.photo_path) }}"
+                                 class="rounded-circle" style="width:38px;height:38px;object-fit:cover;">
+                            {% else %}
+                            <div class="rounded-circle d-flex align-items-center justify-content-center"
+                                 style="width:38px;height:38px;background:#fef9c3;color:#92400e;font-weight:700;font-size:0.9rem;">
+                                {{ b.pet.name[0] }}
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <strong>{{ b.pet.name }}</strong>
+                            {% if b.pet.breed %}<small class="text-muted ms-1">{{ b.pet.breed }}</small>{% endif %}
+                            {% if b.kennel_number %}<br><small class="text-muted"><i class="fas fa-bed me-1"></i>{{ (b.kennel_type or 'Kennel')|title }} #{{ b.kennel_number }}</small>{% endif %}
+                            {% if notes %}
+                            <div class="mt-1">
+                                {% for n in notes %}
+                                <span class="badge {% if n.flag_type == 'urgent' %}bg-danger{% elif n.flag_type == 'warning' %}bg-warning text-dark{% else %}bg-secondary{% endif %} me-1"
+                                      style="font-size:0.7rem;">
+                                    {{ n.note }}
+                                    <button type="button" class="btn-close btn-close-white ms-1" style="font-size:0.5rem;"
+                                            onclick="deleteNote({{ n.id }}, this)"></button>
+                                </span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td><span class="badge" style="background:#fef9c3;color:#92400e;"><i class="fas fa-hotel me-1"></i>Boarding</span></td>
+                        <td>
+                            {% if b.pet.owner %}
+                            <a href="{{ url_for('admin.customer_detail', customer_id=b.pet.owner.id) }}" class="text-decoration-none small">
+                                {{ b.pet.owner.first_name }} {{ b.pet.owner.last_name }}
+                            </a>
+                            {% else %}—{% endif %}
+                        </td>
+                        <td>
+                            {% if b.checked_in_at %}
+                            <span class="small text-muted">{{ b.checked_in_at.strftime('%I:%M %p') }}</span>
+                            <span class="badge bg-light text-muted border ms-1" style="font-size:0.65rem;"
+                                  id="timer-b-{{ b.id }}"
+                                  data-checkin="{{ b.checked_in_at.isoformat() }}"></span>
+                            {% else %}—{% endif %}
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-secondary py-0 px-2"
+                                    onclick="openNoteModal({{ b.pet.id }}, '{{ b.pet.name|e }}')"
+                                    title="Add note">
+                                <i class="fas fa-sticky-note"></i>
+                            </button>
+                        </td>
+                        <td class="text-end text-nowrap">
+                            <a href="{{ url_for('admin.boarding_detail', booking_id=b.id) }}"
+                               class="btn btn-sm btn-outline-secondary me-1"><i class="fas fa-eye"></i></a>
+                            {% if b.check_out_date == today %}
+                            <form method="POST" action="{{ url_for('admin.complete_boarding', booking_id=b.id) }}"
+                                  style="display:inline;" onsubmit="return confirm('Complete boarding for {{ b.pet.name|e }}?');">
+                                <button type="submit" class="btn btn-sm btn-outline-success">
+                                    <i class="fas fa-sign-out-alt me-1"></i>Check Out
+                                </button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+
                     </tbody>
                 </table>
             </div>
+
+            <!-- Mobile cards (shown on small screens) -->
+            <div class="d-md-none p-2 pet-cards-mobile">
+                {% for item in daycare_checked_in %}
+                {% set notes = pet_notes.get(item.pet.id, []) %}
+                <div class="card mb-2 pet-row" data-search="{{ item.pet.name|lower }} {{ item.owner.first_name|lower if item.owner else '' }} {{ item.owner.last_name|lower if item.owner else '' }}">
+                    <div class="card-body p-2">
+                        <div class="d-flex align-items-center gap-2">
+                            {% if item.pet.photo_path %}
+                            <img src="{{ url_for('static', filename='uploads/' + item.pet.photo_path) }}"
+                                 class="rounded-circle flex-shrink-0" style="width:46px;height:46px;object-fit:cover;">
+                            {% else %}
+                            <div class="rounded-circle flex-shrink-0 d-flex align-items-center justify-content-center"
+                                 style="width:46px;height:46px;background:#dbeafe;color:#1d4ed8;font-weight:700;">
+                                {{ item.pet.name[0] }}
+                            </div>
+                            {% endif %}
+                            <div class="flex-grow-1 min-w-0">
+                                <div class="d-flex justify-content-between">
+                                    <strong>{{ item.pet.name }}</strong>
+                                    <span class="badge" style="background:#dbeafe;color:#1d4ed8;font-size:0.65rem;"><i class="fas fa-sun me-1"></i>Daycare</span>
+                                </div>
+                                {% if item.pet.breed %}<small class="text-muted">{{ item.pet.breed }}</small>{% endif %}
+                                {% if item.owner %}<br><small class="text-muted">{{ item.owner.first_name }} {{ item.owner.last_name }}</small>{% endif %}
+                                {% if item.attendance.check_in_time %}
+                                <br><small class="text-muted">In: {{ item.attendance.check_in_time.strftime('%I:%M %p') }}
+                                <span class="badge bg-light text-muted border" style="font-size:0.6rem;"
+                                      data-checkin="{{ item.attendance.check_in_time.isoformat() }}"></span></small>
+                                {% endif %}
+                                {% for n in notes %}
+                                <br><span class="badge {% if n.flag_type == 'urgent' %}bg-danger{% elif n.flag_type == 'warning' %}bg-warning text-dark{% else %}bg-secondary{% endif %}" style="font-size:0.65rem;">{{ n.note }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2 mt-2">
+                            <button class="btn btn-sm btn-outline-secondary flex-fill py-1"
+                                    onclick="openNoteModal({{ item.pet.id }}, '{{ item.pet.name|e }}')">
+                                <i class="fas fa-sticky-note me-1"></i>Note
+                            </button>
+                            <form method="POST" action="{{ url_for('admin.daycare_checkout', attendance_id=item.attendance.id) }}"
+                                  class="flex-fill" onsubmit="return confirm('Check out {{ item.pet.name|e }}?');">
+                                <button type="submit" class="btn btn-sm btn-outline-success w-100 py-1">
+                                    <i class="fas fa-sign-out-alt me-1"></i>Check Out
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+
+                {% for b in boarding_checked_in %}
+                {% set notes = pet_notes.get(b.pet.id, []) %}
+                <div class="card mb-2 pet-row" data-search="{{ b.pet.name|lower }} {{ b.pet.owner.first_name|lower if b.pet.owner else '' }} {{ b.pet.owner.last_name|lower if b.pet.owner else '' }}">
+                    <div class="card-body p-2">
+                        <div class="d-flex align-items-center gap-2">
+                            {% if b.pet.photo_path %}
+                            <img src="{{ url_for('static', filename='uploads/' + b.pet.photo_path) }}"
+                                 class="rounded-circle flex-shrink-0" style="width:46px;height:46px;object-fit:cover;">
+                            {% else %}
+                            <div class="rounded-circle flex-shrink-0 d-flex align-items-center justify-content-center"
+                                 style="width:46px;height:46px;background:#fef9c3;color:#92400e;font-weight:700;">
+                                {{ b.pet.name[0] }}
+                            </div>
+                            {% endif %}
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between">
+                                    <strong>{{ b.pet.name }}</strong>
+                                    <span class="badge" style="background:#fef9c3;color:#92400e;font-size:0.65rem;"><i class="fas fa-hotel me-1"></i>Boarding</span>
+                                </div>
+                                {% if b.pet.breed %}<small class="text-muted">{{ b.pet.breed }}</small>{% endif %}
+                                {% if b.pet.owner %}<br><small class="text-muted">{{ b.pet.owner.first_name }} {{ b.pet.owner.last_name }}</small>{% endif %}
+                                {% for n in notes %}
+                                <br><span class="badge {% if n.flag_type == 'urgent' %}bg-danger{% elif n.flag_type == 'warning' %}bg-warning text-dark{% else %}bg-secondary{% endif %}" style="font-size:0.65rem;">{{ n.note }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2 mt-2">
+                            <button class="btn btn-sm btn-outline-secondary flex-fill py-1"
+                                    onclick="openNoteModal({{ b.pet.id }}, '{{ b.pet.name|e }}')">
+                                <i class="fas fa-sticky-note me-1"></i>Note
+                            </button>
+                            {% if b.check_out_date == today %}
+                            <form method="POST" action="{{ url_for('admin.complete_boarding', booking_id=b.id) }}"
+                                  class="flex-fill" onsubmit="return confirm('Complete boarding for {{ b.pet.name|e }}?');">
+                                <button type="submit" class="btn btn-sm btn-outline-success w-100 py-1">
+                                    <i class="fas fa-sign-out-alt me-1"></i>Check Out
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
             {% endif %}
         </div>
     </div>
 
-    <div class="row g-4">
+    <!-- ── Expected / Activity panels ────────────────────────────────────── -->
+    <div class="row g-3 mb-4">
 
-        <!-- Today's Daycare Expected -->
+        <!-- Daycare Expected -->
         <div class="col-md-6">
             <div class="card shadow-sm h-100">
-                <div class="card-header" style="background:#dbeafe;">
+                <div class="card-header py-2" style="background:#dbeafe;">
                     <h6 class="mb-0 fw-bold" style="color:#1d4ed8;">
                         <i class="fas fa-sun me-2"></i>Daycare Expected Today
                         <span class="badge ms-2" style="background:#1d4ed8;color:#fff;">{{ daycare_expected_today|length }}</span>
@@ -186,27 +382,27 @@
                 <div class="card-body p-0">
                     {% if not daycare_expected_today %}
                     <div class="text-center py-4 text-muted small">
-                        {% if today.weekday() >= 4 %}
-                        No daycare on Fridays, Saturdays, or Sundays.
-                        {% else %}
-                        All expected pets have checked in.
-                        {% endif %}
+                        {% if today.weekday() >= 4 %}No daycare today.{% else %}All expected pets have checked in.{% endif %}
                     </div>
                     {% else %}
                     <div class="list-group list-group-flush">
                         {% for e in daycare_expected_today %}
-                        <div class="list-group-item d-flex justify-content-between align-items-center py-2">
-                            <div>
-                                <strong>{{ e.pet.name }}</strong>
-                                {% if e.pet.breed %}<small class="text-muted ms-1">{{ e.pet.breed }}</small>{% endif %}
-                                {% if e.pet.owner %}
-                                <br><small class="text-muted">{{ e.pet.owner.first_name }} {{ e.pet.owner.last_name }}</small>
-                                {% endif %}
+                        <div class="list-group-item d-flex align-items-center gap-2 py-2">
+                            {% if e.pet.photo_path %}
+                            <img src="{{ url_for('static', filename='uploads/' + e.pet.photo_path) }}"
+                                 class="rounded-circle flex-shrink-0" style="width:32px;height:32px;object-fit:cover;">
+                            {% else %}
+                            <div class="rounded-circle flex-shrink-0 d-flex align-items-center justify-content-center"
+                                 style="width:32px;height:32px;background:#dbeafe;color:#1d4ed8;font-size:0.8rem;font-weight:700;">
+                                {{ e.pet.name[0] }}
                             </div>
-                            <form method="POST"
-                                  action="{{ url_for('admin.daycare_checkin', enrollment_id=e.id) }}"
-                                  style="display:inline;">
-                                <button type="submit" class="btn btn-sm btn-success">
+                            {% endif %}
+                            <div class="flex-grow-1 min-w-0">
+                                <strong class="d-block">{{ e.pet.name }}</strong>
+                                {% if e.pet.owner %}<small class="text-muted">{{ e.pet.owner.first_name }} {{ e.pet.owner.last_name }}</small>{% endif %}
+                            </div>
+                            <form method="POST" action="{{ url_for('admin.daycare_checkin', enrollment_id=e.id) }}" class="flex-shrink-0">
+                                <button type="submit" class="btn btn-sm btn-success py-1">
                                     <i class="fas fa-sign-in-alt me-1"></i>Check In
                                 </button>
                             </form>
@@ -218,10 +414,10 @@
             </div>
         </div>
 
-        <!-- Today's Boarding Activity -->
+        <!-- Boarding Activity -->
         <div class="col-md-6">
             <div class="card shadow-sm h-100">
-                <div class="card-header" style="background:#fef9c3;">
+                <div class="card-header py-2" style="background:#fef9c3;">
                     <h6 class="mb-0 fw-bold" style="color:#92400e;">
                         <i class="fas fa-hotel me-2"></i>Boarding Activity Today
                         <span class="badge ms-2" style="background:#92400e;color:#fff;">{{ (boarding_arrivals_today|length) + (boarding_departures_today|length) }}</span>
@@ -233,56 +429,53 @@
                     {% else %}
                     <div class="list-group list-group-flush">
                         {% for b in boarding_arrivals_today %}
-                        <div class="list-group-item d-flex justify-content-between align-items-center py-2">
-                            <div>
-                                <span class="badge me-1" style="background:#fef9c3;color:#92400e;font-size:0.7rem;">
-                                    <i class="fas fa-sign-in-alt me-1"></i>Drop-off
-                                </span>
-                                <strong>{{ b.pet.name }}</strong>
-                                {% if b.pet.breed %}<small class="text-muted ms-1">{{ b.pet.breed }}</small>{% endif %}
-                                {% if b.pet.owner %}
-                                <br><small class="text-muted ms-4">{{ b.pet.owner.first_name }} {{ b.pet.owner.last_name }}</small>
-                                {% endif %}
-                                {% if b.check_in_time %}
-                                <small class="text-muted ms-1">· {{ b.check_in_time }}</small>
-                                {% endif %}
+                        <div class="list-group-item d-flex align-items-center gap-2 py-2">
+                            {% if b.pet.photo_path %}
+                            <img src="{{ url_for('static', filename='uploads/' + b.pet.photo_path) }}"
+                                 class="rounded-circle flex-shrink-0" style="width:32px;height:32px;object-fit:cover;">
+                            {% else %}
+                            <div class="rounded-circle flex-shrink-0 d-flex align-items-center justify-content-center"
+                                 style="width:32px;height:32px;background:#fef9c3;color:#92400e;font-size:0.8rem;font-weight:700;">
+                                {{ b.pet.name[0] }}
                             </div>
-                            <form method="POST"
-                                  action="{{ url_for('admin.checkin_boarding', booking_id=b.id) }}"
-                                  style="display:inline;">
-                                <button type="submit" class="btn btn-sm btn-success">
+                            {% endif %}
+                            <div class="flex-grow-1 min-w-0">
+                                <div><span class="badge me-1" style="background:#fef9c3;color:#92400e;font-size:0.65rem;"><i class="fas fa-sign-in-alt me-1"></i>Drop-off</span>
+                                <strong>{{ b.pet.name }}</strong></div>
+                                {% if b.pet.owner %}<small class="text-muted">{{ b.pet.owner.first_name }} {{ b.pet.owner.last_name }}{% if b.check_in_time %} · {{ b.check_in_time }}{% endif %}</small>{% endif %}
+                            </div>
+                            <form method="POST" action="{{ url_for('admin.checkin_boarding', booking_id=b.id) }}" class="flex-shrink-0">
+                                <button type="submit" class="btn btn-sm btn-success py-1">
                                     <i class="fas fa-sign-in-alt me-1"></i>Check In
                                 </button>
                             </form>
                         </div>
                         {% endfor %}
-
                         {% for b in boarding_departures_today %}
-                        <div class="list-group-item d-flex justify-content-between align-items-center py-2">
-                            <div>
-                                <span class="badge me-1" style="background:#dcfce7;color:#166534;font-size:0.7rem;">
-                                    <i class="fas fa-sign-out-alt me-1"></i>Pick-up
-                                </span>
-                                <strong>{{ b.pet.name }}</strong>
-                                {% if b.pet.breed %}<small class="text-muted ms-1">{{ b.pet.breed }}</small>{% endif %}
-                                {% if b.pet.owner %}
-                                <br><small class="text-muted ms-4">{{ b.pet.owner.first_name }} {{ b.pet.owner.last_name }}</small>
-                                {% endif %}
-                                {% if b.check_out_time %}
-                                <small class="text-muted ms-1">· {{ b.check_out_time }}</small>
-                                {% endif %}
+                        <div class="list-group-item d-flex align-items-center gap-2 py-2">
+                            {% if b.pet.photo_path %}
+                            <img src="{{ url_for('static', filename='uploads/' + b.pet.photo_path) }}"
+                                 class="rounded-circle flex-shrink-0" style="width:32px;height:32px;object-fit:cover;">
+                            {% else %}
+                            <div class="rounded-circle flex-shrink-0 d-flex align-items-center justify-content-center"
+                                 style="width:32px;height:32px;background:#dcfce7;color:#166534;font-size:0.8rem;font-weight:700;">
+                                {{ b.pet.name[0] }}
+                            </div>
+                            {% endif %}
+                            <div class="flex-grow-1 min-w-0">
+                                <div><span class="badge me-1" style="background:#dcfce7;color:#166534;font-size:0.65rem;"><i class="fas fa-sign-out-alt me-1"></i>Pick-up</span>
+                                <strong>{{ b.pet.name }}</strong></div>
+                                {% if b.pet.owner %}<small class="text-muted">{{ b.pet.owner.first_name }} {{ b.pet.owner.last_name }}{% if b.check_out_time %} · {{ b.check_out_time }}{% endif %}</small>{% endif %}
                             </div>
                             {% if b.checked_in %}
-                            <form method="POST"
-                                  action="{{ url_for('admin.complete_boarding', booking_id=b.id) }}"
-                                  style="display:inline;"
-                                  onsubmit="return confirm('Complete boarding for {{ b.pet.name }}?');">
-                                <button type="submit" class="btn btn-sm btn-outline-success">
+                            <form method="POST" action="{{ url_for('admin.complete_boarding', booking_id=b.id) }}"
+                                  class="flex-shrink-0" onsubmit="return confirm('Complete boarding for {{ b.pet.name|e }}?');">
+                                <button type="submit" class="btn btn-sm btn-outline-success py-1">
                                     <i class="fas fa-sign-out-alt me-1"></i>Check Out
                                 </button>
                             </form>
                             {% else %}
-                            <span class="badge bg-warning text-dark small">Not Checked In</span>
+                            <span class="badge bg-warning text-dark small flex-shrink-0">Not In Yet</span>
                             {% endif %}
                         </div>
                         {% endfor %}
@@ -291,7 +484,164 @@
                 </div>
             </div>
         </div>
+    </div>
 
+</div>
+
+<!-- ── Note Modal ──────────────────────────────────────────────────────────── -->
+<div class="modal fade" id="noteModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header py-2" style="background:#1a1a2e;">
+                <h6 class="modal-title text-white mb-0" id="note-modal-title"><i class="fas fa-sticky-note me-2"></i>Add Note</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pb-2">
+                <input type="hidden" id="note-pet-id" value="">
+                <div class="mb-2">
+                    <textarea id="note-text" class="form-control" rows="3" placeholder="Note text…" maxlength="500"></textarea>
+                </div>
+                <div class="d-flex gap-2">
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="flag_type" id="ft-info" value="info" checked>
+                        <label class="form-check-label small" for="ft-info">Info</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="flag_type" id="ft-warn" value="warning">
+                        <label class="form-check-label small" for="ft-warn">Warning</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="flag_type" id="ft-urg" value="urgent">
+                        <label class="form-check-label small text-danger" for="ft-urg">Urgent</label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="saveNote()">Save Note</button>
+            </div>
+        </div>
     </div>
 </div>
+
+<!-- Day Note Modal -->
+<div class="modal fade" id="dayNoteModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header py-2" style="background:#1a1a2e;">
+                <h6 class="modal-title text-white mb-0"><i class="fas fa-thumbtack me-2"></i>Pin a Day Note</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <textarea id="day-note-text" class="form-control" rows="3" placeholder="Note visible at top of today's dashboard…" maxlength="500"></textarea>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="saveDayNote()">Pin Note</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ── CSRF token ────────────────────────────────────────────────────────────────
+function getCsrf() {
+    const m = document.cookie.match(/csrf_token=([^;]+)/);
+    return m ? decodeURIComponent(m[1]) : '';
+}
+
+// ── Time-since timer ──────────────────────────────────────────────────────────
+function timeSince(isoStr) {
+    if (!isoStr) return '';
+    const diff = Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000);
+    const h = Math.floor(diff / 3600);
+    const m = Math.floor((diff % 3600) / 60);
+    return h > 0 ? h + 'h ' + m + 'm' : m + 'm';
+}
+
+function updateTimers() {
+    document.querySelectorAll('[data-checkin]').forEach(function(el) {
+        el.textContent = timeSince(el.dataset.checkin);
+    });
+}
+updateTimers();
+setInterval(updateTimers, 30000);
+
+// ── Auto-refresh ──────────────────────────────────────────────────────────────
+function updateRefreshStamp() {
+    const el = document.getElementById('last-refresh');
+    if (el) {
+        const now = new Date();
+        el.textContent = '· refreshed ' + now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    }
+}
+updateRefreshStamp();
+setInterval(function() {
+    location.reload();
+}, 90000);
+
+// ── Search filter ─────────────────────────────────────────────────────────────
+function filterPets() {
+    const q = document.getElementById('pet-search').value.toLowerCase();
+    document.querySelectorAll('.pet-row').forEach(function(row) {
+        const text = (row.dataset.search || '');
+        row.style.display = text.includes(q) ? '' : 'none';
+    });
+}
+
+// ── Notes ─────────────────────────────────────────────────────────────────────
+function openNoteModal(petId, petName) {
+    document.getElementById('note-pet-id').value = petId;
+    document.getElementById('note-modal-title').innerHTML =
+        '<i class="fas fa-sticky-note me-2"></i>Note for ' + petName;
+    document.getElementById('note-text').value = '';
+    document.getElementById('ft-info').checked = true;
+    new bootstrap.Modal(document.getElementById('noteModal')).show();
+}
+
+function saveNote() {
+    const petId    = document.getElementById('note-pet-id').value;
+    const noteText = document.getElementById('note-text').value.trim();
+    const flagType = document.querySelector('input[name="flag_type"]:checked').value;
+    if (!noteText) { alert('Please enter a note.'); return; }
+    fetch('/admin/ops/note', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','X-CSRFToken': getCsrf()},
+        body: JSON.stringify({pet_id: petId, note: noteText, flag_type: flagType,
+                              note_date: '{{ today.isoformat() }}'})
+    }).then(function(r) { return r.json(); }).then(function(d) {
+        if (d.ok) location.reload();
+        else alert('Error: ' + (d.error || 'Unknown'));
+    });
+}
+
+function openDayNoteModal() {
+    document.getElementById('day-note-text').value = '';
+    new bootstrap.Modal(document.getElementById('dayNoteModal')).show();
+}
+
+function saveDayNote() {
+    const noteText = document.getElementById('day-note-text').value.trim();
+    if (!noteText) { alert('Please enter a note.'); return; }
+    fetch('/admin/ops/note', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','X-CSRFToken': getCsrf()},
+        body: JSON.stringify({note: noteText, flag_type: 'info',
+                              note_date: '{{ today.isoformat() }}'})
+    }).then(function(r) { return r.json(); }).then(function(d) {
+        if (d.ok) location.reload();
+        else alert('Error: ' + (d.error || 'Unknown'));
+    });
+}
+
+function deleteNote(noteId, btn) {
+    if (!confirm('Remove this note?')) return;
+    fetch('/admin/ops/note/' + noteId, {
+        method: 'DELETE',
+        headers: {'X-CSRFToken': getCsrf()}
+    }).then(function(r) { return r.json(); }).then(function(d) {
+        if (d.ok) location.reload();
+    });
+}
+</script>
 {% endblock %}
