@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+{% block title %}Operations Dashboard{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4 px-4">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0"><i class="fas fa-tachometer-alt me-2" style="color:#1a1a2e;"></i>Operations Dashboard</h2>
+            <p class="text-muted mb-0 small">{{ today.strftime('%A, %B %-d, %Y') }}</p>
+        </div>
+        <div class="d-flex gap-2">
+            <span class="badge px-2 py-1" style="background:#dbeafe;color:#1d4ed8;font-size:0.8rem;">
+                <i class="fas fa-sun me-1"></i>Daycare
+            </span>
+            <span class="badge px-2 py-1" style="background:#fef9c3;color:#92400e;font-size:0.8rem;">
+                <i class="fas fa-hotel me-1"></i>Boarding
+            </span>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card shadow-sm text-center h-100">
+                <div class="card-body py-3">
+                    <div class="fw-bold fs-3" style="color:#1d4ed8;">{{ daycare_checked_in|length }}</div>
+                    <div class="text-muted small">Daycare In</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card shadow-sm text-center h-100">
+                <div class="card-body py-3">
+                    <div class="fw-bold fs-3" style="color:#92400e;">{{ boarding_checked_in|length }}</div>
+                    <div class="text-muted small">Boarding In</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card shadow-sm text-center h-100">
+                <div class="card-body py-3">
+                    <div class="fw-bold fs-3 text-warning">{{ daycare_expected_today|length }}</div>
+                    <div class="text-muted small">Daycare Expected</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card shadow-sm text-center h-100">
+                <div class="card-body py-3">
+                    <div class="fw-bold fs-3" style="color:#166534;">{{ boarding_arrivals_today|length + boarding_departures_today|length }}</div>
+                    <div class="text-muted small">Boarding Arrivals/Departures</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Currently Checked In -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header d-flex align-items-center justify-content-between" style="background:#1a1a2e;">
+            <h5 class="mb-0 text-white"><i class="fas fa-paw me-2" style="color:#B07A8E;"></i>Currently Checked In</h5>
+            <span class="badge bg-light text-dark">{{ (daycare_checked_in|length) + (boarding_checked_in|length) }} total</span>
+        </div>
+        <div class="card-body p-0">
+            {% set total_in = (daycare_checked_in|length) + (boarding_checked_in|length) %}
+            {% if total_in == 0 %}
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-dog fa-3x mb-3 d-block opacity-25"></i>
+                <p class="mb-0">No pets currently checked in.</p>
+            </div>
+            {% else %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Service</th>
+                            <th>Pet</th>
+                            <th>Owner</th>
+                            <th>Check-In Time</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Daycare checked-in pets -->
+                        {% for item in daycare_checked_in %}
+                        <tr>
+                            <td>
+                                <span class="badge" style="background:#dbeafe;color:#1d4ed8;">
+                                    <i class="fas fa-sun me-1"></i>Daycare
+                                </span>
+                            </td>
+                            <td>
+                                <strong>{{ item.pet.name }}</strong>
+                                {% if item.pet.breed %}<br><small class="text-muted">{{ item.pet.breed }}</small>{% endif %}
+                            </td>
+                            <td>
+                                {% if item.owner %}
+                                <a href="{{ url_for('admin.customer_detail', customer_id=item.owner.id) }}"
+                                   class="text-decoration-none">
+                                    {{ item.owner.first_name }} {{ item.owner.last_name }}
+                                </a>
+                                {% else %}—{% endif %}
+                            </td>
+                            <td>
+                                <small class="text-muted">
+                                    {{ item.attendance.check_in_time.strftime('%I:%M %p') if item.attendance.check_in_time else '—' }}
+                                </small>
+                            </td>
+                            <td class="text-end">
+                                <form method="POST"
+                                      action="{{ url_for('admin.daycare_checkout', attendance_id=item.attendance.id) }}"
+                                      style="display:inline;"
+                                      onsubmit="return confirm('Check out {{ item.pet.name }}?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-success">
+                                        <i class="fas fa-sign-out-alt me-1"></i>Check Out
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+
+                        <!-- Boarding checked-in pets -->
+                        {% for b in boarding_checked_in %}
+                        <tr>
+                            <td>
+                                <span class="badge" style="background:#fef9c3;color:#92400e;">
+                                    <i class="fas fa-hotel me-1"></i>Boarding
+                                </span>
+                            </td>
+                            <td>
+                                <strong>{{ b.pet.name }}</strong>
+                                {% if b.pet.breed %}<br><small class="text-muted">{{ b.pet.breed }}</small>{% endif %}
+                                {% if b.kennel_number %}
+                                <br><small class="text-muted"><i class="fas fa-bed me-1"></i>{{ (b.kennel_type or 'Kennel')|title }} #{{ b.kennel_number }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if b.pet.owner %}
+                                <a href="{{ url_for('admin.customer_detail', customer_id=b.pet.owner.id) }}"
+                                   class="text-decoration-none">
+                                    {{ b.pet.owner.first_name }} {{ b.pet.owner.last_name }}
+                                </a>
+                                {% else %}—{% endif %}
+                            </td>
+                            <td>
+                                <small class="text-muted">
+                                    {% if b.checked_in_at %}{{ b.checked_in_at.strftime('%I:%M %p') }}{% else %}—{% endif %}
+                                </small>
+                            </td>
+                            <td class="text-end">
+                                <a href="{{ url_for('admin.boarding_detail', booking_id=b.id) }}"
+                                   class="btn btn-sm btn-outline-secondary me-1">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                {% if b.check_out_date == today %}
+                                <form method="POST"
+                                      action="{{ url_for('admin.complete_boarding', booking_id=b.id) }}"
+                                      style="display:inline;"
+                                      onsubmit="return confirm('Complete boarding for {{ b.pet.name }}?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-success">
+                                        <i class="fas fa-sign-out-alt me-1"></i>Check Out
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row g-4">
+
+        <!-- Today's Daycare Expected -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header" style="background:#dbeafe;">
+                    <h6 class="mb-0 fw-bold" style="color:#1d4ed8;">
+                        <i class="fas fa-sun me-2"></i>Daycare Expected Today
+                        <span class="badge ms-2" style="background:#1d4ed8;color:#fff;">{{ daycare_expected_today|length }}</span>
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    {% if not daycare_expected_today %}
+                    <div class="text-center py-4 text-muted small">
+                        {% if today.weekday() >= 4 %}
+                        No daycare on Fridays, Saturdays, or Sundays.
+                        {% else %}
+                        All expected pets have checked in.
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="list-group list-group-flush">
+                        {% for e in daycare_expected_today %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center py-2">
+                            <div>
+                                <strong>{{ e.pet.name }}</strong>
+                                {% if e.pet.breed %}<small class="text-muted ms-1">{{ e.pet.breed }}</small>{% endif %}
+                                {% if e.pet.owner %}
+                                <br><small class="text-muted">{{ e.pet.owner.first_name }} {{ e.pet.owner.last_name }}</small>
+                                {% endif %}
+                            </div>
+                            <form method="POST"
+                                  action="{{ url_for('admin.daycare_checkin', enrollment_id=e.id) }}"
+                                  style="display:inline;">
+                                <button type="submit" class="btn btn-sm btn-success">
+                                    <i class="fas fa-sign-in-alt me-1"></i>Check In
+                                </button>
+                            </form>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Today's Boarding Activity -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header" style="background:#fef9c3;">
+                    <h6 class="mb-0 fw-bold" style="color:#92400e;">
+                        <i class="fas fa-hotel me-2"></i>Boarding Activity Today
+                        <span class="badge ms-2" style="background:#92400e;color:#fff;">{{ (boarding_arrivals_today|length) + (boarding_departures_today|length) }}</span>
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    {% if not boarding_arrivals_today and not boarding_departures_today %}
+                    <div class="text-center py-4 text-muted small">No boarding activity today.</div>
+                    {% else %}
+                    <div class="list-group list-group-flush">
+                        {% for b in boarding_arrivals_today %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center py-2">
+                            <div>
+                                <span class="badge me-1" style="background:#fef9c3;color:#92400e;font-size:0.7rem;">
+                                    <i class="fas fa-sign-in-alt me-1"></i>Drop-off
+                                </span>
+                                <strong>{{ b.pet.name }}</strong>
+                                {% if b.pet.breed %}<small class="text-muted ms-1">{{ b.pet.breed }}</small>{% endif %}
+                                {% if b.pet.owner %}
+                                <br><small class="text-muted ms-4">{{ b.pet.owner.first_name }} {{ b.pet.owner.last_name }}</small>
+                                {% endif %}
+                                {% if b.check_in_time %}
+                                <small class="text-muted ms-1">· {{ b.check_in_time }}</small>
+                                {% endif %}
+                            </div>
+                            <form method="POST"
+                                  action="{{ url_for('admin.checkin_boarding', booking_id=b.id) }}"
+                                  style="display:inline;">
+                                <button type="submit" class="btn btn-sm btn-success">
+                                    <i class="fas fa-sign-in-alt me-1"></i>Check In
+                                </button>
+                            </form>
+                        </div>
+                        {% endfor %}
+
+                        {% for b in boarding_departures_today %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center py-2">
+                            <div>
+                                <span class="badge me-1" style="background:#dcfce7;color:#166534;font-size:0.7rem;">
+                                    <i class="fas fa-sign-out-alt me-1"></i>Pick-up
+                                </span>
+                                <strong>{{ b.pet.name }}</strong>
+                                {% if b.pet.breed %}<small class="text-muted ms-1">{{ b.pet.breed }}</small>{% endif %}
+                                {% if b.pet.owner %}
+                                <br><small class="text-muted ms-4">{{ b.pet.owner.first_name }} {{ b.pet.owner.last_name }}</small>
+                                {% endif %}
+                                {% if b.check_out_time %}
+                                <small class="text-muted ms-1">· {{ b.check_out_time }}</small>
+                                {% endif %}
+                            </div>
+                            {% if b.checked_in %}
+                            <form method="POST"
+                                  action="{{ url_for('admin.complete_boarding', booking_id=b.id) }}"
+                                  style="display:inline;"
+                                  onsubmit="return confirm('Complete boarding for {{ b.pet.name }}?');">
+                                <button type="submit" class="btn btn-sm btn-outline-success">
+                                    <i class="fas fa-sign-out-alt me-1"></i>Check Out
+                                </button>
+                            </form>
+                            {% else %}
+                            <span class="badge bg-warning text-dark small">Not Checked In</span>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

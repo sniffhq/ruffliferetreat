@@ -692,13 +692,23 @@ def book_appointment():
         e.pet_id for e in _DE.query.filter_by(active=True).all()
     }
 
+    # Daycare capacity per weekday (Mon-Thu) for the customer calendar widget
+    _dc_days = ['monday', 'tuesday', 'wednesday', 'thursday']
+    daycare_capacity = {}
+    for _dc_day in _dc_days:
+        daycare_capacity[_dc_day] = _DE.query.filter_by(active=True).filter(
+            getattr(_DE, _dc_day) == True
+        ).count()
+    daycare_capacity_json = _json.dumps(daycare_capacity)
+
     return render_template('customer/book_appointment.html',
                            pets=pets,
                            services=services,
                            blocked_dates_json=blocked_dates_json,
                            future_blocks=future_blocks,
                            today=today,
-                           enrolled_pet_ids=enrolled_pet_ids)
+                           enrolled_pet_ids=enrolled_pet_ids,
+                           daycare_capacity_json=daycare_capacity_json)
 
 @bp.route('/available-times')
 @login_required

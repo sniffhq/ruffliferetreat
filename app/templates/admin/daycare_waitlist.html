@@ -66,7 +66,7 @@
                             </td>
                             <td>
                                 <div class="d-flex gap-1 flex-wrap">
-                                    {% for day, label in [('monday','M'),('tuesday','T'),('wednesday','W'),('thursday','Th'),('friday','F')] %}
+                                    {% for day, label in [('monday','M'),('tuesday','T'),('wednesday','W'),('thursday','Th')] %}
                                     <span class="badge {% if entry[day] %}bg-primary{% else %}bg-light text-muted border{% endif %}" style="min-width:24px;">{{ label }}</span>
                                     {% endfor %}
                                 </div>
@@ -134,7 +134,7 @@
                     <div class="mb-3">
                         <label class="form-label fw-bold">Attendance Days <span class="text-danger">*</span></label>
                         <div class="d-flex gap-3 flex-wrap mt-1">
-                            {% for val, label in [('monday','Monday'),('tuesday','Tuesday'),('wednesday','Wednesday'),('thursday','Thursday'),('friday','Friday')] %}
+                            {% for val, label in [('monday','Monday'),('tuesday','Tuesday'),('wednesday','Wednesday'),('thursday','Thursday')] %}
                             <div class="form-check">
                                 <input class="form-check-input approve-day" type="checkbox"
                                        name="{{ val }}" id="approve_{{ val }}" value="1">

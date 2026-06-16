@@ -271,7 +271,7 @@
                             <td>{{ enrollment.enrollment_date.strftime('%m/%d/%Y') }}</td>
                             <td>
                                 <div class="d-flex gap-1 flex-wrap">
-                                {% for day, label in [('monday','M'),('tuesday','T'),('wednesday','W'),('thursday','Th'),('friday','F')] %}
+                                {% for day, label in [('monday','M'),('tuesday','T'),('wednesday','W'),('thursday','Th')] %}
                                 <form method="POST"
                                       action="{{ url_for('admin.toggle_daycare_day', enrollment_id=enrollment.id, day=day) }}"
                                       style="display:inline;">

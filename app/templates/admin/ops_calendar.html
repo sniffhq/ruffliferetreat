@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+{% block title %}Operations Calendar{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4 px-4">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="mb-0"><i class="fas fa-calendar-alt me-2" style="color:#1a1a2e;"></i>Operations Calendar</h2>
+        <div class="d-flex gap-2">
+            <span class="badge px-2 py-1" style="background:#dbeafe;color:#1d4ed8;font-size:0.8rem;">
+                <i class="fas fa-sun me-1"></i>Daycare
+            </span>
+            <span class="badge px-2 py-1" style="background:#fef9c3;color:#92400e;font-size:0.8rem;">
+                <i class="fas fa-sign-in-alt me-1"></i>Drop-off
+            </span>
+            <span class="badge px-2 py-1" style="background:#dcfce7;color:#166534;font-size:0.8rem;">
+                <i class="fas fa-sign-out-alt me-1"></i>Pick-up
+            </span>
+        </div>
+    </div>
+
+    <!-- Month navigation -->
+    <div class="d-flex align-items-center gap-3 mb-3">
+        {% if cal_offset > 0 %}
+        <a href="{{ url_for('admin.ops_calendar', cal_offset=cal_offset - 1) }}"
+           class="btn btn-sm btn-outline-secondary">
+            <i class="fas fa-chevron-left me-1"></i>Previous
+        </a>
+        {% else %}
+        <button class="btn btn-sm btn-outline-secondary" disabled>
+            <i class="fas fa-chevron-left me-1"></i>Previous
+        </button>
+        {% endif %}
+        <h4 class="mb-0 fw-bold">{{ month.name }} {{ month.year }}</h4>
+        <a href="{{ url_for('admin.ops_calendar', cal_offset=cal_offset + 1) }}"
+           class="btn btn-sm btn-outline-secondary">
+            Next<i class="fas fa-chevron-right ms-1"></i>
+        </a>
+        {% if cal_offset > 0 %}
+        <a href="{{ url_for('admin.ops_calendar') }}" class="btn btn-sm btn-link text-muted">Today</a>
+        {% endif %}
+    </div>
+
+    <!-- Calendar -->
+    <div class="card shadow-sm">
+        <div class="card-body p-2">
+            <table class="table table-bordered mb-0" style="table-layout:fixed;">
+                <thead>
+                    <tr style="background:#1a1a2e;">
+                        {% for day_name in ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] %}
+                        <th class="text-center text-white py-2" style="font-size:0.8rem;font-weight:600;">{{ day_name }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                {% for week in month.weeks %}
+                    <tr style="height:90px;vertical-align:top;">
+                    {% for day_num in week %}
+                        {% if day_num == 0 %}
+                        <td style="background:#f9f9f9;"></td>
+                        {% else %}
+                            {% set ds = '%04d-%02d-%02d' % (month.year, month.month, day_num) %}
+                            {% set is_today = (month.year == today.year and month.month == today.month and day_num == today.day) %}
+                            {% set hi = ops_highlight.get(ds) %}
+                        <td class="p-1 {% if is_today %}ops-today{% endif %}"
+                            style="cursor:{% if hi %}pointer{% else %}default{% endif %};
+                                   background:{% if is_today %}#eff6ff{% else %}#fff{% endif %};
+                                   border:{% if is_today %}2px solid #1d4ed8{% else %}1px solid #dee2e6{% endif %};"
+                            {% if hi %}onclick="showOpsDay('{{ ds }}')"{% endif %}>
+
+                            <div class="d-flex justify-content-between align-items-start">
+                                <span class="fw-bold {% if is_today %}text-primary{% else %}text-dark{% endif %}"
+                                      style="font-size:0.85rem;">{{ day_num }}</span>
+                                {% if is_today %}<span class="badge bg-primary" style="font-size:0.6rem;">Today</span>{% endif %}
+                            </div>
+
+                            {% if hi %}
+                            <div class="mt-1 d-flex flex-column gap-1">
+                                {% if hi.dc > 0 %}
+                                <span style="font-size:0.68rem;background:#dbeafe;color:#1d4ed8;border-radius:4px;padding:1px 5px;display:inline-block;">
+                                    <i class="fas fa-sun"></i> {{ hi.dc }} daycare
+                                </span>
+                                {% endif %}
+                                {% if hi.b_in > 0 %}
+                                <span style="font-size:0.68rem;background:#fef9c3;color:#92400e;border-radius:4px;padding:1px 5px;display:inline-block;">
+                                    <i class="fas fa-sign-in-alt"></i> {{ hi.b_in }} drop-off{% if hi.b_in > 1 %}s{% endif %}
+                                </span>
+                                {% endif %}
+                                {% if hi.b_out > 0 %}
+                                <span style="font-size:0.68rem;background:#dcfce7;color:#166534;border-radius:4px;padding:1px 5px;display:inline-block;">
+                                    <i class="fas fa-sign-out-alt"></i> {{ hi.b_out }} pick-up{% if hi.b_out > 1 %}s{% endif %}
+                                </span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                    {% endfor %}
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- ── DAY DETAIL MODAL ─────────────────────────────────────────────────────── -->
+<div class="modal fade" id="opsDayModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#1a1a2e;">
+                <h5 class="modal-title text-white" id="opsDayModalLabel">
+                    <i class="fas fa-calendar-day me-2" style="color:#B07A8E;"></i><span id="ops-modal-date"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0" id="ops-modal-body">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const OPS_CAL      = {{ ops_cal_detail|safe }};
+const TODAY_STR    = '{{ today.isoformat() }}';
+const CSRF_TOKEN   = document.cookie.match(/csrf_token=([^;]+)/)?.[1] || '';
+
+const MONTH_NAMES  = ['January','February','March','April','May','June',
+                      'July','August','September','October','November','December'];
+
+function fmtDate(ds) {
+    const [y, m, d] = ds.split('-').map(Number);
+    const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    const dt   = new Date(y, m - 1, d);
+    return days[dt.getDay()] + ', ' + MONTH_NAMES[m - 1] + ' ' + d + ', ' + y;
+}
+
+function dcBadge() {
+    return '<span class="badge me-1" style="background:#dbeafe;color:#1d4ed8;font-size:0.7rem;">' +
+           '<i class="fas fa-sun me-1"></i>Daycare</span>';
+}
+function bBadge() {
+    return '<span class="badge me-1" style="background:#fef9c3;color:#92400e;font-size:0.7rem;">' +
+           '<i class="fas fa-hotel me-1"></i>Boarding</span>';
+}
+
+function postForm(action, label) {
+    return '<form method="POST" action="' + action + '" style="display:inline;">' +
+           '<input type="hidden" name="csrf_token" value="' + CSRF_TOKEN + '">' +
+           '<button type="submit" class="btn btn-sm ' + label + '">' +
+           (label.includes('success') ? '<i class="fas fa-sign-in-alt me-1"></i>Check In' :
+                                         '<i class="fas fa-sign-out-alt me-1"></i>Check Out') +
+           '</button></form>';
+}
+
+function showOpsDay(ds) {
+    const data   = OPS_CAL[ds] || {};
+    const dc     = data.daycare    || [];
+    const bIn    = data.boarding_in  || [];
+    const bOut   = data.boarding_out || [];
+    const isToday = ds === TODAY_STR;
+
+    document.getElementById('ops-modal-date').textContent = fmtDate(ds);
+
+    let html = '';
+
+    // ── Daycare Expected ──────────────────────────────────────────────────────
+    html += '<div class="p-3 border-bottom">';
+    html += '<h6 class="fw-bold mb-2" style="color:#1d4ed8;"><i class="fas fa-sun me-2"></i>Expected — Daycare (' + dc.length + ')</h6>';
+    if (dc.length === 0) {
+        html += '<p class="text-muted small mb-0">No daycare pets expected.</p>';
+    } else {
+        dc.forEach(function(p) {
+            html += '<div class="d-flex align-items-center justify-content-between py-2 border-bottom">';
+            html += '<div>';
+            html += dcBadge();
+            html += '<strong>' + p.name + '</strong>';
+            html += ' <span class="text-muted small">' + p.breed + '</span>';
+            html += '<br><small class="text-muted"><i class="fas fa-user me-1"></i>' + p.owner + '</small>';
+            html += '</div>';
+            html += '<div class="text-end">';
+            if (isToday) {
+                if (p.is_checked_in) {
+                    html += '<span class="badge bg-success me-2"><i class="fas fa-check me-1"></i>Checked In</span>';
+                    if (p.attendance_id) {
+                        html += postForm('/admin/daycare/attendance/' + p.attendance_id + '/checkout', 'btn-outline-danger btn-sm');
+                    }
+                } else {
+                    html += postForm('/admin/daycare/enrollment/' + p.enrollment_id + '/checkin', 'btn-success btn-sm');
+                }
+            } else {
+                html += '<span class="badge bg-light text-muted border">Expected</span>';
+            }
+            html += '</div>';
+            html += '</div>';
+        });
+    }
+    html += '</div>';
+
+    // ── Boarding Drop-offs ────────────────────────────────────────────────────
+    html += '<div class="p-3 border-bottom">';
+    html += '<h6 class="fw-bold mb-2" style="color:#92400e;"><i class="fas fa-sign-in-alt me-2"></i>Dropping Off — Boarding (' + bIn.length + ')</h6>';
+    if (bIn.length === 0) {
+        html += '<p class="text-muted small mb-0">No boarding drop-offs.</p>';
+    } else {
+        bIn.forEach(function(b) {
+            html += '<div class="d-flex align-items-center justify-content-between py-2 border-bottom">';
+            html += '<div>';
+            html += bBadge();
+            html += '<strong>' + b.name + '</strong>';
+            html += ' <span class="text-muted small">' + b.breed + '</span>';
+            html += '<br><small class="text-muted"><i class="fas fa-user me-1"></i>' + b.owner;
+            if (b.phone && b.phone !== '—') html += ' &nbsp;·&nbsp; <i class="fas fa-phone me-1"></i>' + b.phone;
+            html += '</small>';
+            if (b.kennel) html += '<br><small class="text-muted"><i class="fas fa-bed me-1"></i>' + b.kennel + '</small>';
+            html += '</div>';
+            html += '<div class="text-end">';
+            html += '<small class="text-muted d-block mb-1"><i class="fas fa-clock me-1"></i>' + b.cin_time + '</small>';
+            if (b.checked_in) {
+                html += '<span class="badge bg-success"><i class="fas fa-check me-1"></i>Checked In</span>';
+            } else if (isToday) {
+                html += postForm('/admin/boarding/' + b.id + '/checkin', 'btn-success btn-sm');
+            } else {
+                html += '<span class="badge bg-light text-muted border">Scheduled</span>';
+            }
+            html += '</div>';
+            html += '</div>';
+        });
+    }
+    html += '</div>';
+
+    // ── Boarding Pick-ups ─────────────────────────────────────────────────────
+    html += '<div class="p-3">';
+    html += '<h6 class="fw-bold mb-2" style="color:#166534;"><i class="fas fa-sign-out-alt me-2"></i>Picking Up — Boarding (' + bOut.length + ')</h6>';
+    if (bOut.length === 0) {
+        html += '<p class="text-muted small mb-0">No boarding pick-ups.</p>';
+    } else {
+        bOut.forEach(function(b) {
+            html += '<div class="d-flex align-items-center justify-content-between py-2 border-bottom">';
+            html += '<div>';
+            html += bBadge();
+            html += '<strong>' + b.name + '</strong>';
+            html += ' <span class="text-muted small">' + b.breed + '</span>';
+            html += '<br><small class="text-muted"><i class="fas fa-user me-1"></i>' + b.owner;
+            if (b.phone && b.phone !== '—') html += ' &nbsp;·&nbsp; <i class="fas fa-phone me-1"></i>' + b.phone;
+            html += '</small>';
+            html += '</div>';
+            html += '<div class="text-end">';
+            html += '<small class="text-muted d-block mb-1"><i class="fas fa-clock me-1"></i>' + b.cout_time + '</small>';
+            if (!b.checked_in) {
+                html += '<span class="badge bg-warning text-dark">Not Checked In Yet</span>';
+            } else if (isToday) {
+                html += postForm('/admin/boarding/' + b.id + '/complete', 'btn-outline-success btn-sm');
+            } else {
+                html += '<span class="badge bg-light text-muted border">Scheduled</span>';
+            }
+            html += '</div>';
+            html += '</div>';
+        });
+    }
+    html += '</div>';
+
+    document.getElementById('ops-modal-body').innerHTML = html;
+    new bootstrap.Modal(document.getElementById('opsDayModal')).show();
+}
+</script>
+{% endblock %}

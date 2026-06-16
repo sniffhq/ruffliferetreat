@@ -172,7 +172,7 @@ def dashboard():
         ]
 
     # Build daycare pets per day based on enrollment schedule flags
-    day_attr_map = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday', 4: 'friday'}
+    day_attr_map = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday'}
     active_enrollments = DaycareEnrollment.query.filter_by(active=True).all()
     daycare_by_day = {}
     for i in range(7):
@@ -562,14 +562,14 @@ def daycare_dashboard():
                     closure_dates_set.add(bd)
                 bd += timedelta(days=1)
 
-    _day_fields = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday', 4: 'friday'}
+    _day_fields = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday'}
     daycare_cal_dates       = {}  # date_str -> [pet names]  (Jinja highlighting)
     daycare_cal_detail_data = {}  # date_str -> {pets, is_closed, count}  (JS modal)
 
     for _offset in range(14):
         d   = cal_start + timedelta(days=_offset)
         dow = d.weekday()
-        if dow >= 5:
+        if dow >= 4:   # skip Friday, Saturday, Sunday — daycare is Mon-Thu only
             continue
         field    = _day_fields[dow]
         day_pets = [e for e in enrollments if getattr(e, field)]
@@ -626,10 +626,9 @@ def daycare_enroll():
         tuesday   = bool(request.form.get('tuesday'))
         wednesday = bool(request.form.get('wednesday'))
         thursday  = bool(request.form.get('thursday'))
-        friday    = bool(request.form.get('friday'))
         notes     = request.form.get('notes', '')
 
-        if not pet_id or not (monday or tuesday or wednesday or thursday or friday):
+        if not pet_id or not (monday or tuesday or wednesday or thursday):
             flash('Please select pet and at least one day.', 'danger')
             return redirect(url_for('admin.daycare_enroll'))
 
@@ -641,7 +640,7 @@ def daycare_enroll():
             tuesday=tuesday,
             wednesday=wednesday,
             thursday=thursday,
-            friday=friday,
+            friday=False,
             notes=notes,
             active=True
         )
@@ -780,7 +779,7 @@ def toggle_daycare_day(enrollment_id, day):
     """Toggle a single daycare day on or off for an enrollment."""
     enrollment = DaycareEnrollment.query.get_or_404(enrollment_id)
 
-    valid_days = ('monday', 'tuesday', 'wednesday', 'thursday', 'friday')
+    valid_days = ('monday', 'tuesday', 'wednesday', 'thursday')
     if day not in valid_days:
         flash('Invalid day.', 'danger')
         return redirect(url_for('admin.daycare_dashboard'))
@@ -811,6 +810,253 @@ def toggle_special_rate(enrollment_id):
 
     db.session.commit()
     return redirect(url_for('admin.daycare_dashboard'))
+
+
+@bp.route('/daycare/schedule')
+@login_required
+@admin_required
+def daycare_schedule():
+    """Drag-and-drop daycare schedule board."""
+    import json as _json
+
+    pending = DaycareWaitlist.query.order_by(DaycareWaitlist.submitted_date.asc()).all()
+
+    # Active enrollments, grouped by day
+    enrollments = (
+        DaycareEnrollment.query
+        .filter_by(active=True)
+        .join(Pet)
+        .order_by(Pet.name)
+        .all()
+    )
+
+    # For each pending entry, resolve the pet_id if a registered user exists
+    # so the JS can pass pet_id on drop rather than a string name
+    pending_data = []
+    for entry in pending:
+        pet_id = None
+        if entry.user_id:
+            matched = Pet.query.filter_by(
+                user_id=entry.user_id, name=entry.pet_name, is_active=True
+            ).first()
+            if matched:
+                pet_id = matched.id
+        pending_data.append({
+            'id':         entry.id,
+            'name':       f'{entry.first_name} {entry.last_name}',
+            'first_name': entry.first_name,
+            'pet_name':   entry.pet_name or '',
+            'breed':      entry.breed or '',
+            'phone':      entry.phone or '',
+            'user_id':    entry.user_id,
+            'pet_id':     pet_id,
+            'days': {
+                'monday':    entry.monday,
+                'tuesday':   entry.tuesday,
+                'wednesday': entry.wednesday,
+                'thursday':  entry.thursday,
+            },
+        })
+
+    # Enrolled pets per day for the board columns
+    days = ['monday', 'tuesday', 'wednesday', 'thursday']
+    board = {day: [] for day in days}
+    for enr in enrollments:
+        for day in days:
+            if getattr(enr, day):
+                board[day].append({
+                    'enrollment_id': enr.id,
+                    'pet_id':        enr.pet.id,
+                    'pet_name':      enr.pet.name,
+                    'breed':         enr.pet.breed or '',
+                    'owner':         f'{enr.pet.owner.first_name} {enr.pet.owner.last_name}',
+                })
+
+    return render_template(
+        'admin/daycare_schedule.html',
+        pending_json  = _json.dumps(pending_data),
+        board_json    = _json.dumps(board),
+    )
+
+
+@bp.route('/daycare/schedule/enroll', methods=['POST'])
+@login_required
+@admin_required
+def schedule_enroll():
+    """AJAX: add a pet to a day on the schedule board."""
+    data      = request.get_json(force=True)
+    pet_id    = data.get('pet_id')
+    day       = data.get('day')
+    days_list = ['monday', 'tuesday', 'wednesday', 'thursday']
+
+    if not pet_id or day not in days_list:
+        return jsonify({'ok': False, 'error': 'Invalid pet or day'}), 400
+
+    pet = Pet.query.get(pet_id)
+    if not pet:
+        return jsonify({'ok': False, 'error': 'Pet not found'}), 404
+
+    enr = DaycareEnrollment.query.filter_by(pet_id=pet_id, active=True).first()
+    if enr:
+        setattr(enr, day, True)
+    else:
+        enr = DaycareEnrollment(
+            pet_id=pet_id,
+            enrollment_date=datetime.now().date(),
+            active=True,
+            **{d: (d == day) for d in days_list},
+        )
+        db.session.add(enr)
+    db.session.commit()
+    return jsonify({'ok': True, 'enrollment_id': enr.id})
+
+
+@bp.route('/daycare/schedule/unenroll', methods=['POST'])
+@login_required
+@admin_required
+def schedule_unenroll():
+    """AJAX: remove a pet from a specific day (deactivate if no days remain)."""
+    data      = request.get_json(force=True)
+    pet_id    = data.get('pet_id')
+    day       = data.get('day')
+    days_list = ['monday', 'tuesday', 'wednesday', 'thursday']
+
+    if not pet_id or day not in days_list:
+        return jsonify({'ok': False, 'error': 'Invalid pet or day'}), 400
+
+    enr = DaycareEnrollment.query.filter_by(pet_id=pet_id, active=True).first()
+    if enr:
+        setattr(enr, day, False)
+        if not any(getattr(enr, d) for d in days_list):
+            enr.active = False
+        db.session.commit()
+    return jsonify({'ok': True})
+
+
+@bp.route('/daycare/waitlist/<int:entry_id>/approve-schedule', methods=['POST'])
+@login_required
+@admin_required
+def approve_waitlist_schedule(entry_id):
+    """AJAX: approve a waitlist request and enroll the pet for chosen days."""
+    data      = request.get_json(force=True)
+    pet_id    = data.get('pet_id')
+    day_flags = data.get('days', {})   # {monday: true, tuesday: false, …}
+    days_list = ['monday', 'tuesday', 'wednesday', 'thursday']
+
+    if not pet_id:
+        return jsonify({'ok': False, 'error': 'No pet selected'}), 400
+    if not any(day_flags.get(d) for d in days_list):
+        return jsonify({'ok': False, 'error': 'Select at least one day'}), 400
+
+    entry = DaycareWaitlist.query.get(entry_id)
+    if not entry:
+        return jsonify({'ok': False, 'error': 'Waitlist entry not found'}), 404
+
+    pet = Pet.query.get(pet_id)
+    if not pet:
+        return jsonify({'ok': False, 'error': 'Pet not found'}), 404
+
+    enr = DaycareEnrollment.query.filter_by(pet_id=pet_id, active=True).first()
+    if enr:
+        for d in days_list:
+            if day_flags.get(d):
+                setattr(enr, d, True)
+    else:
+        enr = DaycareEnrollment(
+            pet_id=pet_id,
+            enrollment_date=datetime.now().date(),
+            active=True,
+            **{d: bool(day_flags.get(d)) for d in days_list},
+        )
+        db.session.add(enr)
+
+    db.session.delete(entry)
+    db.session.commit()
+
+    try:
+        from app.audit_service import audit
+        audit('daycare.enrolled', 'daycare_enrollment', enr.id, pet.name,
+              f'{pet.name} enrolled via schedule board by {current_user.first_name} {current_user.last_name}')
+    except Exception:
+        pass
+
+    return jsonify({
+        'ok': True,
+        'enrollment_id': enr.id,
+        'pet_id':    pet.id,
+        'pet_name':  pet.name,
+        'breed':     pet.breed or '',
+        'owner':     f'{pet.owner.first_name} {pet.owner.last_name}',
+    })
+
+
+@bp.route('/daycare/waitlist/<int:entry_id>/contact-schedule', methods=['POST'])
+@login_required
+@admin_required
+def contact_waitlist_schedule(entry_id):
+    """AJAX: send SMS to a waitlist entry from the schedule board."""
+    data         = request.get_json(force=True)
+    message_type = data.get('message_type', 'standby')
+
+    entry      = DaycareWaitlist.query.get_or_404(entry_id)
+    phone      = entry.phone
+    first_name = entry.first_name
+    pet_name   = entry.pet_name or 'your pup'
+    business   = current_app.config.get('BUSINESS_NAME', 'Ruff Life Retreat')
+    linked_user_id = entry.user_id
+
+    if entry.user_id:
+        linked = User.query.get(entry.user_id)
+        if linked and linked.phone:
+            phone = linked.phone
+
+    if message_type == 'standby':
+        body = (
+            f"Hi {first_name}! Thank you for your interest in {business} Doggy Daycare. "
+            f"We don't have an opening available at this time, but we've placed {pet_name} "
+            f"on our standby list and will reach out as soon as a spot opens up! — {business}"
+        )
+    else:
+        body = (
+            f"Hi {first_name}! Great news — a spot has opened up in our Doggy Daycare program! "
+            f"We'd love to get {pet_name} enrolled. Please reply to this message or give us a call "
+            f"to get started. — {business}"
+        )
+
+    try:
+        from app.sms_service import _normalize_phone
+        from app.models import SmsMessage
+        from twilio.rest import Client
+
+        to_e164     = _normalize_phone(phone)
+        from_number = current_app.config.get('TWILIO_PHONE_NUMBER')
+        client      = Client(current_app.config.get('TWILIO_ACCOUNT_SID'),
+                             current_app.config.get('TWILIO_AUTH_TOKEN'))
+        message     = client.messages.create(body=body, from_=from_number, to=to_e164)
+
+        log = SmsMessage(
+            user_id=linked_user_id, direction='outbound',
+            from_number=from_number, to_number=to_e164,
+            body=body, twilio_sid=message.sid, is_read=True,
+        )
+        db.session.add(log)
+        entry.contacted = True
+        db.session.commit()
+        return jsonify({'ok': True})
+    except Exception as e:
+        current_app.logger.error(f'Schedule board SMS failed for entry {entry_id}: {e}')
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@bp.route('/daycare/waitlist/<int:entry_id>/dismiss', methods=['POST'])
+@login_required
+@admin_required
+def dismiss_waitlist_entry(entry_id):
+    """AJAX: remove a waitlist entry without enrolling (decline/dismiss)."""
+    entry = DaycareWaitlist.query.get_or_404(entry_id)
+    db.session.delete(entry)
+    db.session.commit()
+    return jsonify({'ok': True})
 
 
 @bp.route('/daycare/waitlist')
@@ -844,7 +1090,6 @@ def daycare_waitlist_admin():
             'tuesday':   entry.tuesday,
             'wednesday': entry.wednesday,
             'thursday':  entry.thursday,
-            'friday':    entry.friday,
         }
     entry_days_json = _json.dumps(entry_days_map)
 
@@ -878,10 +1123,9 @@ def approve_waitlist_entry(entry_id):
     tuesday   = bool(request.form.get('tuesday'))
     wednesday = bool(request.form.get('wednesday'))
     thursday  = bool(request.form.get('thursday'))
-    friday    = bool(request.form.get('friday'))
     notes     = request.form.get('notes', '')
 
-    if not pet_id or not any([monday, tuesday, wednesday, thursday, friday]):
+    if not pet_id or not any([monday, tuesday, wednesday, thursday]):
         flash('Please select a pet and at least one day.', 'danger')
         return redirect(url_for('admin.daycare_waitlist_admin'))
 
@@ -890,7 +1134,7 @@ def approve_waitlist_entry(entry_id):
         pet_id          = pet_id,
         enrollment_date = datetime.now().date(),
         monday=monday, tuesday=tuesday, wednesday=wednesday,
-        thursday=thursday, friday=friday,
+        thursday=thursday, friday=False,
         notes=notes, active=True,
     )
     db.session.add(enrollment)
@@ -1359,6 +1603,203 @@ def boarding_dashboard():
                          boarding_dates=json.dumps(boarding_dates),
                          boarding_dates_parsed=boarding_dates,
                          calendar_detail=json.dumps(calendar_detail))
+
+
+# ============================================================
+# OPERATIONS CALENDAR  (boarding + daycare combined)
+# ============================================================
+
+@bp.route('/ops/calendar')
+@login_required
+@admin_required
+def ops_calendar():
+    """Combined Operations Calendar: boarding check-ins/outs + daycare expected."""
+    import calendar as _cal
+    import json as _json
+    from datetime import date as _date
+
+    today = datetime.now().date()
+
+    # ── Month pagination ────────────────────────────────────────────────────────
+    _cal.setfirstweekday(6)  # weeks start Sunday
+    cal_offset = request.args.get('cal_offset', 0, type=int)
+    cal_offset = max(0, cal_offset)
+
+    _mo = (today.month - 1 + cal_offset) % 12 + 1
+    _yr = today.year + ((today.month - 1 + cal_offset) // 12)
+    month_data = {
+        'year':  _yr,
+        'month': _mo,
+        'name':  _cal.month_name[_mo],
+        'weeks': _cal.monthcalendar(_yr, _mo),
+    }
+    month_start = _date(_yr, _mo, 1)
+    month_end   = _date(_yr + (_mo // 12), (_mo % 12) + 1, 1) - timedelta(days=1) \
+                  if _mo < 12 else _date(_yr + 1, 1, 1) - timedelta(days=1)
+
+    # ── Boarding: active stays that touch this month ────────────────────────────
+    future_boarding = Boarding.query.filter(
+        Boarding.status == 'active',
+        Boarding.check_out_date >= month_start,
+        Boarding.check_in_date  <= month_end,
+    ).all()
+
+    # ── Daycare: active enrollments ────────────────────────────────────────────
+    _dc_fields = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday'}
+    enrollments = (DaycareEnrollment.query
+                   .filter_by(active=True)
+                   .join(Pet, DaycareEnrollment.pet_id == Pet.id)
+                   .order_by(Pet.name).all())
+
+    # Today's checked-in daycare pets (need attendance_id for checkout button)
+    _today_att = DaycareAttendance.query.filter(
+        DaycareAttendance.check_in_time >= datetime.combine(today, datetime.min.time()),
+        DaycareAttendance.check_in_time <= datetime.combine(today, datetime.max.time()),
+    ).all()
+    _checked_in_now = {a.enrollment_id: a.id for a in _today_att if a.check_out_time is None}
+
+    # ── Build per-day combined data ─────────────────────────────────────────────
+    ops_detail    = {}  # date_str -> {daycare, boarding_in, boarding_out}
+    ops_highlight = {}  # date_str -> {dc, b_in, b_out}  for Jinja calendar dots
+
+    d = month_start
+    while d <= month_end:
+        ds  = d.isoformat()
+        dow = d.weekday()
+
+        # Daycare (Mon-Thu only)
+        dc_pets = []
+        if dow in _dc_fields:
+            field = _dc_fields[dow]
+            for e in enrollments:
+                if getattr(e, field):
+                    owner = e.pet.owner
+                    dc_pets.append({
+                        'name':          e.pet.name,
+                        'breed':         e.pet.breed or 'Dog',
+                        'owner':         f'{owner.first_name} {owner.last_name}' if owner else '—',
+                        'enrollment_id': e.id,
+                        'is_checked_in': (e.id in _checked_in_now) if d == today else False,
+                        'attendance_id': _checked_in_now.get(e.id) if d == today else None,
+                    })
+
+        # Boarding drop-offs (check-in date = this day)
+        boarding_in = []
+        for b in future_boarding:
+            if b.check_in_date == d:
+                owner = b.pet.owner
+                boarding_in.append({
+                    'id':         b.id,
+                    'name':       b.pet.name,
+                    'breed':      b.pet.breed or 'Dog',
+                    'owner':      f'{owner.first_name} {owner.last_name}' if owner else '—',
+                    'phone':      (owner.phone or '—') if owner else '—',
+                    'cin_time':   b.check_in_time or '08:00',
+                    'checked_in': bool(b.checked_in),
+                    'kennel':     (f'{(b.kennel_type or "Kennel").title()} #{b.kennel_number}')
+                                  if b.kennel_number else None,
+                })
+
+        # Boarding pick-ups (check-out date = this day)
+        boarding_out = []
+        for b in future_boarding:
+            if b.check_out_date == d:
+                owner = b.pet.owner
+                boarding_out.append({
+                    'id':        b.id,
+                    'name':      b.pet.name,
+                    'breed':     b.pet.breed or 'Dog',
+                    'owner':     f'{owner.first_name} {owner.last_name}' if owner else '—',
+                    'phone':     (owner.phone or '—') if owner else '—',
+                    'cout_time': b.check_out_time or '17:00',
+                    'checked_in': bool(b.checked_in),
+                })
+
+        if dc_pets or boarding_in or boarding_out:
+            ops_detail[ds]    = {'daycare': dc_pets, 'boarding_in': boarding_in, 'boarding_out': boarding_out}
+            ops_highlight[ds] = {'dc': len(dc_pets), 'b_in': len(boarding_in), 'b_out': len(boarding_out)}
+
+        d += timedelta(days=1)
+
+    return render_template('admin/ops_calendar.html',
+                           month=month_data,
+                           cal_offset=cal_offset,
+                           today=today,
+                           ops_cal_detail=_json.dumps(ops_detail),
+                           ops_highlight=ops_highlight)
+
+
+# ============================================================
+# OPERATIONS DASHBOARD  (boarding + daycare combined)
+# ============================================================
+
+@bp.route('/ops/dashboard')
+@login_required
+@admin_required
+def ops_dashboard():
+    """Combined Operations Dashboard: all currently checked-in pets + today's schedule."""
+    import json as _json
+
+    today = datetime.now().date()
+
+    # ── Daycare: currently checked in ──────────────────────────────────────────
+    _today_att = DaycareAttendance.query.filter(
+        DaycareAttendance.check_in_time >= datetime.combine(today, datetime.min.time()),
+        DaycareAttendance.check_in_time <= datetime.combine(today, datetime.max.time()),
+        DaycareAttendance.check_out_time == None,
+    ).all()
+
+    daycare_checked_in = []
+    for a in _today_att:
+        enr = DaycareEnrollment.query.get(a.enrollment_id)
+        if enr and enr.pet:
+            owner = enr.pet.owner
+            daycare_checked_in.append({
+                'attendance': a,
+                'pet':        enr.pet,
+                'owner':      owner,
+                'enrollment': enr,
+            })
+
+    # ── Boarding: currently checked in ────────────────────────────────────────
+    boarding_checked_in = Boarding.query.filter_by(
+        status='active', checked_in=True
+    ).order_by(Boarding.check_in_date.asc()).all()
+
+    # ── Today's daycare expected (not yet checked in) ─────────────────────────
+    _dc_fields = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday'}
+    dow = today.weekday()
+    daycare_expected_today = []
+    _checked_in_ids = {a.enrollment_id for a in _today_att}
+    if dow in _dc_fields:
+        field = _dc_fields[dow]
+        enrollments = (DaycareEnrollment.query.filter_by(active=True)
+                       .join(Pet, DaycareEnrollment.pet_id == Pet.id)
+                       .order_by(Pet.name).all())
+        for e in enrollments:
+            if getattr(e, field) and e.id not in _checked_in_ids:
+                daycare_expected_today.append(e)
+
+    # ── Today's boarding arrivals (not yet checked in) ────────────────────────
+    boarding_arrivals_today = Boarding.query.filter(
+        Boarding.status == 'active',
+        Boarding.check_in_date == today,
+        Boarding.checked_in == False,
+    ).all()
+
+    # ── Today's boarding departures ───────────────────────────────────────────
+    boarding_departures_today = Boarding.query.filter(
+        Boarding.status == 'active',
+        Boarding.check_out_date == today,
+    ).all()
+
+    return render_template('admin/ops_dashboard.html',
+                           daycare_checked_in=daycare_checked_in,
+                           boarding_checked_in=boarding_checked_in,
+                           daycare_expected_today=daycare_expected_today,
+                           boarding_arrivals_today=boarding_arrivals_today,
+                           boarding_departures_today=boarding_departures_today,
+                           today=today)
 
 
 def _check_boarding_conflict(pet_id, check_in_date, check_out_date, exclude_booking_id=None):
@@ -3664,7 +4105,7 @@ def update_daycare_schedule(customer_id):
         enrollment.tuesday   = bool(request.form.get(f'{prefix}tuesday'))
         enrollment.wednesday = bool(request.form.get(f'{prefix}wednesday'))
         enrollment.thursday  = bool(request.form.get(f'{prefix}thursday'))
-        enrollment.friday    = bool(request.form.get(f'{prefix}friday'))
+        enrollment.friday    = False  # Friday removed from daycare
     db.session.commit()
     flash('Daycare schedule updated.', 'success')
     return redirect(url_for('admin.customer_detail', customer_id=customer_id))
