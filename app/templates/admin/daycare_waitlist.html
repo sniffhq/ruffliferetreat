@@ -37,8 +37,6 @@
                     </thead>
                     <tbody>
                         {% for entry in pending %}
-                        {% set pets = entry_pets.get(entry.id, []) %}
-                        {% set pets_json %}[{% for p in pets %}{"id":{{ p.id }},"name":"{{ p.name|replace('"',"'") }}"}{% if not loop.last %},{% endif %}{% endfor %}]{% endset %}
                         <tr>
                             <td class="text-muted small">
                                 {{ entry.submitted_date.strftime('%m/%d/%Y') }}<br>
@@ -75,14 +73,18 @@
                             </td>
                             <td><small class="text-muted">{{ entry.additional_info or '—' }}</small></td>
                             <td class="text-end text-nowrap">
-                                <!-- Approve -->
-                                <button type="button" class="btn btn-sm btn-success fw-bold me-1"
-                                        onclick="openApproveModal({{ entry.id }}, '{{ entry.first_name }} {{ entry.last_name }}', {{ pets_json }})">
+                                <!-- Approve — data attrs so pet names with apostrophes/quotes are safe -->
+                                <button type="button" class="btn btn-sm btn-success fw-bold me-1 btn-approve"
+                                        data-entry-id="{{ entry.id }}"
+                                        data-customer="{{ (entry.first_name ~ ' ' ~ entry.last_name)|e }}"
+                                        data-pets="{{ entry_pets.get(entry.id, [])|tojson|string|e }}">
                                     <i class="fas fa-check me-1"></i>Approve
                                 </button>
                                 <!-- Contact -->
-                                <button type="button" class="btn btn-sm btn-primary me-1"
-                                        onclick="openContactModal({{ entry.id }}, '{{ entry.first_name }} {{ entry.last_name }}', '{{ entry.pet_name or '' }}')">
+                                <button type="button" class="btn btn-sm btn-primary me-1 btn-contact"
+                                        data-entry-id="{{ entry.id }}"
+                                        data-customer="{{ (entry.first_name ~ ' ' ~ entry.last_name)|e }}"
+                                        data-pet="{{ (entry.pet_name or '')|e }}">
                                     <i class="fas fa-sms me-1"></i>Contact
                                 </button>
                                 <!-- Delete -->
@@ -214,51 +216,74 @@
 <script>
 const BUSINESS = "Ruff Life Retreat";
 
-function openApproveModal(entryId, customerName, pets) {
-    document.getElementById('approveCustomerName').textContent = customerName;
-    document.getElementById('approveForm').action = '/admin/daycare/waitlist/' + entryId + '/approve';
+document.addEventListener('DOMContentLoaded', function () {
 
-    // Reset day checkboxes
-    document.querySelectorAll('.approve-day').forEach(cb => cb.checked = false);
+    // ── Approve buttons ──────────────────────────────────────────────────────
+    document.querySelectorAll('.btn-approve').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const entryId      = this.dataset.entryId;
+            const customerName = this.dataset.customer;
+            const pets         = JSON.parse(this.dataset.pets || '[]');
 
-    // Populate pet dropdown
-    const sel = document.getElementById('approvePetSelect');
-    sel.innerHTML = '<option value="">— choose a pet —</option>';
-    if (pets.length === 0) {
-        sel.innerHTML += '<option disabled>No active pets found — add pets to the customer profile first</option>';
-        document.getElementById('approvePetNote').textContent =
-            'No active pets linked. Visit the customer profile to add pets first.';
-    } else {
-        pets.forEach(p => {
-            const opt = document.createElement('option');
-            opt.value = p.id;
-            opt.textContent = p.name;
-            sel.appendChild(opt);
+            document.getElementById('approveCustomerName').textContent = customerName;
+            document.getElementById('approveForm').action =
+                '/admin/daycare/waitlist/' + entryId + '/approve';
+
+            // Reset day checkboxes
+            document.querySelectorAll('.approve-day').forEach(cb => cb.checked = false);
+
+            // Populate pet dropdown
+            const sel = document.getElementById('approvePetSelect');
+            sel.innerHTML = '<option value="">— choose a pet —</option>';
+            if (pets.length === 0) {
+                const opt = document.createElement('option');
+                opt.disabled = true;
+                opt.textContent = 'No active pets found — add pets to the customer profile first';
+                sel.appendChild(opt);
+                document.getElementById('approvePetNote').textContent =
+                    'No active pets found. Visit the customer profile to add pets first.';
+            } else {
+                pets.forEach(function (p) {
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.textContent = p.name;
+                    sel.appendChild(opt);
+                });
+                if (pets.length === 1) sel.value = pets[0].id;
+                document.getElementById('approvePetNote').textContent = '';
+            }
+
+            new bootstrap.Modal(document.getElementById('approveModal')).show();
         });
-        if (pets.length === 1) sel.value = pets[0].id;
-        document.getElementById('approvePetNote').textContent = '';
-    }
+    });
 
-    new bootstrap.Modal(document.getElementById('approveModal')).show();
-}
+    // ── Contact buttons ──────────────────────────────────────────────────────
+    document.querySelectorAll('.btn-contact').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const entryId      = this.dataset.entryId;
+            const customerName = this.dataset.customer;
+            const pet          = this.dataset.pet || 'your pup';
+            const firstName    = customerName.split(' ')[0];
 
-function openContactModal(entryId, customerName, petName) {
-    document.getElementById('contactCustomerName').textContent = customerName;
-    document.getElementById('contactForm').action = '/admin/daycare/waitlist/' + entryId + '/contact';
+            document.getElementById('contactCustomerName').textContent = customerName;
+            document.getElementById('contactForm').action =
+                '/admin/daycare/waitlist/' + entryId + '/contact';
 
-    const pet = petName || 'your pup';
+            document.getElementById('previewStandby').textContent =
+                "Hi " + firstName + "! Thank you for your interest in " + BUSINESS + " Doggy Daycare. " +
+                "We don't have an opening available at this time, but we've placed " + pet +
+                " on our standby list and will reach out as soon as a spot opens up! — " + BUSINESS;
 
-    document.getElementById('previewStandby').textContent =
-        "Hi " + customerName.split(' ')[0] + "! Thank you for your interest in " + BUSINESS + " Doggy Daycare. " +
-        "We don't have an opening available at this time, but we've placed " + pet +
-        " on our standby list and will reach out as soon as a spot opens up! — " + BUSINESS;
+            document.getElementById('previewOpening').textContent =
+                "Hi " + firstName + "! Great news — a spot has opened up in our Doggy Daycare program! " +
+                "We'd love to get " + pet + " enrolled. Please reply to this message or give us a call " +
+                "to get started. — " + BUSINESS;
 
-    document.getElementById('previewOpening').textContent =
-        "Hi " + customerName.split(' ')[0] + "! Great news — a spot has opened up in our Doggy Daycare program! " +
-        "We'd love to get " + pet + " enrolled. Please reply to this message or give us a call to get started. — " + BUSINESS;
+            document.getElementById('msgStandby').checked = true;
+            new bootstrap.Modal(document.getElementById('contactModal')).show();
+        });
+    });
 
-    document.getElementById('msgStandby').checked = true;
-    new bootstrap.Modal(document.getElementById('contactModal')).show();
-}
+});
 </script>
 {% endblock %}
