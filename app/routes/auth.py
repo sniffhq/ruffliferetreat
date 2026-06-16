@@ -126,12 +126,6 @@ def register():
             user.waiver_accepted    = True
             user.waiver_accepted_at = datetime.now()
 
-        # Save service interest
-        if request.form.get('interested_in_daycare') == '1':
-            user.interested_in_daycare = True
-        if request.form.get('interested_in_boarding') == '1':
-            user.interested_in_boarding = True
-
         # Save SMS opt-in
         if request.form.get('sms_opt_in') == '1':
             user.sms_opt_in = True

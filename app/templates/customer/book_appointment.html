@@ -15,15 +15,37 @@
             <strong class="text-white">Appointment Request</strong>
         </div>
         <form method="POST" action="{{ url_for('customer.book_appointment') }}" id="booking-form">
+            <input type="hidden" name="service_choice" id="service_choice" value="boarding">
+            {% if services %}
+            <input type="hidden" name="service_type_id" value="{{ services[0].id }}">
+            {% endif %}
+
             <div class="card-body p-4">
                 <div class="row g-3">
 
-                    <!-- Pet Selection -->
+                    <!-- ── Service Type Selector ── -->
+                    <div class="col-12">
+                        <label class="form-label fw-bold">Service <span class="text-danger">*</span></label>
+                        <div class="d-flex gap-2">
+                            <button type="button" id="btn-boarding"
+                                    class="btn btn-warning fw-bold flex-fill service-btn active-service"
+                                    onclick="selectService('boarding')">
+                                <i class="fas fa-hotel me-2"></i>Boarding
+                            </button>
+                            <button type="button" id="btn-daycare"
+                                    class="btn btn-outline-primary fw-bold flex-fill service-btn"
+                                    onclick="selectService('daycare')">
+                                <i class="fas fa-sun me-2"></i>Daycare
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- ── Pet Selection ── -->
                     <div class="col-12">
                         <label class="form-label fw-bold">Pet(s) <span class="text-danger">*</span></label>
                         {% if pets|length > 1 %}
                         <div class="border rounded p-3 bg-light">
-                            <div class="form-check mb-2">
+                            <div class="form-check mb-2" id="select-all-wrap">
                                 <input class="form-check-input" type="checkbox" id="selectAllPets"
                                        onchange="toggleAllPets(this)">
                                 <label class="form-check-label fw-bold text-warning" for="selectAllPets">
@@ -32,23 +54,20 @@
                             </div>
                             <hr class="my-2">
                             {% for pet in pets %}
-                            {% set records = pet.vaccination_records %}
-                            {% set today = today %}
-                            {% set has_valid = records|selectattr('expiration_date', 'ge', today)|list %}
-                            {% set has_any = records|length > 0 %}
                             <div class="form-check">
                                 <input class="form-check-input pet-checkbox" type="checkbox"
-                                       name="pet_ids" value="{{ pet.id }}"
-                                       id="pet{{ pet.id }}"
-                                       >
+                                       name="pet_ids" value="{{ pet.id }}" id="pet{{ pet.id }}">
                                 <label class="form-check-label" for="pet{{ pet.id }}">
                                     <strong>{{ pet.name }}</strong>
                                     <span class="text-muted small">— {{ pet.breed or 'Mixed' }}</span>
+                                    {% if pet.id in enrolled_pet_ids %}
+                                    <span class="badge bg-success ms-1" style="font-size:0.7rem;" id="enrolled-badge-{{ pet.id }}">Enrolled</span>
+                                    {% endif %}
                                 </label>
                             </div>
                             {% endfor %}
                         </div>
-                        <div class="form-text">Select one or more pets to book together.</div>
+                        <div class="form-text">Select one or more pets.</div>
                         {% else %}
                         {% for pet in pets %}
                         <input type="hidden" name="pet_ids" value="{{ pet.id }}">
@@ -56,21 +75,28 @@
                             <i class="fas fa-paw me-2 text-warning"></i>
                             <strong>{{ pet.name }}</strong>
                             <span class="text-muted small">— {{ pet.breed or 'Mixed' }}</span>
+                            {% if pet.id in enrolled_pet_ids %}
+                            <span class="badge bg-success ms-2">Enrolled in Daycare</span>
+                            {% endif %}
                         </div>
                         {% endfor %}
                         {% endif %}
                     </div>
 
-                    <!-- Service — hidden, always boarding -->
-                    {% if services %}
-                    <input type="hidden" name="service_type_id" value="{{ services[0].id }}">
-                    {% endif %}
-                    <div class="col-12">
-                        <label class="form-label fw-bold">Service</label>
-                        <div class="form-control bg-light text-muted">
-                            <i class="fas fa-hotel me-2 text-warning"></i>Boarding
+                    <!-- ── DAYCARE SECTION ── -->
+                    <div class="col-12" id="daycare-section" style="display:none;">
+                        <div class="alert mb-0" style="background:#e8f4fd; border:1px solid #b8daff;">
+                            <h6 class="fw-bold mb-1"><i class="fas fa-clipboard-list me-2 text-primary"></i>Daycare Waitlist</h6>
+                            <p class="mb-0 small">
+                                Daycare spots are limited. Selecting Daycare will add your pet(s) to our waitlist —
+                                we'll reach out by text as soon as a spot opens up!
+                                Pets already enrolled in daycare will be skipped automatically.
+                            </p>
                         </div>
                     </div>
+
+                    <!-- ── BOARDING SECTION ── -->
+                    <div id="boarding-section">
 
                     <!-- Check-in Date -->
                     <div class="col-md-6">
@@ -184,6 +210,8 @@
                                   placeholder="Any special requests, instructions, or questions..."></textarea>
                     </div>
 
+                    </div><!-- end #boarding-section -->
+
                 </div>
             </div>
 
@@ -200,12 +228,12 @@
             </div>
 
             <div class="card-footer bg-white d-flex justify-content-between align-items-center">
-                <div class="text-muted small">
+                <div class="text-muted small" id="footer-hint">
                     <i class="fas fa-clock me-1"></i>Requests are reviewed within 24 hours
                 </div>
                 <div class="ms-auto">
-                    <button type="submit" class="btn btn-warning text-dark fw-bold px-5">
-                        <i class="fas fa-paper-plane me-2"></i>Submit Request
+                    <button type="submit" class="btn btn-warning text-dark fw-bold px-5" id="submit-btn">
+                        <i class="fas fa-paper-plane me-2"></i><span id="submit-label">Submit Request</span>
                     </button>
                 </div>
             </div>
@@ -215,6 +243,58 @@
 </div>
 
 <script>
+// ── Service selector ─────────────────────────────────────────────────────────
+var BOARDING_REQUIRED = [];  // boarding date/time fields that need required toggle
+
+function selectService(choice) {
+    document.getElementById('service_choice').value = choice;
+
+    var boardingSection = document.getElementById('boarding-section');
+    var daycareSection  = document.getElementById('daycare-section');
+    var btnBoarding     = document.getElementById('btn-boarding');
+    var btnDaycare      = document.getElementById('btn-daycare');
+    var submitLabel     = document.getElementById('submit-label');
+    var footerHint      = document.getElementById('footer-hint');
+
+    if (choice === 'daycare') {
+        boardingSection.style.display = 'none';
+        daycareSection.style.display  = 'block';
+        btnBoarding.classList.remove('btn-warning');
+        btnBoarding.classList.add('btn-outline-secondary');
+        btnDaycare.classList.remove('btn-outline-primary');
+        btnDaycare.classList.add('btn-primary');
+        submitLabel.textContent = 'Join Waitlist';
+        footerHint.innerHTML = '<i class="fas fa-clipboard-list me-1"></i>We\'ll text you when a daycare spot opens';
+        // Disable required on boarding fields
+        boardingSection.querySelectorAll('[required]').forEach(function(el) {
+            el.removeAttribute('required');
+            el.dataset.wasRequired = '1';
+        });
+    } else {
+        boardingSection.style.display = 'block';
+        daycareSection.style.display  = 'none';
+        btnDaycare.classList.remove('btn-primary');
+        btnDaycare.classList.add('btn-outline-primary');
+        btnBoarding.classList.remove('btn-outline-secondary');
+        btnBoarding.classList.add('btn-warning');
+        submitLabel.textContent = 'Submit Request';
+        footerHint.innerHTML = '<i class="fas fa-clock me-1"></i>Requests are reviewed within 24 hours';
+        // Re-enable required on boarding fields
+        boardingSection.querySelectorAll('[data-was-required]').forEach(function(el) {
+            el.setAttribute('required', '');
+            delete el.dataset.wasRequired;
+        });
+    }
+}
+
+// Initialise on load — boarding is default but fields start as required
+document.addEventListener('DOMContentLoaded', function() {
+    // checkin-time and checkout-time start disabled — don't mark them required until a date is picked
+    // Just ensure boarding section is visible by default
+    document.getElementById('boarding-section').style.display = 'block';
+    document.getElementById('daycare-section').style.display  = 'none';
+});
+
 function toggleAllPets(cb) {
     document.querySelectorAll('.pet-checkbox').forEach(function(c) {
         c.checked = cb.checked;

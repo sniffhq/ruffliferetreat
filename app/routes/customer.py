@@ -98,29 +98,36 @@ def onboarding():
             db.session.add(pet)
             db.session.flush()  # Flush to get pet.id without committing
 
+            # Additional pets (from "Add Another Pet" buttons)
+            extra_names   = request.form.getlist('extra_pet_name[]')
+            extra_breeds  = request.form.getlist('extra_pet_breed[]')
+            extra_ages    = request.form.getlist('extra_pet_age[]')
+            extra_weights = request.form.getlist('extra_pet_weight[]')
+            extra_genders = request.form.getlist('extra_pet_gender[]')
+            extra_spayed  = request.form.getlist('extra_spayed_neutered[]')
+
+            for i, extra_name in enumerate(extra_names):
+                if not extra_name.strip():
+                    continue
+                extra_pet = Pet(
+                    user_id       = current_user.id,
+                    name          = extra_name.strip(),
+                    breed         = extra_breeds[i]  if i < len(extra_breeds)  else '',
+                    age           = int(extra_ages[i])    if i < len(extra_ages)    and extra_ages[i].strip()    else None,
+                    weight        = float(extra_weights[i]) if i < len(extra_weights) and extra_weights[i].strip() else None,
+                    gender        = extra_genders[i] if i < len(extra_genders) else None,
+                    spayed_neutered = (extra_spayed[i] == 'yes') if i < len(extra_spayed) else False,
+                    vet_name      = request.form.get('vet_name'),
+                    vet_phone     = request.form.get('vet_phone'),
+                )
+                db.session.add(extra_pet)
+
             current_user.onboarding_complete = True
             if request.form.get('waiver_accepted') == '1':
                 from datetime import datetime as _dt
                 current_user.waiver_accepted    = True
                 current_user.waiver_accepted_at = _dt.now()
             db.session.commit()
-
-            # Auto-add to daycare waitlist if customer expressed interest at registration
-            if current_user.interested_in_daycare:
-                from app.models import DaycareWaitlist
-                already = DaycareWaitlist.query.filter_by(user_id=current_user.id).first()
-                if not already:
-                    entry = DaycareWaitlist(
-                        first_name = current_user.first_name,
-                        last_name  = current_user.last_name,
-                        email      = current_user.email or '',
-                        phone      = current_user.phone or '',
-                        pet_name   = pet.name,
-                        breed      = pet.breed or '',
-                        user_id    = current_user.id,
-                    )
-                    db.session.add(entry)
-                    db.session.commit()
 
             flash(f'Welcome to Ruff Life Retreat! {pet.name} has been added to your account. Please bring vaccination records (Bordetella, Rabies, DHPP) to your first visit.', 'success')
             return redirect(url_for('customer.dashboard'))
@@ -523,14 +530,68 @@ def book_appointment():
 
     if request.method == 'POST':
         try:
+            service_choice = request.form.get('service_choice', 'boarding')
+            pet_ids        = request.form.getlist('pet_ids')
+
+            if not pet_ids:
+                flash('Please select at least one pet.', 'danger')
+                return redirect(url_for('customer.book_appointment'))
+
+            # ── DAYCARE WAITLIST PATH ────────────────────────────────────────
+            if service_choice == 'daycare':
+                from app.models import DaycareEnrollment, DaycareWaitlist
+                selected_ids  = [int(pid) for pid in pet_ids]
+                selected_pets = Pet.query.filter(
+                    Pet.id.in_(selected_ids), Pet.user_id == current_user.id
+                ).all()
+
+                if len(selected_pets) != len(set(selected_ids)):
+                    flash('One or more selected pets could not be found on your account.', 'danger')
+                    return redirect(url_for('customer.book_appointment'))
+
+                added = []
+                for pet in selected_pets:
+                    # Already enrolled?
+                    if DaycareEnrollment.query.filter_by(pet_id=pet.id, active=True).first():
+                        flash(f'{pet.name} is already enrolled in daycare!', 'info')
+                        continue
+                    # Already on waitlist?
+                    already = DaycareWaitlist.query.filter_by(
+                        user_id=current_user.id, pet_name=pet.name
+                    ).first()
+                    if already:
+                        flash(f'{pet.name} is already on the daycare waitlist.', 'info')
+                        continue
+                    entry = DaycareWaitlist(
+                        first_name = current_user.first_name,
+                        last_name  = current_user.last_name,
+                        email      = current_user.email or '',
+                        phone      = current_user.phone or '',
+                        pet_name   = pet.name,
+                        breed      = pet.breed or '',
+                        user_id    = current_user.id,
+                    )
+                    db.session.add(entry)
+                    added.append(pet.name)
+
+                db.session.commit()
+                if added:
+                    names = ', '.join(added)
+                    flash(
+                        f'{names} {"has" if len(added) == 1 else "have"} been added to the daycare waitlist! '
+                        f'We\'ll reach out when a spot opens up.',
+                        'success'
+                    )
+                return redirect(url_for('customer.dashboard'))
+
+            # ── BOARDING PATH ────────────────────────────────────────────────
             date_str          = request.form.get('appointment_date')
             time_str          = request.form.get('appointment_time', '08:00')
             checkout_date_str = request.form.get('checkout_date', '').strip()
             service_type_id   = request.form.get('service_type_id')
-            pet_ids           = request.form.getlist('pet_ids')
 
-            if not pet_ids:
-                flash('Please select at least one pet.', 'danger')
+            if not date_str:
+                flash('Please select a check-in date.', 'danger')
                 return redirect(url_for('customer.book_appointment'))
 
             appointment_date = datetime.strptime(date_str, '%Y-%m-%d').date()
@@ -621,12 +682,18 @@ def book_appointment():
             flash(f'Error booking appointment: {str(e)}', 'danger')
             db.session.rollback()
     
+    from app.models import DaycareEnrollment as _DE
+    enrolled_pet_ids = {
+        e.pet_id for e in _DE.query.filter_by(active=True).all()
+    }
+
     return render_template('customer/book_appointment.html',
                            pets=pets,
                            services=services,
                            blocked_dates_json=blocked_dates_json,
                            future_blocks=future_blocks,
-                           today=today)
+                           today=today,
+                           enrolled_pet_ids=enrolled_pet_ids)
 
 @bp.route('/available-times')
 @login_required

@@ -822,17 +822,14 @@ def daycare_waitlist_admin():
         DaycareWaitlist.submitted_date.asc()
     ).all()
 
-    # Build pet lists per entry for the Approve modal
+    # Build pet lists per entry for the Approve modal (as plain dicts — safe for tojson)
     entry_pets = {}
     for entry in pending:
         if entry.user_id:
-            entry_pets[entry.id] = Pet.query.filter_by(
-                user_id=entry.user_id, is_active=True
-            ).order_by(Pet.name).all()
+            pets_qs = Pet.query.filter_by(user_id=entry.user_id, is_active=True).order_by(Pet.name).all()
         else:
-            entry_pets[entry.id] = Pet.query.filter_by(
-                is_active=True
-            ).order_by(Pet.name).all()
+            pets_qs = Pet.query.filter_by(is_active=True).order_by(Pet.name).all()
+        entry_pets[entry.id] = [{'id': p.id, 'name': p.name} for p in pets_qs]
 
     return render_template('admin/daycare_waitlist.html',
                            pending=pending,

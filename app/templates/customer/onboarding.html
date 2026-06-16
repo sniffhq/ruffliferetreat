@@ -206,6 +206,15 @@
                         </div>
                     </div>
 
+                    <!-- Add Another Pet -->
+                    <div id="extra-pets-container"></div>
+
+                    <div class="text-center mt-2 mb-3">
+                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="addAnotherPet()">
+                            <i class="fas fa-plus-circle me-1"></i>Add Another Pet
+                        </button>
+                    </div>
+
                     <!-- Vaccination Requirements Notice -->
                     <div class="alert alert-warning border-warning mb-4" style="border-left: 4px solid #ffc107;">
                         <h6 class="fw-bold mb-2"><i class="fas fa-syringe me-2"></i>Vaccination Requirements</h6>
@@ -285,6 +294,72 @@
 </div>
 
 <script>
+// ── Add Another Pet ─────────────────────────────────────────────────────────
+var extraPetCount = 0;
+
+function addAnotherPet() {
+    extraPetCount++;
+    var idx = extraPetCount;
+    var container = document.getElementById('extra-pets-container');
+
+    var card = document.createElement('div');
+    card.className = 'onboarding-section mb-3';
+    card.id = 'extra-pet-' + idx;
+    card.innerHTML = `
+        <div class="section-header d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center">
+                <span class="step-number" style="background:#B07A8E;"><i class="fas fa-paw" style="font-size:0.9rem;"></i></span>
+                <h5 style="color:#B07A8E;">Additional Pet #${idx}</h5>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeExtraPet(${idx})">
+                <i class="fas fa-times"></i> Remove
+            </button>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label class="form-label">Pet's Name *</label>
+                <input type="text" class="form-control" name="extra_pet_name[]" required>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Breed *</label>
+                <input type="text" class="form-control" name="extra_pet_breed[]" placeholder="e.g., Golden Retriever" required>
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <label class="form-label">Age (years) *</label>
+                <input type="number" class="form-control" name="extra_pet_age[]" min="0" max="30" required>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Weight (lbs) *</label>
+                <input type="number" class="form-control" name="extra_pet_weight[]" min="0" step="0.1" required>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Sex *</label>
+                <select class="form-select" name="extra_pet_gender[]" required>
+                    <option value="">Select...</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                </select>
+            </div>
+        </div>
+        <div class="mb-2">
+            <label class="form-label">Spayed/Neutered *</label>
+            <select class="form-select" name="extra_spayed_neutered[]" required>
+                <option value="">Select...</option>
+                <option value="yes">Yes, Spayed/Neutered</option>
+                <option value="no">No, Not Fixed</option>
+            </select>
+        </div>
+    `;
+    container.appendChild(card);
+}
+
+function removeExtraPet(idx) {
+    var card = document.getElementById('extra-pet-' + idx);
+    if (card) card.remove();
+}
+
 // Show/hide microchip number field
 document.addEventListener('DOMContentLoaded', function() {
     const microchipRadios = document.querySelectorAll('input[name="microchipped"]');
