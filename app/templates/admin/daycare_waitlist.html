@@ -73,9 +73,9 @@
                             </td>
                             <td><small class="text-muted">{{ entry.additional_info or '—' }}</small></td>
                             <td class="text-end text-nowrap">
-                                <!-- Approve — entry id only; pet list comes from ENTRY_PETS JS var -->
+                                <!-- Approve — pet name passed for auto-select; full list comes from ENTRY_PETS JS var -->
                                 <button type="button" class="btn btn-sm btn-success fw-bold me-1"
-                                        onclick="openApprove({{ entry.id }}, '{{ entry.first_name|e }} {{ entry.last_name|e }}')">
+                                        onclick="openApprove({{ entry.id }}, '{{ entry.first_name|e }} {{ entry.last_name|e }}', '{{ (entry.pet_name or '')|e }}')">
                                     <i class="fas fa-check me-1"></i>Approve
                                 </button>
                                 <!-- Contact — pet name is plain text, no JSON needed -->
@@ -215,7 +215,7 @@ const ENTRY_PETS = {{ entry_pets_json|safe }};
 const ENTRY_DAYS = {{ entry_days_json|safe }};
 const BUSINESS   = "Ruff Life Retreat";
 
-function openApprove(entryId, customerName) {
+function openApprove(entryId, customerName, petName) {
     const pets = ENTRY_PETS[String(entryId)] || [];
     const days = ENTRY_DAYS[String(entryId)] || {};
 
@@ -244,7 +244,17 @@ function openApprove(entryId, customerName) {
             opt.textContent = p.name;
             sel.appendChild(opt);
         });
-        if (pets.length === 1) sel.value = String(pets[0].id);
+        // Auto-select by matching the waitlist pet name (case-insensitive)
+        const nameLower = (petName || '').trim().toLowerCase();
+        let matched = false;
+        Array.from(sel.options).forEach(function(opt) {
+            if (opt.text.trim().toLowerCase() === nameLower) {
+                sel.value = opt.value;
+                matched = true;
+            }
+        });
+        // Fall back: if only one pet and no name match, select it anyway
+        if (!matched && pets.length === 1) sel.value = String(pets[0].id);
         document.getElementById('approvePetNote').textContent = '';
     }
 
