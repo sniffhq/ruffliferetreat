@@ -2713,11 +2713,17 @@ def delete_pet(pet_id):
 def customers():
     show_archived = request.args.get('show_archived')
     search = request.args.get('q', '').strip()
+    sms_filter = request.args.get('sms_filter', '')
 
     if show_archived:
         query = User.query.filter_by(role='customer', is_active=False)
     else:
         query = User.query.filter_by(role='customer', is_active=True)
+
+    if sms_filter == 'no':
+        query = query.filter(
+            db.or_(User.sms_opt_in == False, User.sms_opt_in == None)
+        )
 
     if search:
         sl = search.lower()
@@ -2738,7 +2744,8 @@ def customers():
     resp = make_response(render_template('admin/customers.html',
         customers=all_customers,
         show_archived=show_archived,
-        search=search))
+        search=search,
+        sms_filter=sms_filter))
     resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     resp.headers['Pragma'] = 'no-cache'
     resp.headers['Expires'] = '0'

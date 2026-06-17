@@ -10,20 +10,32 @@
         </button>
     </div>
 
-    <!-- Search -->
-    <form method="GET" class="mb-3 d-flex gap-2" style="max-width:420px;">
-        <input type="text" name="q" class="form-control form-control-sm"
-               placeholder="Search by name, email, or phone…"
-               value="{{ search or '' }}">
-        <button type="submit" class="btn btn-sm btn-warning text-dark">
-            <i class="fas fa-search"></i>
-        </button>
-        {% if search %}
-        <a href="{{ url_for('admin.customers') }}" class="btn btn-sm btn-outline-secondary">
-            <i class="fas fa-times"></i>
+    <!-- Search + Filters -->
+    <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+        <form method="GET" class="d-flex gap-2" style="max-width:420px;">
+            <input type="hidden" name="sms_filter" value="{{ sms_filter or '' }}">
+            <input type="text" name="q" class="form-control form-control-sm"
+                   placeholder="Search by name, email, or phone…"
+                   value="{{ search or '' }}">
+            <button type="submit" class="btn btn-sm btn-warning text-dark">
+                <i class="fas fa-search"></i>
+            </button>
+            {% if search or sms_filter %}
+            <a href="{{ url_for('admin.customers') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-times"></i>
+            </a>
+            {% endif %}
+        </form>
+        {% if sms_filter == 'no' %}
+        <a href="{{ url_for('admin.customers', q=search or '') }}" class="btn btn-sm btn-danger">
+            <i class="fas fa-comment-slash me-1"></i>No SMS Opt-In <span class="badge bg-white text-danger ms-1">{{ customers|length }}</span>
+        </a>
+        {% else %}
+        <a href="{{ url_for('admin.customers', sms_filter='no', q=search or '') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="fas fa-comment-slash me-1"></i>No SMS Opt-In
         </a>
         {% endif %}
-    </form>
+    </div>
 
     <div class="card shadow-sm">
         <div class="card-body p-0">
@@ -36,6 +48,7 @@
                         <th>Phone</th>
                         <th>Pets</th>
                         <th>Member Since</th>
+                        <th>SMS</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -64,6 +77,13 @@
                         </td>
                         <td class="text-muted small">
                             {{ c.created_at.strftime('%m/%d/%Y') if c.created_at else '—' }}
+                        </td>
+                        <td>
+                            {% if c.sms_opt_in %}
+                            <span class="badge bg-success" title="Opted in"><i class="fas fa-comment-dots"></i></span>
+                            {% else %}
+                            <span class="badge bg-light text-muted border" title="Not opted in"><i class="fas fa-comment-slash"></i></span>
+                            {% endif %}
                         </td>
                         <td>
                             <a href="{{ url_for('admin.customer_detail', customer_id=c.id) }}"
