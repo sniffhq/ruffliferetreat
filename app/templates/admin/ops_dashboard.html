@@ -27,6 +27,7 @@
     </div>
 
     <!-- ── Day notes ───────────────────────────────────────────────────────── -->
+    <div id="section-day-notes">
     {% if day_notes %}
     <div class="alert alert-warning d-flex align-items-start gap-2 py-2 mb-3">
         <i class="fas fa-thumbtack mt-1 flex-shrink-0"></i>
@@ -42,9 +43,10 @@
         </div>
     </div>
     {% endif %}
+    </div>
 
     <!-- ── Summary cards ───────────────────────────────────────────────────── -->
-    <div class="row g-2 mb-3">
+    <div id="section-summary-cards" class="row g-2 mb-3">
         <div class="col-6 col-md-3">
             <div class="card shadow-sm h-100">
                 <div class="card-body py-2 px-3">
@@ -95,6 +97,7 @@
     </div>
 
     <!-- ── Pending Daycare Requests ────────────────────────────────────────── -->
+    <div id="section-pending-requests">
     {% if pending_requests %}
     <div class="card shadow-sm mb-4 border-warning">
         <div class="card-header d-flex align-items-center justify-content-between py-2" style="background:#fef9c3;">
@@ -135,9 +138,10 @@
         </div>
     </div>
     {% endif %}
+    </div>
 
     <!-- ── Currently Checked In ───────────────────────────────────────────── -->
-    <div class="card shadow-sm mb-4">
+    <div id="section-checked-in" class="card shadow-sm mb-4">
         <div class="card-header d-flex align-items-center justify-content-between py-2" style="background:#1a1a2e;">
             <h6 class="mb-0 text-white"><i class="fas fa-paw me-2" style="color:#B07A8E;"></i>Currently Checked In</h6>
             <span class="badge bg-light text-dark">{{ (daycare_checked_in|length) + (boarding_checked_in|length) }}</span>
@@ -353,7 +357,7 @@
     </div>
 
     <!-- ── Expected / Activity ─────────────────────────────────────────────── -->
-    <div class="row g-3 mb-4">
+    <div id="section-activity" class="row g-3 mb-4">
 
         <!-- Daycare Expected -->
         <div class="col-md-6">
@@ -605,12 +609,42 @@ function updateTimers() {
 updateTimers();
 setInterval(updateTimers, 30000);
 
-// ── Auto-refresh (90s) ────────────────────────────────────────────────────────
+// ── Partial refresh ───────────────────────────────────────────────────────────
+var _refreshing = false;
+var REFRESH_SECTIONS = [
+    'section-day-notes',
+    'section-summary-cards',
+    'section-pending-requests',
+    'section-checked-in',
+    'section-activity'
+];
+
+function refreshDashboard() {
+    if (_refreshing) return;
+    _refreshing = true;
+    fetch(window.location.pathname, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+        .then(function(r) { return r.text(); })
+        .then(function(html) {
+            var doc = new DOMParser().parseFromString(html, 'text/html');
+            REFRESH_SECTIONS.forEach(function(id) {
+                var newEl = doc.getElementById(id);
+                var oldEl = document.getElementById(id);
+                if (newEl && oldEl) oldEl.outerHTML = newEl.outerHTML;
+            });
+            var el = document.getElementById('last-refresh');
+            if (el) el.textContent = '· updated ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+            updateTimers();
+        })
+        .catch(function() {})
+        .finally(function() { _refreshing = false; });
+}
+
+// Update timestamp on load, then poll every 10s
 (function() {
     var el = document.getElementById('last-refresh');
-    if (el) el.textContent = '· refreshed ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    if (el) el.textContent = '· updated ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
 })();
-setInterval(function() { location.reload(); }, 90000);
+setInterval(refreshDashboard, 10000);
 
 // ── Search ────────────────────────────────────────────────────────────────────
 function filterPets() {
@@ -638,7 +672,7 @@ function saveNote() {
                               note: noteText,
                               flag_type: document.querySelector('input[name="flag_type"]:checked').value,
                               note_date: '{{ today.isoformat() }}'})
-    }).then(r => r.json()).then(d => { if (d.ok) location.reload(); else alert(d.error); });
+    }).then(r => r.json()).then(d => { if (d.ok) { bootstrap.Modal.getInstance(document.getElementById('noteModal')).hide(); refreshDashboard(); } else alert(d.error); });
 }
 function openDayNoteModal() {
     document.getElementById('day-note-text').value = '';
@@ -651,12 +685,12 @@ function saveDayNote() {
         method: 'POST',
         headers: {'Content-Type':'application/json','X-CSRFToken': getCsrf()},
         body: JSON.stringify({note: noteText, flag_type: 'info', note_date: '{{ today.isoformat() }}'})
-    }).then(r => r.json()).then(d => { if (d.ok) location.reload(); else alert(d.error); });
+    }).then(r => r.json()).then(d => { if (d.ok) { bootstrap.Modal.getInstance(document.getElementById('dayNoteModal')).hide(); refreshDashboard(); } else alert(d.error); });
 }
 function deleteNote(noteId) {
     if (!confirm('Remove this note?')) return;
     fetch('/admin/ops/note/' + noteId, {method:'DELETE', headers:{'X-CSRFToken': getCsrf()}})
-        .then(r => r.json()).then(d => { if (d.ok) location.reload(); });
+        .then(r => r.json()).then(d => { if (d.ok) refreshDashboard(); });
 }
 
 // ── Walk-in ───────────────────────────────────────────────────────────────────
@@ -697,7 +731,7 @@ function submitWalkin(action) {
         headers: {'Content-Type':'application/json','X-CSRFToken': getCsrf()},
         body: JSON.stringify({pet_id: petId, action: action, date: '{{ today.isoformat() }}'})
     }).then(r => r.json()).then(d => {
-        if (d.ok) { bootstrap.Modal.getInstance(document.getElementById('walkinModal')).hide(); location.reload(); }
+        if (d.ok) { bootstrap.Modal.getInstance(document.getElementById('walkinModal')).hide(); refreshDashboard(); }
         else alert('Error: ' + (d.error || 'Unknown'));
     });
 }
@@ -739,7 +773,7 @@ function submitApproval() {
         headers: {'Content-Type':'application/json','X-CSRFToken': getCsrf()},
         body: JSON.stringify({pet_id: parseInt(petId), days: dayFlags})
     }).then(r => r.json()).then(d => {
-        if (d.ok) { bootstrap.Modal.getInstance(document.getElementById('approveModal')).hide(); location.reload(); }
+        if (d.ok) { bootstrap.Modal.getInstance(document.getElementById('approveModal')).hide(); refreshDashboard(); }
         else alert('Error: ' + (d.error || 'Unknown'));
     });
 }
