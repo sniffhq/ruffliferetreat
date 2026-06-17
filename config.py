@@ -40,3 +40,12 @@ class Config:
     # AI Chat
     GROQ_API_KEY   = os.environ.get('GROQ_API_KEY', '')
     GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+
+    # Pricing defaults (override in .env if needed)
+    BOARDING_RATE_PRIMARY    = float(os.environ.get('BOARDING_RATE_PRIMARY',    40))
+    BOARDING_RATE_ADDITIONAL = float(os.environ.get('BOARDING_RATE_ADDITIONAL', 25))
+    DAYCARE_RATE_MULTI       = float(os.environ.get('DAYCARE_RATE_MULTI',       20))
+    DAYCARE_RATE_SINGLE      = float(os.environ.get('DAYCARE_RATE_SINGLE',      25))
+    ADDON_SPA_BATH_NAILS     = float(os.environ.get('ADDON_SPA_BATH_NAILS',     20))
+    ADDON_SPA_BATH           = float(os.environ.get('ADDON_SPA_BATH',           15))
+    ADDON_NAIL_TRIM          = float(os.environ.get('ADDON_NAIL_TRIM',          10))
