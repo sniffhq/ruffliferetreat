@@ -1784,10 +1784,18 @@ def ops_dashboard():
     _checked_in_ids = {a.enrollment_id for a in _today_att}
     if dow in _dc_fields:
         field = _dc_fields[dow]
-        enrollments = (DaycareEnrollment.query.filter_by(active=True)
+        # Regular enrollments
+        enrollments = (DaycareEnrollment.query.filter_by(active=True, is_walkin=False)
                        .join(Pet, DaycareEnrollment.pet_id == Pet.id)
                        .order_by(Pet.name).all())
         for e in enrollments:
+            if getattr(e, field) and e.id not in _checked_in_ids:
+                daycare_expected_today.append(e)
+        # Walk-in enrollments for today
+        walkins = (DaycareEnrollment.query.filter_by(active=False, is_walkin=True)
+                   .join(Pet, DaycareEnrollment.pet_id == Pet.id)
+                   .order_by(Pet.name).all())
+        for e in walkins:
             if getattr(e, field) and e.id not in _checked_in_ids:
                 daycare_expected_today.append(e)
 
@@ -1824,6 +1832,11 @@ def ops_dashboard():
         else:
             day_notes.append(n)
 
+    # ── All pets (for walk-in modal) ──────────────────────────────────────────
+    all_pets = (Pet.query.join(User, Pet.owner_id == User.id)
+                .filter(User.is_active == True)
+                .order_by(Pet.name).all())
+
     return render_template('admin/ops_dashboard.html',
                            daycare_checked_in=daycare_checked_in,
                            boarding_checked_in=boarding_checked_in,
@@ -1834,7 +1847,82 @@ def ops_dashboard():
                            dc_max=DC_MAX,
                            pet_notes=pet_notes,
                            day_notes=day_notes,
-                           today=today)
+                           today=today,
+                           all_pets=all_pets)
+
+
+# ── Daycare walk-in ──────────────────────────────────────────────────────────
+
+@bp.route('/daycare/walkin', methods=['POST'])
+@login_required
+@admin_required
+def daycare_walkin():
+    """Manually add a pet to daycare for a specific day (walk-in)."""
+    import json as _json
+    data    = request.get_json(silent=True) or {}
+    pet_id  = data.get('pet_id')
+    action  = data.get('action', 'expected')   # 'expected' or 'checkin'
+    date_str = data.get('date') or datetime.now().date().isoformat()
+
+    if not pet_id:
+        return jsonify({'ok': False, 'error': 'Pet is required.'})
+
+    try:
+        target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({'ok': False, 'error': 'Invalid date.'})
+
+    _dc_fields = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday'}
+    dow = target_date.weekday()
+    if dow not in _dc_fields:
+        return jsonify({'ok': False, 'error': 'Daycare is only available Mon–Thu.'})
+
+    field = _dc_fields[dow]
+    pet   = Pet.query.get(int(pet_id))
+    if not pet:
+        return jsonify({'ok': False, 'error': 'Pet not found.'})
+
+    # Find or create a walk-in enrollment for this pet
+    enr = DaycareEnrollment.query.filter_by(pet_id=pet.id, is_walkin=True).first()
+    if enr:
+        # Reset all day flags, set only today's
+        enr.monday    = (field == 'monday')
+        enr.tuesday   = (field == 'tuesday')
+        enr.wednesday = (field == 'wednesday')
+        enr.thursday  = (field == 'thursday')
+        enr.friday    = False
+        enr.active    = False
+    else:
+        enr = DaycareEnrollment(
+            pet_id          = pet.id,
+            enrollment_date = target_date,
+            active          = False,
+            is_walkin       = True,
+            monday          = (field == 'monday'),
+            tuesday         = (field == 'tuesday'),
+            wednesday       = (field == 'wednesday'),
+            thursday        = (field == 'thursday'),
+            friday          = False,
+        )
+        db.session.add(enr)
+
+    db.session.flush()  # get enr.id before potential attendance insert
+
+    if action == 'checkin':
+        today = datetime.now().date()
+        existing = DaycareAttendance.query.filter(
+            DaycareAttendance.enrollment_id == enr.id,
+            db.func.date(DaycareAttendance.check_in_time) == today,
+            DaycareAttendance.check_out_time.is_(None)
+        ).first()
+        if existing:
+            db.session.rollback()
+            return jsonify({'ok': False, 'error': f'{pet.name} is already checked in today.'})
+        att = DaycareAttendance(enrollment_id=enr.id, check_in_time=datetime.now())
+        db.session.add(att)
+
+    db.session.commit()
+    return jsonify({'ok': True, 'action': action, 'pet_name': pet.name})
 
 
 # ── OpsNote AJAX endpoints ───────────────────────────────────────────────────

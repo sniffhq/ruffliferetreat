@@ -222,6 +222,9 @@ class DaycareEnrollment(db.Model):
     # Special discounted rate — if set, overrides the standard multi/single day rate
     special_rate = db.Column(db.Float, nullable=True)  # e.g. 20.0 for $20/day flat
 
+    # Walk-in flag — set True for one-off manual additions by staff (not recurring)
+    is_walkin = db.Column(db.Boolean, default=False, nullable=False, server_default='0')
+
     created_at = db.Column(db.DateTime, default=datetime.now)
     
     # Relationships
