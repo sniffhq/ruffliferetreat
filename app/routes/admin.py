@@ -1833,7 +1833,7 @@ def ops_dashboard():
             day_notes.append(n)
 
     # ── All pets (for walk-in modal) ──────────────────────────────────────────
-    all_pets = (Pet.query.join(User, Pet.owner_id == User.id)
+    all_pets = (Pet.query.join(User, Pet.user_id == User.id)
                 .filter(User.is_active == True)
                 .order_by(Pet.name).all())
 
