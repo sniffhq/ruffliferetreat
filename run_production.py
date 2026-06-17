@@ -40,7 +40,8 @@ def main():
             app,
             host='127.0.0.1',
             port=8000,
-            threads=4,
+            threads=8,
+            connection_limit=200,
             _quiet=False
         )
     
