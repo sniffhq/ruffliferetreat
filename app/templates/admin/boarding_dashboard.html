@@ -108,6 +108,9 @@
                     <tr class="table-warning">
                         <td>
                             <strong>{{ appt.pet.name }}</strong>
+                            {% if not appt.pet.vaccination_records %}
+                            <span class="badge bg-danger ms-1" title="No vaccine records on file"><i class="fas fa-syringe me-1"></i>No Vaccines</span>
+                            {% endif %}
                             <div class="text-muted small">{{ appt.pet.breed or appt.pet.species or 'Dog' }}</div>
                         </td>
                         <td>{{ appt.user.first_name }} {{ appt.user.last_name }}</td>
@@ -291,7 +294,7 @@
                 <tbody>
                     {% for b in checked_in_bookings %}
                     <tr>
-                        <td><strong>{{ b.pet.name }}</strong>{% if b.pet.vacc_expiring_soon %}<span class="badge bg-warning text-dark ms-1" title="Vaccination expiring within 60 days"><i class="fas fa-exclamation-triangle"></i></span>{% endif %}<div class="text-muted small">{{ b.pet.breed or 'Dog' }}</div>{{ addon_badges(b) }}</td>
+                        <td><strong>{{ b.pet.name }}</strong>{% if not b.pet.vaccination_records %}<span class="badge bg-danger ms-1" title="No vaccine records on file"><i class="fas fa-syringe me-1"></i>No Vaccines</span>{% elif b.pet.vacc_expiring_soon %}<span class="badge bg-warning text-dark ms-1" title="Vaccination expiring within 60 days"><i class="fas fa-exclamation-triangle"></i></span>{% endif %}<div class="text-muted small">{{ b.pet.breed or 'Dog' }}</div>{{ addon_badges(b) }}</td>
                         <td>{{ b.pet.owner.first_name }} {{ b.pet.owner.last_name }}<div class="text-muted small">{{ b.pet.owner.phone or '' }}</div></td>
                         <td>{{ b.check_in_date.strftime('%m/%d/%Y') }} <span class="text-muted small">{{ b.check_in_time | fmt_time }}</span>
                             {% if b.checked_in_at %}
@@ -355,6 +358,11 @@
                     <tr {% if b.check_in_date == today %}class="table-warning"{% endif %}>
                         <td>
                             <strong>{{ b.pet.name }}</strong>
+                            {% if not b.pet.vaccination_records %}
+                            <span class="badge bg-danger ms-1" title="No vaccine records on file"><i class="fas fa-syringe me-1"></i>No Vaccines</span>
+                            {% elif b.pet.vacc_expiring_soon %}
+                            <span class="badge bg-warning text-dark ms-1" title="Vaccination expiring within 60 days"><i class="fas fa-exclamation-triangle"></i></span>
+                            {% endif %}
                             <div class="text-muted small">{{ b.pet.breed or 'Dog' }}</div>
                             {% if b.check_in_date == today %}
                             <span class="badge bg-warning text-dark">Arriving Today</span>
