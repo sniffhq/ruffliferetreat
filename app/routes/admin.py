@@ -2230,9 +2230,9 @@ def boarding_detail(booking_id):
     rates    = get_rates(customer)
     today_d  = date.today()
 
-    # Build invoice preview for active boardings
+    # Build invoice preview for active and upcoming boardings
     invoice_preview = None
-    if booking.status == 'active':
+    if booking.status in ('active', 'upcoming', 'confirmed', 'pending'):
         try:
             from app.models import InvoiceAdjustment
 
