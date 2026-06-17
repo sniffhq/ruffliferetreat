@@ -1,6 +1,6 @@
 """
 no_vaccine_followup.py
-Checks for pets that were added 3+ days ago but have no vaccination records
+Checks for pets that were added 1+ day ago but have no vaccination records
 on file, and sends the owner a friendly SMS nudge to upload them.
 
 Triggered two ways:
@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
-DAYS_THRESHOLD = 3
+DAYS_THRESHOLD = 1
 NUDGE_MARKER   = '[no-vaccine-nudge]'
 
 

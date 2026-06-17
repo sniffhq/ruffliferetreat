@@ -134,7 +134,7 @@ def register():
         db.session.commit()
         
         # Send welcome email
-        from app.email import send_welcome_email
+        from app.mail_service import send_welcome_email
         try:
             send_welcome_email(user)
         except Exception as e:

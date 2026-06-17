@@ -368,7 +368,7 @@ def daycare_waitlist():
             print(f"Failed to send waitlist SMS: {e}")
 
         # Send confirmation email
-        from app.email import send_waitlist_confirmation_email
+        from app.mail_service import send_waitlist_confirmation_email
         try:
             send_waitlist_confirmation_email(waitlist_entry)
         except Exception as e:
