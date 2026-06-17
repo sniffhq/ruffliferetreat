@@ -574,7 +574,7 @@ def book_appointment():
                         tuesday   = request.form.get('daycare_tuesday')   == '1',
                         wednesday = request.form.get('daycare_wednesday') == '1',
                         thursday  = request.form.get('daycare_thursday')  == '1',
-                        friday    = request.form.get('daycare_friday')    == '1',
+                        friday    = False,
                     )
                     db.session.add(entry)
                     added.append(pet.name)

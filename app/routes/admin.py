@@ -1617,131 +1617,7 @@ def boarding_dashboard():
 
 
 # ============================================================
-# OPERATIONS CALENDAR  (boarding + daycare combined)
-# ============================================================
-
-@bp.route('/ops/calendar')
-@login_required
-@admin_required
-def ops_calendar():
-    """Combined Operations Calendar: boarding check-ins/outs + daycare expected."""
-    import calendar as _cal
-    import json as _json
-    from datetime import date as _date
-
-    today = datetime.now().date()
-
-    # ── Month pagination ────────────────────────────────────────────────────────
-    _cal.setfirstweekday(6)  # weeks start Sunday
-    cal_offset = request.args.get('cal_offset', 0, type=int)
-    cal_offset = max(0, cal_offset)
-
-    _mo = (today.month - 1 + cal_offset) % 12 + 1
-    _yr = today.year + ((today.month - 1 + cal_offset) // 12)
-    month_data = {
-        'year':  _yr,
-        'month': _mo,
-        'name':  _cal.month_name[_mo],
-        'weeks': _cal.monthcalendar(_yr, _mo),
-    }
-    month_start = _date(_yr, _mo, 1)
-    month_end   = _date(_yr + (_mo // 12), (_mo % 12) + 1, 1) - timedelta(days=1) \
-                  if _mo < 12 else _date(_yr + 1, 1, 1) - timedelta(days=1)
-
-    # ── Boarding: active stays that touch this month ────────────────────────────
-    future_boarding = Boarding.query.filter(
-        Boarding.status == 'active',
-        Boarding.check_out_date >= month_start,
-        Boarding.check_in_date  <= month_end,
-    ).all()
-
-    # ── Daycare: active enrollments ────────────────────────────────────────────
-    _dc_fields = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday'}
-    enrollments = (DaycareEnrollment.query
-                   .filter_by(active=True)
-                   .join(Pet, DaycareEnrollment.pet_id == Pet.id)
-                   .order_by(Pet.name).all())
-
-    # Today's checked-in daycare pets (need attendance_id for checkout button)
-    _today_att = DaycareAttendance.query.filter(
-        DaycareAttendance.check_in_time >= datetime.combine(today, datetime.min.time()),
-        DaycareAttendance.check_in_time <= datetime.combine(today, datetime.max.time()),
-    ).all()
-    _checked_in_now = {a.enrollment_id: a.id for a in _today_att if a.check_out_time is None}
-
-    # ── Build per-day combined data ─────────────────────────────────────────────
-    ops_detail    = {}  # date_str -> {daycare, boarding_in, boarding_out}
-    ops_highlight = {}  # date_str -> {dc, b_in, b_out}  for Jinja calendar dots
-
-    d = month_start
-    while d <= month_end:
-        ds  = d.isoformat()
-        dow = d.weekday()
-
-        # Daycare (Mon-Thu only)
-        dc_pets = []
-        if dow in _dc_fields:
-            field = _dc_fields[dow]
-            for e in enrollments:
-                if getattr(e, field):
-                    owner = e.pet.owner
-                    dc_pets.append({
-                        'name':          e.pet.name,
-                        'breed':         e.pet.breed or 'Dog',
-                        'owner':         f'{owner.first_name} {owner.last_name}' if owner else '—',
-                        'enrollment_id': e.id,
-                        'is_checked_in': (e.id in _checked_in_now) if d == today else False,
-                        'attendance_id': _checked_in_now.get(e.id) if d == today else None,
-                    })
-
-        # Boarding drop-offs (check-in date = this day)
-        boarding_in = []
-        for b in future_boarding:
-            if b.check_in_date == d:
-                owner = b.pet.owner
-                boarding_in.append({
-                    'id':         b.id,
-                    'name':       b.pet.name,
-                    'breed':      b.pet.breed or 'Dog',
-                    'owner':      f'{owner.first_name} {owner.last_name}' if owner else '—',
-                    'phone':      (owner.phone or '—') if owner else '—',
-                    'cin_time':   _fmt_t(b.check_in_time or '08:00'),
-                    'checked_in': bool(b.checked_in),
-                    'kennel':     (f'{(b.kennel_type or "Kennel").title()} #{b.kennel_number}')
-                                  if b.kennel_number else None,
-                })
-
-        # Boarding pick-ups (check-out date = this day)
-        boarding_out = []
-        for b in future_boarding:
-            if b.check_out_date == d:
-                owner = b.pet.owner
-                boarding_out.append({
-                    'id':        b.id,
-                    'name':      b.pet.name,
-                    'breed':     b.pet.breed or 'Dog',
-                    'owner':     f'{owner.first_name} {owner.last_name}' if owner else '—',
-                    'phone':     (owner.phone or '—') if owner else '—',
-                    'cout_time': _fmt_t(b.check_out_time or '17:00'),
-                    'checked_in': bool(b.checked_in),
-                })
-
-        if dc_pets or boarding_in or boarding_out:
-            ops_detail[ds]    = {'daycare': dc_pets, 'boarding_in': boarding_in, 'boarding_out': boarding_out}
-            ops_highlight[ds] = {'dc': len(dc_pets), 'b_in': len(boarding_in), 'b_out': len(boarding_out)}
-
-        d += timedelta(days=1)
-
-    return render_template('admin/ops_calendar.html',
-                           month=month_data,
-                           cal_offset=cal_offset,
-                           today=today,
-                           ops_cal_detail=_json.dumps(ops_detail),
-                           ops_highlight=ops_highlight)
-
-
-# ============================================================
-# OPERATIONS DASHBOARD  (boarding + daycare combined)
+# OPERATIONS DASHBOARD
 # ============================================================
 
 @bp.route('/ops/dashboard')
@@ -1753,7 +1629,7 @@ def ops_dashboard():
 
     today = datetime.now().date()
 
-    # ── Daycare: currently checked in ──────────────────────────────────────────
+    # ── Daycare: currently checked in ─────────────────────────────────────────
     _today_att = DaycareAttendance.query.filter(
         DaycareAttendance.check_in_time >= datetime.combine(today, datetime.min.time()),
         DaycareAttendance.check_in_time <= datetime.combine(today, datetime.max.time()),
@@ -1764,11 +1640,10 @@ def ops_dashboard():
     for a in _today_att:
         enr = DaycareEnrollment.query.get(a.enrollment_id)
         if enr and enr.pet:
-            owner = enr.pet.owner
             daycare_checked_in.append({
                 'attendance': a,
                 'pet':        enr.pet,
-                'owner':      owner,
+                'owner':      enr.pet.owner,
                 'enrollment': enr,
             })
 
@@ -1784,14 +1659,12 @@ def ops_dashboard():
     _checked_in_ids = {a.enrollment_id for a in _today_att}
     if dow in _dc_fields:
         field = _dc_fields[dow]
-        # Regular enrollments
         enrollments = (DaycareEnrollment.query.filter_by(active=True, is_walkin=False)
                        .join(Pet, DaycareEnrollment.pet_id == Pet.id)
                        .order_by(Pet.name).all())
         for e in enrollments:
             if getattr(e, field) and e.id not in _checked_in_ids:
                 daycare_expected_today.append(e)
-        # Walk-in enrollments for today
         walkins = (DaycareEnrollment.query.filter_by(active=False, is_walkin=True)
                    .join(Pet, DaycareEnrollment.pet_id == Pet.id)
                    .order_by(Pet.name).all())
@@ -1799,20 +1672,18 @@ def ops_dashboard():
             if getattr(e, field) and e.id not in _checked_in_ids:
                 daycare_expected_today.append(e)
 
-    # ── Today's boarding arrivals (not yet checked in) ────────────────────────
+    # ── Today's boarding arrivals / departures ────────────────────────────────
     boarding_arrivals_today = Boarding.query.filter(
         Boarding.status == 'active',
         Boarding.check_in_date == today,
         Boarding.checked_in == False,
     ).all()
-
-    # ── Today's boarding departures ───────────────────────────────────────────
     boarding_departures_today = Boarding.query.filter(
         Boarding.status == 'active',
         Boarding.check_out_date == today,
     ).all()
 
-    # ── Today's daycare capacity ──────────────────────────────────────────────
+    # ── Daycare capacity today ────────────────────────────────────────────────
     if dow in _dc_fields:
         field = _dc_fields[dow]
         daycare_capacity_today = DaycareEnrollment.query.filter_by(active=True).filter(
@@ -1822,20 +1693,36 @@ def ops_dashboard():
         daycare_capacity_today = 0
     DC_MAX = 15
 
-    # ── Today's ops notes ─────────────────────────────────────────────────────
+    # ── Ops notes for today ───────────────────────────────────────────────────
     today_notes = OpsNote.query.filter_by(note_date=today).all()
-    pet_notes   = {}   # pet_id -> [note, ...]
-    day_notes   = []
+    pet_notes, day_notes = {}, []
     for n in today_notes:
         if n.pet_id:
             pet_notes.setdefault(n.pet_id, []).append(n)
         else:
             day_notes.append(n)
 
-    # ── All pets (for walk-in modal) ──────────────────────────────────────────
+    # ── All pets (walk-in modal) ──────────────────────────────────────────────
     all_pets = (Pet.query.join(User, Pet.user_id == User.id)
                 .filter(User.is_active == True)
                 .order_by(Pet.name).all())
+
+    # ── Pending daycare requests ──────────────────────────────────────────────
+    pending_requests = (DaycareWaitlist.query
+                        .filter_by(contacted=False)
+                        .order_by(DaycareWaitlist.submitted_date.asc()).all())
+    _req_pets_map, _req_days_map = {}, {}
+    for req in pending_requests:
+        pets_qs = (Pet.query.filter_by(user_id=req.user_id, is_active=True).order_by(Pet.name).all()
+                   if req.user_id else
+                   Pet.query.filter_by(is_active=True).order_by(Pet.name).all())
+        _req_pets_map[req.id] = [{'id': p.id, 'name': p.name} for p in pets_qs]
+        _req_days_map[str(req.id)] = {
+            'monday': req.monday, 'tuesday': req.tuesday,
+            'wednesday': req.wednesday, 'thursday': req.thursday,
+        }
+    req_pets_json = _json.dumps({str(k): v for k, v in _req_pets_map.items()})
+    req_days_json = _json.dumps(_req_days_map)
 
     return render_template('admin/ops_dashboard.html',
                            daycare_checked_in=daycare_checked_in,
@@ -1848,44 +1735,38 @@ def ops_dashboard():
                            pet_notes=pet_notes,
                            day_notes=day_notes,
                            today=today,
-                           all_pets=all_pets)
+                           all_pets=all_pets,
+                           pending_requests=pending_requests,
+                           req_pets_json=req_pets_json,
+                           req_days_json=req_days_json)
 
 
-# ── Daycare walk-in ──────────────────────────────────────────────────────────
+# ── Daycare walk-in ───────────────────────────────────────────────────────────
 
 @bp.route('/daycare/walkin', methods=['POST'])
 @login_required
 @admin_required
 def daycare_walkin():
-    """Manually add a pet to daycare for a specific day (walk-in)."""
-    import json as _json
-    data    = request.get_json(silent=True) or {}
-    pet_id  = data.get('pet_id')
-    action  = data.get('action', 'expected')   # 'expected' or 'checkin'
+    data     = request.get_json(silent=True) or {}
+    pet_id   = data.get('pet_id')
+    action   = data.get('action', 'expected')
     date_str = data.get('date') or datetime.now().date().isoformat()
-
     if not pet_id:
         return jsonify({'ok': False, 'error': 'Pet is required.'})
-
     try:
         target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
     except ValueError:
         return jsonify({'ok': False, 'error': 'Invalid date.'})
-
     _dc_fields = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday'}
     dow = target_date.weekday()
     if dow not in _dc_fields:
         return jsonify({'ok': False, 'error': 'Daycare is only available Mon–Thu.'})
-
     field = _dc_fields[dow]
     pet   = Pet.query.get(int(pet_id))
     if not pet:
         return jsonify({'ok': False, 'error': 'Pet not found.'})
-
-    # Find or create a walk-in enrollment for this pet
     enr = DaycareEnrollment.query.filter_by(pet_id=pet.id, is_walkin=True).first()
     if enr:
-        # Reset all day flags, set only today's
         enr.monday    = (field == 'monday')
         enr.tuesday   = (field == 'tuesday')
         enr.wednesday = (field == 'wednesday')
@@ -1894,20 +1775,12 @@ def daycare_walkin():
         enr.active    = False
     else:
         enr = DaycareEnrollment(
-            pet_id          = pet.id,
-            enrollment_date = target_date,
-            active          = False,
-            is_walkin       = True,
-            monday          = (field == 'monday'),
-            tuesday         = (field == 'tuesday'),
-            wednesday       = (field == 'wednesday'),
-            thursday        = (field == 'thursday'),
-            friday          = False,
+            pet_id=pet.id, enrollment_date=target_date, active=False, is_walkin=True,
+            monday=(field=='monday'), tuesday=(field=='tuesday'),
+            wednesday=(field=='wednesday'), thursday=(field=='thursday'), friday=False,
         )
         db.session.add(enr)
-
-    db.session.flush()  # get enr.id before potential attendance insert
-
+    db.session.flush()
     if action == 'checkin':
         today = datetime.now().date()
         existing = DaycareAttendance.query.filter(
@@ -1918,51 +1791,39 @@ def daycare_walkin():
         if existing:
             db.session.rollback()
             return jsonify({'ok': False, 'error': f'{pet.name} is already checked in today.'})
-        att = DaycareAttendance(enrollment_id=enr.id, check_in_time=datetime.now())
-        db.session.add(att)
-
+        db.session.add(DaycareAttendance(enrollment_id=enr.id, check_in_time=datetime.now()))
     db.session.commit()
     return jsonify({'ok': True, 'action': action, 'pet_name': pet.name})
 
 
-# ── OpsNote AJAX endpoints ───────────────────────────────────────────────────
+# ── OpsNote AJAX ─────────────────────────────────────────────────────────────
 
 @bp.route('/ops/note', methods=['POST'])
 @login_required
 @admin_required
 def ops_note_create():
-    """Create a pet-level or day-level ops note."""
     data      = request.get_json(silent=True) or {}
     note_text = (data.get('note') or '').strip()
-    flag_type = data.get('flag_type', 'info')
-    pet_id    = data.get('pet_id')
-    note_date_str = data.get('note_date') or datetime.now().date().isoformat()
     if not note_text:
         return jsonify({'ok': False, 'error': 'Note cannot be empty'}), 400
     from datetime import date as _date
     try:
-        note_date = _date.fromisoformat(note_date_str)
+        note_date = _date.fromisoformat(data.get('note_date') or datetime.now().date().isoformat())
     except ValueError:
         return jsonify({'ok': False, 'error': 'Invalid date'}), 400
-    n = OpsNote(
-        note_date  = note_date,
-        pet_id     = int(pet_id) if pet_id else None,
-        note       = note_text,
-        flag_type  = flag_type,
-        created_by = current_user.id,
-    )
+    pet_id = data.get('pet_id')
+    n = OpsNote(note_date=note_date, pet_id=int(pet_id) if pet_id else None,
+                note=note_text, flag_type=data.get('flag_type', 'info'),
+                created_by=current_user.id)
     db.session.add(n)
     db.session.commit()
-    return jsonify({'ok': True, 'id': n.id, 'note': n.note,
-                    'flag_type': n.flag_type,
-                    'created_by': f'{current_user.first_name} {current_user.last_name}'})
+    return jsonify({'ok': True, 'id': n.id, 'note': n.note, 'flag_type': n.flag_type})
 
 
 @bp.route('/ops/note/<int:note_id>', methods=['DELETE'])
 @login_required
 @admin_required
 def ops_note_delete(note_id):
-    """Delete an ops note."""
     n = OpsNote.query.get_or_404(note_id)
     db.session.delete(n)
     db.session.commit()

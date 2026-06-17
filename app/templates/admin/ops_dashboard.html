@@ -3,7 +3,7 @@
 {% block content %}
 <div class="container-fluid mt-3 px-3 px-md-4">
 
-    <!-- ── Header ─────────────────────────────────────────────────────────── -->
+    <!-- ── Header ──────────────────────────────────────────────────────────── -->
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
         <div>
             <h2 class="mb-0 fs-4"><i class="fas fa-tachometer-alt me-2" style="color:#1a1a2e;"></i>Operations Dashboard</h2>
@@ -23,13 +23,10 @@
                 <i class="fas fa-plus me-1"></i>Add Walk-in
             </button>
             {% endif %}
-            <a href="{{ url_for('admin.ops_calendar') }}" class="btn btn-sm btn-outline-secondary">
-                <i class="fas fa-calendar-alt me-1"></i>Calendar
-            </a>
         </div>
     </div>
 
-    <!-- ── Day notes ─────────────────────────────────────────────────────── -->
+    <!-- ── Day notes ───────────────────────────────────────────────────────── -->
     {% if day_notes %}
     <div class="alert alert-warning d-flex align-items-start gap-2 py-2 mb-3">
         <i class="fas fa-thumbtack mt-1 flex-shrink-0"></i>
@@ -37,7 +34,7 @@
             {% for n in day_notes %}
             <span class="me-3">{{ n.note }}
                 <button type="button" class="btn btn-link btn-sm p-0 text-danger ms-1"
-                        onclick="deleteNote({{ n.id }}, this)" title="Remove">
+                        onclick="deleteNote({{ n.id }}, this)">
                     <i class="fas fa-times"></i>
                 </button>
             </span>
@@ -46,9 +43,8 @@
     </div>
     {% endif %}
 
-    <!-- ── Summary cards ─────────────────────────────────────────────────── -->
+    <!-- ── Summary cards ───────────────────────────────────────────────────── -->
     <div class="row g-2 mb-3">
-        <!-- Daycare capacity -->
         <div class="col-6 col-md-3">
             <div class="card shadow-sm h-100">
                 <div class="card-body py-2 px-3">
@@ -59,13 +55,12 @@
                     {% set pct = ((daycare_capacity_today / dc_max) * 100)|int %}
                     <div class="progress" style="height:8px;">
                         <div class="progress-bar {% if pct >= 100 %}bg-danger{% elif pct >= 80 %}bg-warning{% else %}bg-primary{% endif %}"
-                             style="width:{{ [pct, 100]|min }}%;"></div>
+                             style="width:{{ [pct,100]|min }}%;"></div>
                     </div>
                     <small class="text-muted" style="font-size:0.7rem;">{{ daycare_capacity_today }} enrolled · {{ daycare_checked_in|length }} checked in</small>
                 </div>
             </div>
         </div>
-        <!-- Boarding in -->
         <div class="col-6 col-md-3">
             <div class="card shadow-sm h-100 text-center">
                 <div class="card-body py-2">
@@ -74,7 +69,6 @@
                 </div>
             </div>
         </div>
-        <!-- Expected -->
         <div class="col-6 col-md-3">
             <div class="card shadow-sm h-100 text-center">
                 <div class="card-body py-2">
@@ -83,7 +77,6 @@
                 </div>
             </div>
         </div>
-        <!-- Arrivals/Departures -->
         <div class="col-6 col-md-3">
             <div class="card shadow-sm h-100 text-center">
                 <div class="card-body py-2">
@@ -94,12 +87,54 @@
         </div>
     </div>
 
-    <!-- Day note add button -->
+    <!-- Pin day note -->
     <div class="mb-3 d-flex justify-content-end">
         <button class="btn btn-sm btn-outline-secondary" onclick="openDayNoteModal()">
             <i class="fas fa-thumbtack me-1"></i>Pin a Day Note
         </button>
     </div>
+
+    <!-- ── Pending Daycare Requests ────────────────────────────────────────── -->
+    {% if pending_requests %}
+    <div class="card shadow-sm mb-4 border-warning">
+        <div class="card-header d-flex align-items-center justify-content-between py-2" style="background:#fef9c3;">
+            <h6 class="mb-0 fw-bold" style="color:#92400e;">
+                <i class="fas fa-clock me-2"></i>Pending Daycare Requests
+            </h6>
+            <span class="badge" style="background:#92400e;color:#fff;">{{ pending_requests|length }}</span>
+        </div>
+        <div class="list-group list-group-flush">
+            {% for req in pending_requests %}
+            <div class="list-group-item py-2 px-3">
+                <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                    <div>
+                        <strong>{{ req.pet_name or '—' }}</strong>
+                        <span class="text-muted small ms-2">{{ req.first_name }} {{ req.last_name }}</span>
+                        {% if req.phone %}<span class="text-muted small ms-2"><i class="fas fa-phone me-1"></i>{{ req.phone }}</span>{% endif %}
+                        <br>
+                        <small class="text-muted">Requested:
+                            {% if req.monday %}<span class="badge bg-light text-dark border me-1">Mon</span>{% endif %}
+                            {% if req.tuesday %}<span class="badge bg-light text-dark border me-1">Tue</span>{% endif %}
+                            {% if req.wednesday %}<span class="badge bg-light text-dark border me-1">Wed</span>{% endif %}
+                            {% if req.thursday %}<span class="badge bg-light text-dark border me-1">Thu</span>{% endif %}
+                        </small>
+                        <small class="text-muted ms-2">· {{ req.submitted_date.strftime('%b') }} {{ req.submitted_date.day }}</small>
+                    </div>
+                    <div class="d-flex gap-2 flex-shrink-0">
+                        <button class="btn btn-sm btn-success py-1"
+                                onclick="openApproveModal({{ req.id }}, '{{ req.pet_name|e }}', '{{ req.first_name|e }} {{ req.last_name|e }}')">
+                            <i class="fas fa-check me-1"></i>Approve
+                        </button>
+                        <a href="{{ url_for('admin.daycare_waitlist_admin') }}" class="btn btn-sm btn-outline-secondary py-1">
+                            <i class="fas fa-external-link-alt"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 
     <!-- ── Currently Checked In ───────────────────────────────────────────── -->
     <div class="card shadow-sm mb-4">
@@ -107,7 +142,6 @@
             <h6 class="mb-0 text-white"><i class="fas fa-paw me-2" style="color:#B07A8E;"></i>Currently Checked In</h6>
             <span class="badge bg-light text-dark">{{ (daycare_checked_in|length) + (boarding_checked_in|length) }}</span>
         </div>
-        <!-- Search -->
         <div class="p-2 border-bottom">
             <input type="text" id="pet-search" class="form-control form-control-sm"
                    placeholder="Search by pet or owner name…" oninput="filterPets()">
@@ -121,12 +155,11 @@
             </div>
             {% else %}
 
-            <!-- Desktop table (hidden on mobile) -->
+            <!-- Desktop table -->
             <div class="d-none d-md-block table-responsive">
                 <table class="table table-hover align-middle mb-0" id="checkin-table">
                     <thead class="table-light">
                         <tr>
-                            <th style="width:44px;"></th>
                             <th>Pet</th>
                             <th>Service</th>
                             <th>Owner</th>
@@ -141,24 +174,12 @@
                     {% set notes = pet_notes.get(item.pet.id, []) %}
                     <tr class="pet-row" data-search="{{ item.pet.name|lower }} {{ item.owner.first_name|lower if item.owner else '' }} {{ item.owner.last_name|lower if item.owner else '' }}">
                         <td>
-                            {% if item.pet.photo_path %}
-                            <img src="{{ url_for('static', filename='uploads/' + item.pet.photo_path) }}"
-                                 class="rounded-circle" style="width:38px;height:38px;object-fit:cover;">
-                            {% else %}
-                            <div class="rounded-circle d-flex align-items-center justify-content-center"
-                                 style="width:38px;height:38px;background:#dbeafe;color:#1d4ed8;font-weight:700;font-size:0.9rem;">
-                                {{ item.pet.name[0] }}
-                            </div>
-                            {% endif %}
-                        </td>
-                        <td>
                             <strong>{{ item.pet.name }}</strong>
                             {% if item.pet.breed %}<small class="text-muted ms-1">{{ item.pet.breed }}</small>{% endif %}
                             {% if notes %}
                             <div class="mt-1">
                                 {% for n in notes %}
-                                <span class="badge {% if n.flag_type == 'urgent' %}bg-danger{% elif n.flag_type == 'warning' %}bg-warning text-dark{% else %}bg-secondary{% endif %} me-1"
-                                      style="font-size:0.7rem;">
+                                <span class="badge {% if n.flag_type == 'urgent' %}bg-danger{% elif n.flag_type == 'warning' %}bg-warning text-dark{% else %}bg-secondary{% endif %} me-1" style="font-size:0.7rem;">
                                     {{ n.note }}
                                     <button type="button" class="btn-close btn-close-white ms-1" style="font-size:0.5rem;"
                                             onclick="deleteNote({{ n.id }}, this)"></button>
@@ -179,18 +200,16 @@
                             {% if item.attendance.check_in_time %}
                             <span class="small text-muted">{{ item.attendance.check_in_time.strftime('%I:%M %p') }}</span>
                             <span class="badge bg-light text-muted border ms-1" style="font-size:0.65rem;"
-                                  id="timer-dc-{{ item.attendance.id }}"
                                   data-checkin="{{ item.attendance.check_in_time.isoformat() }}"></span>
                             {% else %}—{% endif %}
                         </td>
                         <td>
                             <button class="btn btn-sm btn-outline-secondary py-0 px-2"
-                                    onclick="openNoteModal({{ item.pet.id }}, '{{ item.pet.name|e }}')"
-                                    title="Add note">
+                                    onclick="openNoteModal({{ item.pet.id }}, '{{ item.pet.name|e }}')" title="Add note">
                                 <i class="fas fa-sticky-note"></i>
                             </button>
                         </td>
-                        <td class="text-end text-nowrap">
+                        <td class="text-end">
                             <form method="POST" action="{{ url_for('admin.daycare_checkout', attendance_id=item.attendance.id) }}"
                                   style="display:inline;" onsubmit="return confirm('Check out {{ item.pet.name|e }}?');">
                                 <button type="submit" class="btn btn-sm btn-outline-success">
@@ -205,25 +224,13 @@
                     {% set notes = pet_notes.get(b.pet.id, []) %}
                     <tr class="pet-row" data-search="{{ b.pet.name|lower }} {{ b.pet.owner.first_name|lower if b.pet.owner else '' }} {{ b.pet.owner.last_name|lower if b.pet.owner else '' }}">
                         <td>
-                            {% if b.pet.photo_path %}
-                            <img src="{{ url_for('static', filename='uploads/' + b.pet.photo_path) }}"
-                                 class="rounded-circle" style="width:38px;height:38px;object-fit:cover;">
-                            {% else %}
-                            <div class="rounded-circle d-flex align-items-center justify-content-center"
-                                 style="width:38px;height:38px;background:#fef9c3;color:#92400e;font-weight:700;font-size:0.9rem;">
-                                {{ b.pet.name[0] }}
-                            </div>
-                            {% endif %}
-                        </td>
-                        <td>
                             <strong>{{ b.pet.name }}</strong>
                             {% if b.pet.breed %}<small class="text-muted ms-1">{{ b.pet.breed }}</small>{% endif %}
                             {% if b.kennel_number %}<br><small class="text-muted"><i class="fas fa-bed me-1"></i>{{ (b.kennel_type or 'Kennel')|title }} #{{ b.kennel_number }}</small>{% endif %}
                             {% if notes %}
                             <div class="mt-1">
                                 {% for n in notes %}
-                                <span class="badge {% if n.flag_type == 'urgent' %}bg-danger{% elif n.flag_type == 'warning' %}bg-warning text-dark{% else %}bg-secondary{% endif %} me-1"
-                                      style="font-size:0.7rem;">
+                                <span class="badge {% if n.flag_type == 'urgent' %}bg-danger{% elif n.flag_type == 'warning' %}bg-warning text-dark{% else %}bg-secondary{% endif %} me-1" style="font-size:0.7rem;">
                                     {{ n.note }}
                                     <button type="button" class="btn-close btn-close-white ms-1" style="font-size:0.5rem;"
                                             onclick="deleteNote({{ n.id }}, this)"></button>
@@ -244,14 +251,12 @@
                             {% if b.checked_in_at %}
                             <span class="small text-muted">{{ b.checked_in_at.strftime('%I:%M %p') }}</span>
                             <span class="badge bg-light text-muted border ms-1" style="font-size:0.65rem;"
-                                  id="timer-b-{{ b.id }}"
                                   data-checkin="{{ b.checked_in_at.isoformat() }}"></span>
                             {% else %}—{% endif %}
                         </td>
                         <td>
                             <button class="btn btn-sm btn-outline-secondary py-0 px-2"
-                                    onclick="openNoteModal({{ b.pet.id }}, '{{ b.pet.name|e }}')"
-                                    title="Add note">
+                                    onclick="openNoteModal({{ b.pet.id }}, '{{ b.pet.name|e }}')" title="Add note">
                                 <i class="fas fa-sticky-note"></i>
                             </button>
                         </td>
@@ -274,42 +279,29 @@
                 </table>
             </div>
 
-            <!-- Mobile cards (shown on small screens) -->
-            <div class="d-md-none p-2 pet-cards-mobile">
+            <!-- Mobile cards -->
+            <div class="d-md-none p-2">
                 {% for item in daycare_checked_in %}
                 {% set notes = pet_notes.get(item.pet.id, []) %}
                 <div class="card mb-2 pet-row" data-search="{{ item.pet.name|lower }} {{ item.owner.first_name|lower if item.owner else '' }} {{ item.owner.last_name|lower if item.owner else '' }}">
                     <div class="card-body p-2">
-                        <div class="d-flex align-items-center gap-2">
-                            {% if item.pet.photo_path %}
-                            <img src="{{ url_for('static', filename='uploads/' + item.pet.photo_path) }}"
-                                 class="rounded-circle flex-shrink-0" style="width:46px;height:46px;object-fit:cover;">
-                            {% else %}
-                            <div class="rounded-circle flex-shrink-0 d-flex align-items-center justify-content-center"
-                                 style="width:46px;height:46px;background:#dbeafe;color:#1d4ed8;font-weight:700;">
-                                {{ item.pet.name[0] }}
-                            </div>
-                            {% endif %}
-                            <div class="flex-grow-1 min-w-0">
-                                <div class="d-flex justify-content-between">
-                                    <strong>{{ item.pet.name }}</strong>
-                                    <span class="badge" style="background:#dbeafe;color:#1d4ed8;font-size:0.65rem;"><i class="fas fa-sun me-1"></i>Daycare</span>
-                                </div>
-                                {% if item.pet.breed %}<small class="text-muted">{{ item.pet.breed }}</small>{% endif %}
-                                {% if item.owner %}<br><small class="text-muted">{{ item.owner.first_name }} {{ item.owner.last_name }}</small>{% endif %}
-                                {% if item.attendance.check_in_time %}
-                                <br><small class="text-muted">In: {{ item.attendance.check_in_time.strftime('%I:%M %p') }}
-                                <span class="badge bg-light text-muted border" style="font-size:0.6rem;"
-                                      data-checkin="{{ item.attendance.check_in_time.isoformat() }}"></span></small>
-                                {% endif %}
-                                {% for n in notes %}
-                                <br><span class="badge {% if n.flag_type == 'urgent' %}bg-danger{% elif n.flag_type == 'warning' %}bg-warning text-dark{% else %}bg-secondary{% endif %}" style="font-size:0.65rem;">{{ n.note }}</span>
-                                {% endfor %}
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>{{ item.pet.name }}</strong>
+                                {% if item.pet.breed %}<small class="text-muted ms-1">{{ item.pet.breed }}</small>{% endif %}
+                                <span class="badge ms-1" style="background:#dbeafe;color:#1d4ed8;font-size:0.65rem;"><i class="fas fa-sun me-1"></i>Daycare</span>
                             </div>
                         </div>
+                        {% if item.owner %}<small class="text-muted d-block">{{ item.owner.first_name }} {{ item.owner.last_name }}</small>{% endif %}
+                        {% if item.attendance.check_in_time %}
+                        <small class="text-muted">In: {{ item.attendance.check_in_time.strftime('%I:%M %p') }}
+                        <span class="badge bg-light text-muted border" style="font-size:0.6rem;" data-checkin="{{ item.attendance.check_in_time.isoformat() }}"></span></small>
+                        {% endif %}
+                        {% for n in notes %}
+                        <br><span class="badge {% if n.flag_type == 'urgent' %}bg-danger{% elif n.flag_type == 'warning' %}bg-warning text-dark{% else %}bg-secondary{% endif %}" style="font-size:0.65rem;">{{ n.note }}</span>
+                        {% endfor %}
                         <div class="d-flex gap-2 mt-2">
-                            <button class="btn btn-sm btn-outline-secondary flex-fill py-1"
-                                    onclick="openNoteModal({{ item.pet.id }}, '{{ item.pet.name|e }}')">
+                            <button class="btn btn-sm btn-outline-secondary flex-fill py-1" onclick="openNoteModal({{ item.pet.id }}, '{{ item.pet.name|e }}')">
                                 <i class="fas fa-sticky-note me-1"></i>Note
                             </button>
                             <form method="POST" action="{{ url_for('admin.daycare_checkout', attendance_id=item.attendance.id) }}"
@@ -327,31 +319,19 @@
                 {% set notes = pet_notes.get(b.pet.id, []) %}
                 <div class="card mb-2 pet-row" data-search="{{ b.pet.name|lower }} {{ b.pet.owner.first_name|lower if b.pet.owner else '' }} {{ b.pet.owner.last_name|lower if b.pet.owner else '' }}">
                     <div class="card-body p-2">
-                        <div class="d-flex align-items-center gap-2">
-                            {% if b.pet.photo_path %}
-                            <img src="{{ url_for('static', filename='uploads/' + b.pet.photo_path) }}"
-                                 class="rounded-circle flex-shrink-0" style="width:46px;height:46px;object-fit:cover;">
-                            {% else %}
-                            <div class="rounded-circle flex-shrink-0 d-flex align-items-center justify-content-center"
-                                 style="width:46px;height:46px;background:#fef9c3;color:#92400e;font-weight:700;">
-                                {{ b.pet.name[0] }}
-                            </div>
-                            {% endif %}
-                            <div class="flex-grow-1">
-                                <div class="d-flex justify-content-between">
-                                    <strong>{{ b.pet.name }}</strong>
-                                    <span class="badge" style="background:#fef9c3;color:#92400e;font-size:0.65rem;"><i class="fas fa-hotel me-1"></i>Boarding</span>
-                                </div>
-                                {% if b.pet.breed %}<small class="text-muted">{{ b.pet.breed }}</small>{% endif %}
-                                {% if b.pet.owner %}<br><small class="text-muted">{{ b.pet.owner.first_name }} {{ b.pet.owner.last_name }}</small>{% endif %}
-                                {% for n in notes %}
-                                <br><span class="badge {% if n.flag_type == 'urgent' %}bg-danger{% elif n.flag_type == 'warning' %}bg-warning text-dark{% else %}bg-secondary{% endif %}" style="font-size:0.65rem;">{{ n.note }}</span>
-                                {% endfor %}
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>{{ b.pet.name }}</strong>
+                                {% if b.pet.breed %}<small class="text-muted ms-1">{{ b.pet.breed }}</small>{% endif %}
+                                <span class="badge ms-1" style="background:#fef9c3;color:#92400e;font-size:0.65rem;"><i class="fas fa-hotel me-1"></i>Boarding</span>
                             </div>
                         </div>
+                        {% if b.pet.owner %}<small class="text-muted d-block">{{ b.pet.owner.first_name }} {{ b.pet.owner.last_name }}</small>{% endif %}
+                        {% for n in notes %}
+                        <br><span class="badge {% if n.flag_type == 'urgent' %}bg-danger{% elif n.flag_type == 'warning' %}bg-warning text-dark{% else %}bg-secondary{% endif %}" style="font-size:0.65rem;">{{ n.note }}</span>
+                        {% endfor %}
                         <div class="d-flex gap-2 mt-2">
-                            <button class="btn btn-sm btn-outline-secondary flex-fill py-1"
-                                    onclick="openNoteModal({{ b.pet.id }}, '{{ b.pet.name|e }}')">
+                            <button class="btn btn-sm btn-outline-secondary flex-fill py-1" onclick="openNoteModal({{ b.pet.id }}, '{{ b.pet.name|e }}')">
                                 <i class="fas fa-sticky-note me-1"></i>Note
                             </button>
                             {% if b.check_out_date == today %}
@@ -372,7 +352,7 @@
         </div>
     </div>
 
-    <!-- ── Expected / Activity panels ────────────────────────────────────── -->
+    <!-- ── Expected / Activity ─────────────────────────────────────────────── -->
     <div class="row g-3 mb-4">
 
         <!-- Daycare Expected -->
@@ -393,18 +373,9 @@
                     <div class="list-group list-group-flush">
                         {% for e in daycare_expected_today %}
                         <div class="list-group-item d-flex align-items-center gap-2 py-2">
-                            {% if e.pet.photo_path %}
-                            <img src="{{ url_for('static', filename='uploads/' + e.pet.photo_path) }}"
-                                 class="rounded-circle flex-shrink-0" style="width:32px;height:32px;object-fit:cover;">
-                            {% else %}
-                            <div class="rounded-circle flex-shrink-0 d-flex align-items-center justify-content-center"
-                                 style="width:32px;height:32px;background:#dbeafe;color:#1d4ed8;font-size:0.8rem;font-weight:700;">
-                                {{ e.pet.name[0] }}
-                            </div>
-                            {% endif %}
-                            <div class="flex-grow-1 min-w-0">
-                                <strong class="d-block">{{ e.pet.name }}</strong>
-                                {% if e.pet.owner %}<small class="text-muted">{{ e.pet.owner.first_name }} {{ e.pet.owner.last_name }}</small>{% endif %}
+                            <div class="flex-grow-1">
+                                <strong>{{ e.pet.name }}</strong>
+                                {% if e.pet.owner %}<small class="text-muted ms-1">{{ e.pet.owner.first_name }} {{ e.pet.owner.last_name }}</small>{% endif %}
                             </div>
                             <form method="POST" action="{{ url_for('admin.daycare_checkin', enrollment_id=e.id) }}" class="flex-shrink-0">
                                 <button type="submit" class="btn btn-sm btn-success py-1">
@@ -435,19 +406,10 @@
                     <div class="list-group list-group-flush">
                         {% for b in boarding_arrivals_today %}
                         <div class="list-group-item d-flex align-items-center gap-2 py-2">
-                            {% if b.pet.photo_path %}
-                            <img src="{{ url_for('static', filename='uploads/' + b.pet.photo_path) }}"
-                                 class="rounded-circle flex-shrink-0" style="width:32px;height:32px;object-fit:cover;">
-                            {% else %}
-                            <div class="rounded-circle flex-shrink-0 d-flex align-items-center justify-content-center"
-                                 style="width:32px;height:32px;background:#fef9c3;color:#92400e;font-size:0.8rem;font-weight:700;">
-                                {{ b.pet.name[0] }}
-                            </div>
-                            {% endif %}
-                            <div class="flex-grow-1 min-w-0">
-                                <div><span class="badge me-1" style="background:#fef9c3;color:#92400e;font-size:0.65rem;"><i class="fas fa-sign-in-alt me-1"></i>Drop-off</span>
-                                <strong>{{ b.pet.name }}</strong></div>
-                                {% if b.pet.owner %}<small class="text-muted">{{ b.pet.owner.first_name }} {{ b.pet.owner.last_name }}{% if b.check_in_time %} · {{ b.check_in_time|fmt_time }}{% endif %}</small>{% endif %}
+                            <div class="flex-grow-1">
+                                <span class="badge me-1" style="background:#fef9c3;color:#92400e;font-size:0.65rem;"><i class="fas fa-sign-in-alt me-1"></i>Drop-off</span>
+                                <strong>{{ b.pet.name }}</strong>
+                                {% if b.pet.owner %}<small class="text-muted ms-1">{{ b.pet.owner.first_name }} {{ b.pet.owner.last_name }}{% if b.check_in_time %} · {{ b.check_in_time|fmt_time }}{% endif %}</small>{% endif %}
                             </div>
                             <form method="POST" action="{{ url_for('admin.checkin_boarding', booking_id=b.id) }}" class="flex-shrink-0">
                                 <button type="submit" class="btn btn-sm btn-success py-1">
@@ -458,19 +420,10 @@
                         {% endfor %}
                         {% for b in boarding_departures_today %}
                         <div class="list-group-item d-flex align-items-center gap-2 py-2">
-                            {% if b.pet.photo_path %}
-                            <img src="{{ url_for('static', filename='uploads/' + b.pet.photo_path) }}"
-                                 class="rounded-circle flex-shrink-0" style="width:32px;height:32px;object-fit:cover;">
-                            {% else %}
-                            <div class="rounded-circle flex-shrink-0 d-flex align-items-center justify-content-center"
-                                 style="width:32px;height:32px;background:#dcfce7;color:#166534;font-size:0.8rem;font-weight:700;">
-                                {{ b.pet.name[0] }}
-                            </div>
-                            {% endif %}
-                            <div class="flex-grow-1 min-w-0">
-                                <div><span class="badge me-1" style="background:#dcfce7;color:#166534;font-size:0.65rem;"><i class="fas fa-sign-out-alt me-1"></i>Pick-up</span>
-                                <strong>{{ b.pet.name }}</strong></div>
-                                {% if b.pet.owner %}<small class="text-muted">{{ b.pet.owner.first_name }} {{ b.pet.owner.last_name }}{% if b.check_out_time %} · {{ b.check_out_time|fmt_time }}{% endif %}</small>{% endif %}
+                            <div class="flex-grow-1">
+                                <span class="badge me-1" style="background:#dcfce7;color:#166534;font-size:0.65rem;"><i class="fas fa-sign-out-alt me-1"></i>Pick-up</span>
+                                <strong>{{ b.pet.name }}</strong>
+                                {% if b.pet.owner %}<small class="text-muted ms-1">{{ b.pet.owner.first_name }} {{ b.pet.owner.last_name }}{% if b.check_out_time %} · {{ b.check_out_time|fmt_time }}{% endif %}</small>{% endif %}
                             </div>
                             {% if b.checked_in %}
                             <form method="POST" action="{{ url_for('admin.complete_boarding', booking_id=b.id) }}"
@@ -493,7 +446,7 @@
 
 </div>
 
-<!-- ── Note Modal ──────────────────────────────────────────────────────────── -->
+<!-- ── Note Modal ─────────────────────────────────────────────────────────── -->
 <div class="modal fade" id="noteModal" tabindex="-1">
     <div class="modal-dialog modal-sm">
         <div class="modal-content">
@@ -503,10 +456,8 @@
             </div>
             <div class="modal-body pb-2">
                 <input type="hidden" id="note-pet-id" value="">
-                <div class="mb-2">
-                    <textarea id="note-text" class="form-control" rows="3" placeholder="Note text…" maxlength="500"></textarea>
-                </div>
-                <div class="d-flex gap-2">
+                <textarea id="note-text" class="form-control mb-2" rows="3" placeholder="Note text…" maxlength="500"></textarea>
+                <div class="d-flex gap-3">
                     <div class="form-check">
                         <input class="form-check-input" type="radio" name="flag_type" id="ft-info" value="info" checked>
                         <label class="form-check-label small" for="ft-info">Info</label>
@@ -524,63 +475,6 @@
             <div class="modal-footer py-2">
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary btn-sm" onclick="saveNote()">Save Note</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Walk-in Modal -->
-<div class="modal fade" id="walkinModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header py-2" style="background:#1a1a2e;">
-                <h6 class="modal-title text-white mb-0"><i class="fas fa-plus me-2"></i>Add Daycare Walk-in</h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <!-- Pet search -->
-                <div class="mb-3">
-                    <label class="form-label fw-semibold small">Search Pet</label>
-                    <input type="text" id="walkin-search" class="form-control" placeholder="Type pet or owner name…"
-                           oninput="filterWalkinPets()">
-                </div>
-                <div id="walkin-pet-list" style="max-height:240px;overflow-y:auto;border:1px solid #dee2e6;border-radius:6px;">
-                    {% for p in all_pets %}
-                    <div class="walkin-pet-item d-flex align-items-center gap-2 px-3 py-2 border-bottom"
-                         style="cursor:pointer;"
-                         data-id="{{ p.id }}"
-                         data-search="{{ p.name|lower }} {{ p.owner.first_name|lower if p.owner else '' }} {{ p.owner.last_name|lower if p.owner else '' }}"
-                         onclick="selectWalkinPet({{ p.id }}, '{{ p.name|e }}', '{{ (p.owner.first_name ~ ' ' ~ p.owner.last_name)|e if p.owner else '' }}')">
-                        {% if p.photo_path %}
-                        <img src="{{ url_for('static', filename='uploads/' + p.photo_path) }}"
-                             class="rounded-circle flex-shrink-0" style="width:34px;height:34px;object-fit:cover;">
-                        {% else %}
-                        <div class="rounded-circle flex-shrink-0 d-flex align-items-center justify-content-center"
-                             style="width:34px;height:34px;background:#dbeafe;color:#1d4ed8;font-weight:700;">{{ p.name[0] }}</div>
-                        {% endif %}
-                        <div>
-                            <div class="fw-semibold small">{{ p.name }}</div>
-                            {% if p.owner %}<div class="text-muted" style="font-size:0.75rem;">{{ p.owner.first_name }} {{ p.owner.last_name }}</div>{% endif %}
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-
-                <!-- Selected pet display -->
-                <div id="walkin-selected" class="alert alert-primary d-none mt-3 py-2 mb-0">
-                    <i class="fas fa-paw me-2"></i><span id="walkin-selected-name"></span>
-                    <button type="button" class="btn-close float-end" onclick="clearWalkinPet()"></button>
-                </div>
-                <input type="hidden" id="walkin-pet-id" value="">
-            </div>
-            <div class="modal-footer py-2 gap-2">
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-outline-primary btn-sm" onclick="submitWalkin('expected')" disabled id="btn-walkin-expected">
-                    <i class="fas fa-list me-1"></i>Add to Expected
-                </button>
-                <button type="button" class="btn btn-success btn-sm" onclick="submitWalkin('checkin')" disabled id="btn-walkin-checkin">
-                    <i class="fas fa-sign-in-alt me-1"></i>Check In Now
-                </button>
             </div>
         </div>
     </div>
@@ -605,22 +499,104 @@
     </div>
 </div>
 
+<!-- Walk-in Modal -->
+<div class="modal fade" id="walkinModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header py-2" style="background:#1a1a2e;">
+                <h6 class="modal-title text-white mb-0"><i class="fas fa-plus me-2"></i>Add Daycare Walk-in</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold small">Search Pet</label>
+                    <input type="text" id="walkin-search" class="form-control" placeholder="Type pet or owner name…" oninput="filterWalkinPets()">
+                </div>
+                <div id="walkin-pet-list" style="max-height:240px;overflow-y:auto;border:1px solid #dee2e6;border-radius:6px;">
+                    {% for p in all_pets %}
+                    <div class="walkin-pet-item d-flex align-items-center gap-2 px-3 py-2 border-bottom"
+                         style="cursor:pointer;"
+                         data-id="{{ p.id }}"
+                         data-search="{{ p.name|lower }} {{ p.owner.first_name|lower if p.owner else '' }} {{ p.owner.last_name|lower if p.owner else '' }}"
+                         onclick="selectWalkinPet({{ p.id }}, '{{ p.name|e }}', '{{ (p.owner.first_name ~ ' ' ~ p.owner.last_name)|e if p.owner else '' }}')">
+                        <div class="rounded-circle flex-shrink-0 d-flex align-items-center justify-content-center"
+                             style="width:34px;height:34px;background:#dbeafe;color:#1d4ed8;font-weight:700;">{{ p.name[0] }}</div>
+                        <div>
+                            <div class="fw-semibold small">{{ p.name }}</div>
+                            {% if p.owner %}<div class="text-muted" style="font-size:0.75rem;">{{ p.owner.first_name }} {{ p.owner.last_name }}</div>{% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div id="walkin-selected" class="alert alert-primary d-none mt-3 py-2 mb-0">
+                    <i class="fas fa-paw me-2"></i><span id="walkin-selected-name"></span>
+                    <button type="button" class="btn-close float-end" onclick="clearWalkinPet()"></button>
+                </div>
+                <input type="hidden" id="walkin-pet-id" value="">
+            </div>
+            <div class="modal-footer py-2 gap-2">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-outline-primary btn-sm" onclick="submitWalkin('expected')" disabled id="btn-walkin-expected">
+                    <i class="fas fa-list me-1"></i>Add to Expected
+                </button>
+                <button type="button" class="btn btn-success btn-sm" onclick="submitWalkin('checkin')" disabled id="btn-walkin-checkin">
+                    <i class="fas fa-sign-in-alt me-1"></i>Check In Now
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Approve Daycare Request Modal -->
+<div class="modal fade" id="approveModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header py-2" style="background:#1a1a2e;">
+                <h6 class="modal-title text-white mb-0"><i class="fas fa-check me-2"></i>Approve Daycare Request</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3 small text-muted">Enrolling <strong id="approve-pet-label"></strong> for <strong id="approve-owner-label"></strong></p>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold small">Assign Pet Record</label>
+                    <select id="approve-pet-id" class="form-select form-select-sm">
+                        <option value="">— Select pet —</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label fw-semibold small">Enroll for Days</label>
+                    <div class="d-flex gap-3 flex-wrap">
+                        {% for day in ['monday','tuesday','wednesday','thursday'] %}
+                        <div class="form-check">
+                            <input class="form-check-input approve-day" type="checkbox" id="approve-{{ day }}" value="{{ day }}">
+                            <label class="form-check-label small" for="approve-{{ day }}">{{ day|title }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success btn-sm" onclick="submitApproval()">
+                    <i class="fas fa-check me-1"></i>Approve &amp; Enroll
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
-// ── CSRF token ────────────────────────────────────────────────────────────────
 function getCsrf() {
     const m = document.cookie.match(/csrf_token=([^;]+)/);
     return m ? decodeURIComponent(m[1]) : '';
 }
 
-// ── Time-since timer ──────────────────────────────────────────────────────────
-function timeSince(isoStr) {
-    if (!isoStr) return '';
-    const diff = Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000);
-    const h = Math.floor(diff / 3600);
-    const m = Math.floor((diff % 3600) / 60);
+// ── Time-since timers ─────────────────────────────────────────────────────────
+function timeSince(iso) {
+    const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    const h = Math.floor(diff / 3600), m = Math.floor((diff % 3600) / 60);
     return h > 0 ? h + 'h ' + m + 'm' : m + 'm';
 }
-
 function updateTimers() {
     document.querySelectorAll('[data-checkin]').forEach(function(el) {
         el.textContent = timeSince(el.dataset.checkin);
@@ -629,81 +605,58 @@ function updateTimers() {
 updateTimers();
 setInterval(updateTimers, 30000);
 
-// ── Auto-refresh ──────────────────────────────────────────────────────────────
-function updateRefreshStamp() {
-    const el = document.getElementById('last-refresh');
-    if (el) {
-        const now = new Date();
-        el.textContent = '· refreshed ' + now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-    }
-}
-updateRefreshStamp();
-setInterval(function() {
-    location.reload();
-}, 90000);
+// ── Auto-refresh (90s) ────────────────────────────────────────────────────────
+(function() {
+    var el = document.getElementById('last-refresh');
+    if (el) el.textContent = '· refreshed ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+})();
+setInterval(function() { location.reload(); }, 90000);
 
-// ── Search filter ─────────────────────────────────────────────────────────────
+// ── Search ────────────────────────────────────────────────────────────────────
 function filterPets() {
-    const q = document.getElementById('pet-search').value.toLowerCase();
-    document.querySelectorAll('.pet-row').forEach(function(row) {
-        const text = (row.dataset.search || '');
-        row.style.display = text.includes(q) ? '' : 'none';
+    var q = document.getElementById('pet-search').value.toLowerCase();
+    document.querySelectorAll('.pet-row').forEach(function(r) {
+        r.style.display = (r.dataset.search || '').includes(q) ? '' : 'none';
     });
 }
 
-// ── Notes ─────────────────────────────────────────────────────────────────────
+// ── Pet notes ─────────────────────────────────────────────────────────────────
 function openNoteModal(petId, petName) {
     document.getElementById('note-pet-id').value = petId;
-    document.getElementById('note-modal-title').innerHTML =
-        '<i class="fas fa-sticky-note me-2"></i>Note for ' + petName;
+    document.getElementById('note-modal-title').innerHTML = '<i class="fas fa-sticky-note me-2"></i>Note for ' + petName;
     document.getElementById('note-text').value = '';
     document.getElementById('ft-info').checked = true;
     new bootstrap.Modal(document.getElementById('noteModal')).show();
 }
-
 function saveNote() {
-    const petId    = document.getElementById('note-pet-id').value;
-    const noteText = document.getElementById('note-text').value.trim();
-    const flagType = document.querySelector('input[name="flag_type"]:checked').value;
+    var noteText = document.getElementById('note-text').value.trim();
     if (!noteText) { alert('Please enter a note.'); return; }
     fetch('/admin/ops/note', {
         method: 'POST',
         headers: {'Content-Type':'application/json','X-CSRFToken': getCsrf()},
-        body: JSON.stringify({pet_id: petId, note: noteText, flag_type: flagType,
+        body: JSON.stringify({pet_id: document.getElementById('note-pet-id').value,
+                              note: noteText,
+                              flag_type: document.querySelector('input[name="flag_type"]:checked').value,
                               note_date: '{{ today.isoformat() }}'})
-    }).then(function(r) { return r.json(); }).then(function(d) {
-        if (d.ok) location.reload();
-        else alert('Error: ' + (d.error || 'Unknown'));
-    });
+    }).then(r => r.json()).then(d => { if (d.ok) location.reload(); else alert(d.error); });
 }
-
 function openDayNoteModal() {
     document.getElementById('day-note-text').value = '';
     new bootstrap.Modal(document.getElementById('dayNoteModal')).show();
 }
-
 function saveDayNote() {
-    const noteText = document.getElementById('day-note-text').value.trim();
+    var noteText = document.getElementById('day-note-text').value.trim();
     if (!noteText) { alert('Please enter a note.'); return; }
     fetch('/admin/ops/note', {
         method: 'POST',
         headers: {'Content-Type':'application/json','X-CSRFToken': getCsrf()},
-        body: JSON.stringify({note: noteText, flag_type: 'info',
-                              note_date: '{{ today.isoformat() }}'})
-    }).then(function(r) { return r.json(); }).then(function(d) {
-        if (d.ok) location.reload();
-        else alert('Error: ' + (d.error || 'Unknown'));
-    });
+        body: JSON.stringify({note: noteText, flag_type: 'info', note_date: '{{ today.isoformat() }}'})
+    }).then(r => r.json()).then(d => { if (d.ok) location.reload(); else alert(d.error); });
 }
-
-function deleteNote(noteId, btn) {
+function deleteNote(noteId) {
     if (!confirm('Remove this note?')) return;
-    fetch('/admin/ops/note/' + noteId, {
-        method: 'DELETE',
-        headers: {'X-CSRFToken': getCsrf()}
-    }).then(function(r) { return r.json(); }).then(function(d) {
-        if (d.ok) location.reload();
-    });
+    fetch('/admin/ops/note/' + noteId, {method:'DELETE', headers:{'X-CSRFToken': getCsrf()}})
+        .then(r => r.json()).then(d => { if (d.ok) location.reload(); });
 }
 
 // ── Walk-in ───────────────────────────────────────────────────────────────────
@@ -713,54 +666,81 @@ function openWalkinModal() {
     filterWalkinPets();
     new bootstrap.Modal(document.getElementById('walkinModal')).show();
 }
-
 function filterWalkinPets() {
     var q = document.getElementById('walkin-search').value.toLowerCase();
     document.querySelectorAll('.walkin-pet-item').forEach(function(el) {
         el.style.display = (el.dataset.search || '').includes(q) ? '' : 'none';
     });
 }
-
 function selectWalkinPet(id, name, owner) {
     document.getElementById('walkin-pet-id').value = id;
     document.getElementById('walkin-selected-name').textContent = name + (owner ? ' (' + owner + ')' : '');
     document.getElementById('walkin-selected').classList.remove('d-none');
     document.getElementById('btn-walkin-expected').disabled = false;
     document.getElementById('btn-walkin-checkin').disabled = false;
-    // Highlight selected row
     document.querySelectorAll('.walkin-pet-item').forEach(function(el) {
         el.style.background = el.dataset.id == id ? '#dbeafe' : '';
     });
 }
-
 function clearWalkinPet() {
     document.getElementById('walkin-pet-id').value = '';
     document.getElementById('walkin-selected').classList.add('d-none');
     document.getElementById('btn-walkin-expected').disabled = true;
     document.getElementById('btn-walkin-checkin').disabled = true;
-    document.querySelectorAll('.walkin-pet-item').forEach(function(el) {
-        el.style.background = '';
-    });
+    document.querySelectorAll('.walkin-pet-item').forEach(function(el) { el.style.background = ''; });
 }
-
 function submitWalkin(action) {
     var petId = document.getElementById('walkin-pet-id').value;
     if (!petId) { alert('Please select a pet.'); return; }
-    var today = '{{ today.isoformat() }}';
     fetch('/admin/daycare/walkin', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCsrf()},
-        body: JSON.stringify({pet_id: petId, action: action, date: today})
-    }).then(function(r) { return r.json(); }).then(function(d) {
-        if (d.ok) {
-            var msg = action === 'checkin'
-                ? d.pet_name + ' has been checked in.'
-                : d.pet_name + ' added to today\'s expected list.';
-            bootstrap.Modal.getInstance(document.getElementById('walkinModal')).hide();
-            location.reload();
-        } else {
-            alert('Error: ' + (d.error || 'Unknown error'));
-        }
+        headers: {'Content-Type':'application/json','X-CSRFToken': getCsrf()},
+        body: JSON.stringify({pet_id: petId, action: action, date: '{{ today.isoformat() }}'})
+    }).then(r => r.json()).then(d => {
+        if (d.ok) { bootstrap.Modal.getInstance(document.getElementById('walkinModal')).hide(); location.reload(); }
+        else alert('Error: ' + (d.error || 'Unknown'));
+    });
+}
+
+// ── Approve daycare request ───────────────────────────────────────────────────
+var REQ_PETS = {{ req_pets_json|safe }};
+var REQ_DAYS = {{ req_days_json|safe }};
+var _approveEntryId = null;
+function openApproveModal(entryId, petName, ownerName) {
+    _approveEntryId = entryId;
+    document.getElementById('approve-pet-label').textContent  = petName;
+    document.getElementById('approve-owner-label').textContent = ownerName;
+    var sel = document.getElementById('approve-pet-id');
+    sel.innerHTML = '<option value="">— Select pet —</option>';
+    var pets = REQ_PETS[String(entryId)] || [];
+    pets.forEach(function(p) {
+        var opt = document.createElement('option');
+        opt.value = p.id; opt.textContent = p.name;
+        sel.appendChild(opt);
+    });
+    if (pets.length === 1) sel.value = pets[0].id;
+    var days = REQ_DAYS[String(entryId)] || {};
+    ['monday','tuesday','wednesday','thursday'].forEach(function(d) {
+        var el = document.getElementById('approve-' + d);
+        if (el) el.checked = !!days[d];
+    });
+    new bootstrap.Modal(document.getElementById('approveModal')).show();
+}
+function submitApproval() {
+    var petId = document.getElementById('approve-pet-id').value;
+    if (!petId) { alert('Please select a pet.'); return; }
+    var dayFlags = {};
+    ['monday','tuesday','wednesday','thursday'].forEach(function(d) {
+        dayFlags[d] = document.getElementById('approve-' + d).checked;
+    });
+    if (!Object.values(dayFlags).some(Boolean)) { alert('Please select at least one day.'); return; }
+    fetch('/admin/daycare/waitlist/' + _approveEntryId + '/approve-schedule', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','X-CSRFToken': getCsrf()},
+        body: JSON.stringify({pet_id: parseInt(petId), days: dayFlags})
+    }).then(r => r.json()).then(d => {
+        if (d.ok) { bootstrap.Modal.getInstance(document.getElementById('approveModal')).hide(); location.reload(); }
+        else alert('Error: ' + (d.error || 'Unknown'));
     });
 }
 </script>

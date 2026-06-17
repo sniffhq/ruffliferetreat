@@ -222,7 +222,7 @@ class DaycareEnrollment(db.Model):
     # Special discounted rate — if set, overrides the standard multi/single day rate
     special_rate = db.Column(db.Float, nullable=True)  # e.g. 20.0 for $20/day flat
 
-    # Walk-in flag — set True for one-off manual additions by staff (not recurring)
+    # Walk-in flag — one-off manual additions by staff (not recurring)
     is_walkin = db.Column(db.Boolean, default=False, nullable=False, server_default='0')
 
     created_at = db.Column(db.DateTime, default=datetime.now)
@@ -995,12 +995,12 @@ class AuditLog(db.Model):
 
 
 class OpsNote(db.Model):
-    """Quick operational note on a pet or a day, visible on the Operations Dashboard/Calendar."""
+    """Quick operational note on a pet or a day, visible on the Operations Dashboard."""
     __tablename__ = 'ops_note'
 
     id         = db.Column(db.Integer, primary_key=True)
     note_date  = db.Column(db.Date, nullable=False, index=True)
-    pet_id     = db.Column(db.Integer, db.ForeignKey('pet.id'), nullable=True)   # None → day-level note
+    pet_id     = db.Column(db.Integer, db.ForeignKey('pet.id'), nullable=True)
     note       = db.Column(db.String(500), nullable=False)
     flag_type  = db.Column(db.String(20), default='info')   # 'info', 'warning', 'urgent'
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
