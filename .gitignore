@@ -66,7 +66,6 @@ show_completed.py
 test_*.py
 update_addons_and_grooming_report.py
 verify_db.py
-boarding_detail.html
 boarding_occupancy_route.py
 kennel_capacity_card.html
 pet_tags.js
