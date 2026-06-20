@@ -762,6 +762,8 @@ def daycare_checkout(attendance_id):
             credit = check_daycare_punch(owner, db)
             if credit:
                 flash(f'🎉 {owner.first_name} has earned a free daycare day! A loyalty credit of ${float(credit.amount):.2f} has been added to their account.', 'success')
+    except ImportError:
+        pass  # loyalty_service not deployed
     except Exception as e:
         current_app.logger.error(f'Daycare punch card check failed: {e}')
 
@@ -4218,6 +4220,71 @@ def sms_inbox():
                            threads=threads,
                            unknown_msgs=unknown_msgs,
                            customers_json=customers_json)
+
+
+@bp.route('/sms-report')
+@login_required
+@admin_required
+def sms_report():
+    """SMS send counts broken down by category."""
+    from app.models import SmsMessage
+    from datetime import date, timedelta
+
+    period = request.args.get('period', '30')  # 7, 30, 90, or 'all'
+
+    query = SmsMessage.query
+    if period != 'all':
+        try:
+            days = int(period)
+            since = date.today() - timedelta(days=days)
+            query = query.filter(SmsMessage.created_at >= since)
+        except ValueError:
+            pass
+
+    all_msgs = query.order_by(SmsMessage.created_at.desc()).all()
+
+    # ── Categorise each outbound message ────────────────────────────────────
+    CATEGORIES = [
+        ('Vaccine Nudge',         lambda b: '[no-vaccine-nudge]' in b),
+        ('Checkout Estimate',     lambda b: '[checkout-estimate]' in b),
+        ('Boarding Approved',     lambda b: 'boarding' in b and ('approved' in b or 'confirmed' in b) and 'cancelled' not in b),
+        ('Boarding Cancelled',    lambda b: 'boarding' in b and 'cancelled' in b),
+        ('Boarding Completed',    lambda b: 'stay is complete' in b or ('boarding' in b and 'complete' in b)),
+        ('Password Reset',        lambda b: 'reset' in b and 'password' in b),
+        ('Waitlist',              lambda b: 'waitlist' in b or 'waiting list' in b),
+        ('Report Card',           lambda b: 'report card' in b),
+        ('Daycare Checkout',      lambda b: 'daycare' in b and ('checked out' in b or 'checkout' in b)),
+    ]
+
+    counts   = {name: 0 for name, _ in CATEGORIES}
+    counts['Inbound']  = 0
+    counts['Other']    = 0
+    total_out = 0
+    total_in  = 0
+
+    for msg in all_msgs:
+        body = (msg.body or '').lower()
+        if msg.direction == 'inbound':
+            total_in += 1
+            counts['Inbound'] += 1
+            continue
+        total_out += 1
+        matched = False
+        for name, fn in CATEGORIES:
+            if fn(body):
+                counts[name] += 1
+                matched = True
+                break
+        if not matched:
+            counts['Other'] += 1
+
+    # Build ordered display list (exclude zeros unless 'all' period)
+    rows = [(name, counts[name]) for name, _ in CATEGORIES]
+    rows += [('Inbound', counts['Inbound']), ('Other', counts['Other'])]
+
+    return render_template('admin/sms_report.html',
+        rows=rows, total_out=total_out, total_in=total_in,
+        period=period)
 
 
 @bp.route('/inbox/adhoc', methods=['POST'])

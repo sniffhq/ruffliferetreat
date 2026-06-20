@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}SMS Report{% endblock %}
+{% block content %}
+<div class="container mt-4" style="max-width:700px;">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-comment-dots me-2"></i>SMS Report</h2>
+        <!-- Period filter -->
+        <div class="btn-group">
+            {% for val, label in [('7','7 days'),('30','30 days'),('90','90 days'),('all','All time')] %}
+            <a href="{{ url_for('admin.sms_report', period=val) }}"
+               class="btn btn-sm {% if period == val %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+                {{ label }}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Summary cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-6">
+            <div class="card border-0 shadow-sm text-center py-3">
+                <div class="fs-1 fw-bold" style="color:#1B2A4A;">{{ total_out }}</div>
+                <div class="text-muted small">Outbound Sent</div>
+            </div>
+        </div>
+        <div class="col-6">
+            <div class="card border-0 shadow-sm text-center py-3">
+                <div class="fs-1 fw-bold" style="color:#B07A8E;">{{ total_in }}</div>
+                <div class="text-muted small">Inbound Received</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Category breakdown -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header fw-bold" style="background:#1B2A4A;color:#fff;">
+            <i class="fas fa-chart-bar me-2"></i>Breakdown by Category
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-3">Category</th>
+                        <th class="text-end pe-3" style="width:80px;">Count</th>
+                        <th class="pe-3" style="width:180px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% set max_count = rows | map(attribute=1) | max %}
+                    {% for name, count in rows %}
+                    {% if count > 0 or period == 'all' %}
+                    <tr>
+                        <td class="ps-3 fw-semibold">
+                            {% if name == 'Vaccine Nudge' %}<i class="fas fa-syringe me-2 text-danger"></i>
+                            {% elif name == 'Checkout Estimate' %}<i class="fas fa-file-invoice-dollar me-2 text-success"></i>
+                            {% elif name == 'Boarding Approved' %}<i class="fas fa-check-circle me-2 text-success"></i>
+                            {% elif name == 'Boarding Cancelled' %}<i class="fas fa-ban me-2 text-danger"></i>
+                            {% elif name == 'Boarding Completed' %}<i class="fas fa-flag-checkered me-2 text-secondary"></i>
+                            {% elif name == 'Password Reset' %}<i class="fas fa-key me-2 text-warning"></i>
+                            {% elif name == 'Waitlist' %}<i class="fas fa-list me-2" style="color:#B07A8E;"></i>
+                            {% elif name == 'Report Card' %}<i class="fas fa-star me-2 text-warning"></i>
+                            {% elif name == 'Daycare Checkout' %}<i class="fas fa-paw me-2" style="color:#3DBDB5;"></i>
+                            {% elif name == 'Inbound' %}<i class="fas fa-reply me-2 text-muted"></i>
+                            {% else %}<i class="fas fa-ellipsis-h me-2 text-muted"></i>
+                            {% endif %}
+                            {{ name }}
+                        </td>
+                        <td class="text-end pe-3 fw-bold">{{ count }}</td>
+                        <td class="pe-3">
+                            {% if max_count > 0 %}
+                            <div class="progress" style="height:8px;margin-top:6px;">
+                                <div class="progress-bar"
+                                     style="width:{{ (count / max_count * 100)|int }}%;background:#1B2A4A;"></div>
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="text-muted small mt-3 text-end">
+        <i class="fas fa-info-circle me-1"></i>
+        Categories matched by message content. "Other" = outbound messages that don't match a known pattern.
+    </div>
+</div>
+{% endblock %}
