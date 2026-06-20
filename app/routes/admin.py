@@ -4269,35 +4269,45 @@ def sms_report():
         ('SMS Opt-In',            lambda b: 'subscribed to sms' in b or 'msg & data rates' in b),
     ]
 
-    counts   = {name: 0 for name, _ in CATEGORIES}
-    counts['Inbound']  = 0
-    counts['Other']    = 0
-    total_out = 0
-    total_in  = 0
-
-    for msg in all_msgs:
+    def categorise(msg):
         body = (msg.body or '').lower()
         if msg.direction == 'inbound':
-            total_in += 1
-            counts['Inbound'] += 1
-            continue
-        total_out += 1
-        matched = False
+            return 'Inbound'
         for name, fn in CATEGORIES:
             if fn(body):
-                counts[name] += 1
-                matched = True
-                break
-        if not matched:
-            counts['Other'] += 1
+                return name
+        return 'Other'
 
-    # Build ordered display list (exclude zeros unless 'all' period)
+    counts   = {name: 0 for name, _ in CATEGORIES}
+    counts['Inbound'] = 0
+    counts['Other']   = 0
+    total_out = 0
+    total_in  = 0
+    detail_msgs = []
+
+    active_category = request.args.get('category', '')
+
+    for msg in all_msgs:
+        cat = categorise(msg)
+        counts[cat] = counts.get(cat, 0) + 1
+        if msg.direction == 'inbound':
+            total_in += 1
+        else:
+            total_out += 1
+        if active_category and cat == active_category:
+            detail_msgs.append(msg)
+
     rows = [(name, counts[name]) for name, _ in CATEGORIES]
     rows += [('Inbound', counts['Inbound']), ('Other', counts['Other'])]
 
+    # If no category filter, show all messages
+    if not active_category:
+        detail_msgs = all_msgs
+
     return render_template('admin/sms_report.html',
         rows=rows, total_out=total_out, total_in=total_in,
-        period=period)
+        period=period, active_category=active_category,
+        detail_msgs=detail_msgs)
 
 
 @bp.route('/inbox/adhoc', methods=['POST'])

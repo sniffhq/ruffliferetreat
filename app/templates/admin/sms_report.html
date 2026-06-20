@@ -1,14 +1,23 @@
 {% extends "base.html" %}
 {% block title %}SMS Report{% endblock %}
 {% block content %}
-<div class="container mt-4" style="max-width:700px;">
+<div class="container mt-4" style="max-width:900px;">
 
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="fas fa-comment-dots me-2"></i>SMS Report</h2>
-        <!-- Period filter -->
+        <div>
+            <h2 class="mb-0"><i class="fas fa-comment-dots me-2"></i>SMS Report</h2>
+            {% if active_category %}
+            <div class="text-muted small mt-1">
+                <a href="{{ url_for('admin.sms_report', period=period) }}" class="text-decoration-none">
+                    <i class="fas fa-arrow-left me-1"></i>All categories
+                </a>
+                &rsaquo; <strong>{{ active_category }}</strong>
+            </div>
+            {% endif %}
+        </div>
         <div class="btn-group">
             {% for val, label in [('7','7 days'),('30','30 days'),('90','90 days'),('all','All time')] %}
-            <a href="{{ url_for('admin.sms_report', period=val) }}"
+            <a href="{{ url_for('admin.sms_report', period=val, category=active_category) }}"
                class="btn btn-sm {% if period == val %}btn-primary{% else %}btn-outline-secondary{% endif %}">
                 {{ label }}
             </a>
@@ -33,9 +42,10 @@
     </div>
 
     <!-- Category breakdown -->
-    <div class="card border-0 shadow-sm">
+    <div class="card border-0 shadow-sm mb-4">
         <div class="card-header fw-bold" style="background:#1B2A4A;color:#fff;">
             <i class="fas fa-chart-bar me-2"></i>Breakdown by Category
+            <span class="text-white-50 fw-normal small ms-2">— click a row to see messages</span>
         </div>
         <div class="card-body p-0">
             <table class="table table-hover mb-0">
@@ -49,8 +59,10 @@
                 <tbody>
                     {% set max_count = rows | map(attribute=1) | max %}
                     {% for name, count in rows %}
-                    {% if count > 0 or period == 'all' %}
-                    <tr>
+                    {% if count > 0 %}
+                    <tr class="{% if active_category == name %}table-active{% endif %}"
+                        style="cursor:pointer;"
+                        onclick="window.location='{{ url_for('admin.sms_report', period=period, category=name) }}'">
                         <td class="ps-3 fw-semibold">
                             {% if name == 'Vaccine Nudge' %}<i class="fas fa-syringe me-2 text-danger"></i>
                             {% elif name == 'No Pet Nudge' %}<i class="fas fa-dog me-2 text-warning"></i>
@@ -91,9 +103,61 @@
         </div>
     </div>
 
+    <!-- Message list -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header fw-bold d-flex justify-content-between align-items-center"
+             style="background:#1B2A4A;color:#fff;">
+            <span>
+                <i class="fas fa-list me-2"></i>
+                {% if active_category %}{{ active_category }}{% else %}All Messages{% endif %}
+            </span>
+            <span class="badge bg-white text-dark">{{ detail_msgs|length }}</span>
+        </div>
+        <div class="card-body p-0">
+            {% if detail_msgs %}
+            <table class="table table-hover mb-0" style="font-size:0.85rem;">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-3" style="width:140px;">Date</th>
+                        <th style="width:160px;">Recipient</th>
+                        <th>Message</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for msg in detail_msgs %}
+                    <tr>
+                        <td class="ps-3 text-muted">
+                            {{ msg.created_at.strftime('%m/%d/%y %I:%M %p') if msg.created_at else '—' }}
+                        </td>
+                        <td>
+                            {% if msg.user %}
+                            <a href="{{ url_for('admin.customer_detail', customer_id=msg.user.id) }}"
+                               class="text-decoration-none fw-semibold">
+                                {{ msg.user.first_name }} {{ msg.user.last_name }}
+                            </a>
+                            {% else %}
+                            <span class="text-muted">{{ msg.to_number or '—' }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted" style="white-space:pre-wrap;word-break:break-word;">
+                            {{ msg.body | replace('[no-vaccine-nudge]', '') | replace('[no-pet-nudge]', '') | replace('[checkout-estimate]', '') | truncate(160) }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="text-center py-4 text-muted">
+                <i class="fas fa-comment-slash fa-2x mb-2 d-block opacity-25"></i>
+                No messages in this category for the selected period.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
     <div class="text-muted small mt-3 text-end">
         <i class="fas fa-info-circle me-1"></i>
-        Categories matched by message content. "Other" = outbound messages that don't match a known pattern.
+        "Other" = outbound messages that don't match a known pattern (e.g. staff ad-hoc replies).
     </div>
 </div>
 {% endblock %}
