@@ -4304,10 +4304,37 @@ def sms_report():
     if not active_category:
         detail_msgs = all_msgs
 
+    # ── Twilio cost lookup ───────────────────────────────────────────────────
+    twilio_costs = None
+    try:
+        from twilio.rest import Client as TwilioClient
+        tc = TwilioClient(
+            current_app.config.get('TWILIO_ACCOUNT_SID'),
+            current_app.config.get('TWILIO_AUTH_TOKEN')
+        )
+        kwargs = {}
+        if period != 'all':
+            kwargs['start_date'] = since
+            kwargs['end_date']   = date.today()
+
+        out_records = tc.usage.records.list(category='sms-outbound-longcode', **kwargs)
+        in_records  = tc.usage.records.list(category='sms-inbound-longcode',  **kwargs)
+
+        out_cost = sum(abs(float(r.price or 0)) for r in out_records)
+        in_cost  = sum(abs(float(r.price or 0)) for r in in_records)
+        twilio_costs = {
+            'outbound': out_cost,
+            'inbound':  in_cost,
+            'total':    out_cost + in_cost,
+            'currency': (out_records[0].price_unit if out_records else 'USD'),
+        }
+    except Exception as e:
+        current_app.logger.warning(f'Twilio usage fetch failed: {e}')
+
     return render_template('admin/sms_report.html',
         rows=rows, total_out=total_out, total_in=total_in,
         period=period, active_category=active_category,
-        detail_msgs=detail_msgs)
+        detail_msgs=detail_msgs, twilio_costs=twilio_costs)
 
 
 @bp.route('/inbox/adhoc', methods=['POST'])
