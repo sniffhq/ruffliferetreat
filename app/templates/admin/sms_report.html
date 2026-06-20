@@ -53,14 +53,22 @@
                     <tr>
                         <td class="ps-3 fw-semibold">
                             {% if name == 'Vaccine Nudge' %}<i class="fas fa-syringe me-2 text-danger"></i>
+                            {% elif name == 'No Pet Nudge' %}<i class="fas fa-dog me-2 text-warning"></i>
                             {% elif name == 'Checkout Estimate' %}<i class="fas fa-file-invoice-dollar me-2 text-success"></i>
                             {% elif name == 'Boarding Approved' %}<i class="fas fa-check-circle me-2 text-success"></i>
                             {% elif name == 'Boarding Cancelled' %}<i class="fas fa-ban me-2 text-danger"></i>
                             {% elif name == 'Boarding Completed' %}<i class="fas fa-flag-checkered me-2 text-secondary"></i>
+                            {% elif name == 'Appt Confirmed' %}<i class="fas fa-calendar-check me-2 text-success"></i>
+                            {% elif name == 'Appt Cancelled' %}<i class="fas fa-calendar-times me-2 text-danger"></i>
+                            {% elif name == 'Appt Reminder' %}<i class="fas fa-bell me-2 text-warning"></i>
+                            {% elif name == 'Daycare Check-In' %}<i class="fas fa-sign-in-alt me-2" style="color:#3DBDB5;"></i>
+                            {% elif name == 'Daycare Checkout' %}<i class="fas fa-paw me-2" style="color:#3DBDB5;"></i>
                             {% elif name == 'Password Reset' %}<i class="fas fa-key me-2 text-warning"></i>
                             {% elif name == 'Waitlist' %}<i class="fas fa-list me-2" style="color:#B07A8E;"></i>
                             {% elif name == 'Report Card' %}<i class="fas fa-star me-2 text-warning"></i>
-                            {% elif name == 'Daycare Checkout' %}<i class="fas fa-paw me-2" style="color:#3DBDB5;"></i>
+                            {% elif name == 'Incident Report' %}<i class="fas fa-exclamation-triangle me-2 text-danger"></i>
+                            {% elif name == 'Welcome' %}<i class="fas fa-hand-wave me-2 text-success"></i>
+                            {% elif name == 'SMS Opt-In' %}<i class="fas fa-comment-dots me-2 text-success"></i>
                             {% elif name == 'Inbound' %}<i class="fas fa-reply me-2 text-muted"></i>
                             {% else %}<i class="fas fa-ellipsis-h me-2 text-muted"></i>
                             {% endif %}

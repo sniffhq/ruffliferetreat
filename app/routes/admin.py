@@ -4245,15 +4245,28 @@ def sms_report():
 
     # ── Categorise each outbound message ────────────────────────────────────
     CATEGORIES = [
+        # Marker-based (exact, highest priority)
         ('Vaccine Nudge',         lambda b: '[no-vaccine-nudge]' in b),
+        ('No Pet Nudge',          lambda b: '[no-pet-nudge]' in b),
         ('Checkout Estimate',     lambda b: '[checkout-estimate]' in b),
+        # Boarding
         ('Boarding Approved',     lambda b: 'boarding' in b and ('approved' in b or 'confirmed' in b) and 'cancelled' not in b),
         ('Boarding Cancelled',    lambda b: 'boarding' in b and 'cancelled' in b),
         ('Boarding Completed',    lambda b: 'stay is complete' in b or ('boarding' in b and 'complete' in b)),
+        # Appointments (grooming etc.)
+        ('Appt Confirmed',        lambda b: 'appointment' in b and 'confirmed' in b),
+        ('Appt Cancelled',        lambda b: 'appointment' in b and 'cancelled' in b),
+        ('Appt Reminder',         lambda b: 'appointment' in b and 'tomorrow' in b),
+        # Daycare
+        ('Daycare Check-In',      lambda b: 'daycare' in b and 'checked in' in b),
+        ('Daycare Checkout',      lambda b: 'daycare' in b and ('checked out' in b or 'checkout' in b)),
+        # Misc automated
         ('Password Reset',        lambda b: 'reset' in b and 'password' in b),
         ('Waitlist',              lambda b: 'waitlist' in b or 'waiting list' in b),
         ('Report Card',           lambda b: 'report card' in b),
-        ('Daycare Checkout',      lambda b: 'daycare' in b and ('checked out' in b or 'checkout' in b)),
+        ('Incident Report',       lambda b: 'incident' in b and 'ruff life' in b),
+        ('Welcome',               lambda b: 'welcome to ruff life' in b),
+        ('SMS Opt-In',            lambda b: 'subscribed to sms' in b or 'msg & data rates' in b),
     ]
 
     counts   = {name: 0 for name, _ in CATEGORIES}
