@@ -406,7 +406,7 @@
          style="background:#1B2A4A;">
         <span class="fw-bold text-white">
             <i class="fas fa-file-invoice-dollar me-2" style="color:#B07A8E;"></i>
-            Expected Invoice
+            {% if booking.status == 'completed' %}Invoice{% else %}Estimated Invoice{% endif %}
         </span>
         <div class="d-flex align-items-center gap-2">
             {% if invoice_preview.has_custom %}
@@ -477,7 +477,7 @@
             </tbody>
             <tfoot>
                 <tr style="background:#f0f4f8;">
-                    <td class="ps-3 fw-bold" style="color:#1B2A4A;">Estimated Total</td>
+                    <td class="ps-3 fw-bold" style="color:#1B2A4A;">{% if booking.status == 'completed' %}Total Due{% else %}Estimated Total{% endif %}</td>
                     <td class="text-end pe-3 fw-bold fs-5" style="color:#1B2A4A;">
                         ${{ '%.2f'|format(invoice_preview.grand_total) }}
                     </td>
