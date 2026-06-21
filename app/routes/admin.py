@@ -2226,7 +2226,7 @@ def boarding_detail(booking_id):
         pass
 
     from datetime import date
-    from app.rate_resolver import get_rates
+    from app.rate_resolver import get_rates, get_pet_boarding_rate
 
     customer = User.query.get(booking.user_id)
     rates    = get_rates(customer)
@@ -2253,7 +2253,8 @@ def boarding_detail(booking_id):
                 Boarding.status.in_(['active', 'completed'])
             ).order_by(Boarding.pet_id.asc()).all()
             is_first = (not all_siblings) or all_siblings[0].pet_id == booking.pet_id
-            nightly  = rates['boarding'] if is_first else rates['boarding_add']
+            # Use full priority chain: pet-level → customer-level → facility default
+            nightly  = get_pet_boarding_rate(booking.pet, customer, is_additional=not is_first)
             subtotal = nightly * days
 
             # Addon lines from appointment notes
