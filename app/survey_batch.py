@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 def run_survey_batch():
     from app import create_app, db
-    from app.models import User, SurveyResponse
+    from app.models import User, SurveyResponse, Boarding, DaycareAttendance, Pet
     from app.survey_service import create_and_send_survey
 
     app = create_app()
@@ -42,12 +42,30 @@ def run_survey_batch():
             .all()
         }
 
-        # Customers eligible — active, have a phone, not recently surveyed
+        # Customers with at least one completed boarding
+        has_boarding = {
+            b.user_id for b in Boarding.query
+            .filter(Boarding.status == 'completed')
+            .all()
+        }
+
+        # Customers with at least one daycare attendance
+        has_daycare = {
+            Pet.query.get(a.pet_id).user_id
+            for a in DaycareAttendance.query.all()
+            if Pet.query.get(a.pet_id)
+        }
+
+        has_stay = has_boarding | has_daycare
+
+        # Customers eligible — active, have a phone, not recently surveyed,
+        # and have actually completed at least one stay
         eligible = User.query.filter(
             User.role == 'customer',
             User.is_active == True,
             User.phone.isnot(None),
-            ~User.id.in_(recently_surveyed_ids)
+            ~User.id.in_(recently_surveyed_ids),
+            User.id.in_(has_stay)
         ).all()
 
         sent    = 0
