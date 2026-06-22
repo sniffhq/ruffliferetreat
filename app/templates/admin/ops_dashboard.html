@@ -513,10 +513,14 @@
             </div>
             <div class="modal-body">
                 <div class="mb-3">
+                    <label class="form-label fw-semibold small">Visit Date</label>
+                    <input type="date" id="walkin-date" class="form-control" onchange="updateWalkinDateUI()">
+                </div>
+                <div class="mb-3">
                     <label class="form-label fw-semibold small">Search Pet</label>
                     <input type="text" id="walkin-search" class="form-control" placeholder="Type pet or owner name…" oninput="filterWalkinPets()">
                 </div>
-                <div id="walkin-pet-list" style="max-height:240px;overflow-y:auto;border:1px solid #dee2e6;border-radius:6px;">
+                <div id="walkin-pet-list" style="max-height:220px;overflow-y:auto;border:1px solid #dee2e6;border-radius:6px;">
                     {% for p in all_pets %}
                     <div class="walkin-pet-item d-flex align-items-center gap-2 px-3 py-2 border-bottom"
                          style="cursor:pointer;"
@@ -697,8 +701,15 @@ function deleteNote(noteId) {
 function openWalkinModal() {
     clearWalkinPet();
     document.getElementById('walkin-search').value = '';
+    document.getElementById('walkin-date').value = '{{ today.isoformat() }}';
     filterWalkinPets();
+    updateWalkinDateUI();
     new bootstrap.Modal(document.getElementById('walkinModal')).show();
+}
+function updateWalkinDateUI() {
+    var selected = document.getElementById('walkin-date').value;
+    var isToday  = selected === '{{ today.isoformat() }}';
+    document.getElementById('btn-walkin-checkin').style.display = isToday ? '' : 'none';
 }
 function filterWalkinPets() {
     var q = document.getElementById('walkin-search').value.toLowerCase();
@@ -725,11 +736,12 @@ function clearWalkinPet() {
 }
 function submitWalkin(action) {
     var petId = document.getElementById('walkin-pet-id').value;
+    var date  = document.getElementById('walkin-date').value || '{{ today.isoformat() }}';
     if (!petId) { alert('Please select a pet.'); return; }
     fetch('/admin/daycare/walkin', {
         method: 'POST',
         headers: {'Content-Type':'application/json','X-CSRFToken': getCsrf()},
-        body: JSON.stringify({pet_id: petId, action: action, date: '{{ today.isoformat() }}'})
+        body: JSON.stringify({pet_id: petId, action: action, date: date})
     }).then(r => r.json()).then(d => {
         if (d.ok) { bootstrap.Modal.getInstance(document.getElementById('walkinModal')).hide(); refreshDashboard(); }
         else alert('Error: ' + (d.error || 'Unknown'));
