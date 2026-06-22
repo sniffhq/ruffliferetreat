@@ -3146,6 +3146,7 @@ def customer_invoice(customer_id):
         from app.rate_resolver import get_pet_daycare_rate as _gdr
         return _gdr(pet, customer, enrollment)
 
+    open_mode    = request.args.get('open') == '1'
     pet_sections = []
 
     for pet in sorted(customer.pets, key=lambda p: p.name):
@@ -3157,6 +3158,11 @@ def customer_invoice(customer_id):
                 boardings = Boarding.query.filter_by(
                     pet_id=pet.id, payment_id=payment_id
                 ).order_by(Boarding.check_in_date.asc()).all()
+            elif open_mode:
+                # Show active (currently checked-in) boardings — estimated invoice
+                boardings = Boarding.query.filter_by(
+                    pet_id=pet.id, status='active'
+                ).order_by(Boarding.check_in_date.asc()).all()
             else:
                 # Boarding records — completed and unpaid
                 boardings = Boarding.query.filter_by(
@@ -3167,11 +3173,12 @@ def customer_invoice(customer_id):
 
             for b in boardings:
                 days     = _boarding_days(b)
+                sibling_status = 'active' if open_mode else 'completed'
                 siblings = Boarding.query.filter_by(
                     user_id=b.user_id,
                     check_in_date=b.check_in_date,
                     check_out_date=b.check_out_date,
-                    status='completed'
+                    status=sibling_status
                 ).order_by(Boarding.pet_id.asc()).all()
                 is_first   = (not siblings) or siblings[0].pet_id == pet.id
                 rate       = get_pet_boarding_rate(pet, customer, is_additional=not is_first)
@@ -3290,7 +3297,8 @@ def customer_invoice(customer_id):
         grand_total=grand_total,
         today=today,
         rates=rates,
-        viewing_payment=viewing_payment)
+        viewing_payment=viewing_payment,
+        open_mode=open_mode)
 
 
 

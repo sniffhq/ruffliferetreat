@@ -10,7 +10,7 @@
             <i class="fas fa-arrow-left me-1"></i>Back to Profile
         </a>
         <div class="d-flex gap-2 align-items-center">
-            {% if not viewing_payment %}
+            {% if not viewing_payment and not open_mode %}
             <!-- Invoice type switcher (only on live invoice view) -->
             <div class="btn-group btn-group-sm" role="group">
                 <a href="{{ url_for('admin.customer_invoice', customer_id=customer.id, type='boarding') }}"
@@ -34,6 +34,7 @@
                 </button>
             </form>
             {% endif %}
+            {% if not open_mode %}
             <form method="POST"
                   action="{{ url_for('admin.send_invoice_sms', customer_id=customer.id) }}"
                   onsubmit="return confirm('{% if viewing_payment %}Resend invoice to {% else %}Send invoice link to {% endif %}{{ customer.first_name }} at {{ customer.phone }}?');">
@@ -41,7 +42,8 @@
                     <i class="fas fa-sms me-2"></i>{% if viewing_payment %}Resend Invoice{% else %}Send Invoice{% endif %}
                 </button>
             </form>
-            {% if not viewing_payment %}
+            {% endif %}
+            {% if not viewing_payment and not open_mode %}
             {% set true_balance = [total_outstanding - total_paid, 0]|max %}
             {% if pet_sections and true_balance > 0 %}
             <button class="btn btn-success fw-bold" data-bs-toggle="modal" data-bs-target="#markPaidModal">
@@ -55,7 +57,15 @@
         </div>
     </div>
 
-    {% if viewing_payment %}
+    {% if open_mode %}
+    <div class="alert alert-warning d-flex align-items-center gap-3 mb-3 no-print">
+        <i class="fas fa-hotel fa-lg"></i>
+        <div>
+            <strong>Open Boarding Estimate</strong> — This invoice reflects currently active (checked-in) reservations.
+            Amounts are projected based on the scheduled checkout date and time.
+        </div>
+    </div>
+    {% elif viewing_payment %}
     <div class="alert alert-success d-flex align-items-center gap-3 mb-3 no-print">
         <i class="fas fa-check-circle fa-lg"></i>
         <div>
@@ -79,7 +89,7 @@
                     <div class="small" style="color:rgba(192,160,175,0.7);">(912) 648-2295 &nbsp;|&nbsp; rufflife.app</div>
                 </div>
                 <div class="col-auto text-end">
-                    <div class="small text-uppercase" style="color:rgba(192,160,175,0.7);letter-spacing:1px;">{{ invoice_type|capitalize }} Invoice</div>
+                    <div class="small text-uppercase" style="color:rgba(192,160,175,0.7);letter-spacing:1px;">{{ invoice_type|capitalize }} {% if open_mode %}Estimate{% else %}Invoice{% endif %}</div>
                     <div class="fw-bold" style="color:white;">{{ today.strftime('%B %d, %Y') }}</div>
                 </div>
             </div>
