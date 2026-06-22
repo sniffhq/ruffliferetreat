@@ -691,7 +691,8 @@
             <table class="table table-hover mb-0 align-middle" style="font-size:0.86rem;">
                 <thead class="table-light">
                     <tr>
-                        <th class="ps-3">Pet</th>
+                        <th class="ps-3">Ref #</th>
+                        <th>Pet</th>
                         <th>Drop-off</th>
                         <th>Pick-up</th>
                         <th>Nights</th>
@@ -703,7 +704,8 @@
                 <tbody>
                     {% for b in current_boardings %}
                     <tr style="background:#e8f5e9;">
-                        <td class="ps-3 fw-bold">{{ b.pet.name }}<div class="text-muted small">{{ b.pet.breed or 'Dog' }}</div></td>
+                        <td class="ps-3">{% if b.booking_number %}<span class="badge bg-warning text-dark" style="font-size:0.72rem;">{{ b.booking_number }}</span>{% else %}<span class="text-muted small">—</span>{% endif %}</td>
+                        <td class="fw-bold">{{ b.pet.name }}<div class="text-muted small">{{ b.pet.breed or 'Dog' }}</div></td>
                         <td>
                             {{ b.check_in_date.strftime('%m/%d/%Y') }}
                             {% if b.check_in_time %}<div class="text-muted small"><i class="fas fa-clock me-1" style="font-size:0.7rem;"></i>{{ fmt_time(b.check_in_time) }}</div>{% endif %}
@@ -720,7 +722,8 @@
                     {% endfor %}
                     {% for b in upcoming_boardings %}
                     <tr>
-                        <td class="ps-3 fw-bold">{{ b.pet.name }}<div class="text-muted small">{{ b.pet.breed or 'Dog' }}</div></td>
+                        <td class="ps-3">{% if b.booking_number %}<span class="badge bg-warning text-dark" style="font-size:0.72rem;">{{ b.booking_number }}</span>{% else %}<span class="text-muted small">—</span>{% endif %}</td>
+                        <td class="fw-bold">{{ b.pet.name }}<div class="text-muted small">{{ b.pet.breed or 'Dog' }}</div></td>
                         <td>
                             {{ b.check_in_date.strftime('%m/%d/%Y') }}
                             {% if b.check_in_time %}<div class="text-muted small"><i class="fas fa-clock me-1" style="font-size:0.7rem;"></i>{{ fmt_time(b.check_in_time) }}</div>{% endif %}
@@ -737,7 +740,8 @@
                     {% endfor %}
                     {% for b in past_boardings %}
                     <tr style="opacity:0.75;">
-                        <td class="ps-3 fw-bold">{{ b.pet.name }}<div class="text-muted small">{{ b.pet.breed or 'Dog' }}</div></td>
+                        <td class="ps-3">{% if b.booking_number %}<span class="badge bg-secondary" style="font-size:0.72rem;">{{ b.booking_number }}</span>{% else %}<span class="text-muted small">—</span>{% endif %}</td>
+                        <td class="fw-bold">{{ b.pet.name }}<div class="text-muted small">{{ b.pet.breed or 'Dog' }}</div></td>
                         <td>
                             {{ b.check_in_date.strftime('%m/%d/%Y') }}
                             {% if b.check_in_time %}<div class="text-muted small"><i class="fas fa-clock me-1" style="font-size:0.7rem;"></i>{{ fmt_time(b.check_in_time) }}</div>{% endif %}

@@ -316,7 +316,8 @@ def approve_appointment(appt_id):
                     check_in_time  = check_in_time,
                     check_out_date = check_out_date,
                     check_out_time = check_out_time,
-                    status         = 'active'
+                    status         = 'active',
+                    booking_number = _next_board_number()
                 )
                 db.session.add(booking)
                 db.session.commit()
@@ -1977,7 +1978,8 @@ def create_boarding():
         special_notes=(special_notes + addon_note).strip() or '',
         kennel_number=request.form.get('kennel_number', '').strip() or None,
         kennel_type=request.form.get('kennel_type', 'kennel'),
-        status='active'
+        status='active',
+        booking_number=_next_board_number()
     )
 
     db.session.add(booking)
@@ -3102,6 +3104,26 @@ def delete_payment(payment_id):
     except Exception: pass
     flash('Payment deleted.', 'danger')
     return redirect(request.referrer or url_for('admin.payments'))
+
+
+def _next_board_number():
+    """
+    Generate the next sequential BOARD-N number.
+    Scans existing booking_number values to find the highest N, then returns N+1.
+    Safe against gaps or manually edited numbers.
+    """
+    rows = db.session.execute(
+        db.text("SELECT booking_number FROM boarding WHERE booking_number IS NOT NULL")
+    ).fetchall()
+    max_n = 0
+    for row in rows:
+        try:
+            n = int(str(row[0]).split('-')[1])
+            if n > max_n:
+                max_n = n
+        except (IndexError, ValueError, AttributeError):
+            pass
+    return f'BOARD-{max_n + 1}'
 
 
 def _boarding_days(b):
@@ -6113,7 +6135,8 @@ def approve_boarding_request(appt_id):
         special_notes   = special_notes,
         kennel_number   = kennel_number,
         kennel_type     = kennel_type,
-        status          = 'active'
+        status          = 'active',
+        booking_number  = _next_board_number()
     )
     db.session.add(booking)
 

@@ -306,11 +306,12 @@ class Boarding(db.Model):
     medications = db.Column(db.Text)
     feeding_schedule = db.Column(db.Text)
     special_notes = db.Column(db.Text)
-    kennel_number = db.Column(db.String(20))   # e.g. "4", "4A", "12"
-    kennel_type   = db.Column(db.String(10))   # 'kennel' or 'suite'
-    checked_in    = db.Column(db.Boolean, default=False)
-    checked_in_at = db.Column(db.DateTime)
-    
+    kennel_number  = db.Column(db.String(20))   # e.g. "4", "4A", "12"
+    kennel_type    = db.Column(db.String(10))   # 'kennel' or 'suite'
+    checked_in     = db.Column(db.Boolean, default=False)
+    checked_in_at  = db.Column(db.DateTime)
+    booking_number = db.Column(db.String(20), nullable=True, unique=True)  # e.g. "BOARD-42"
+
     # Status
     status = db.Column(db.String(20), default='active')  # active, completed, cancelled
     
