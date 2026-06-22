@@ -3385,20 +3385,13 @@ def send_estimate_sms(customer_id):
             ).filter(Boarding.status == 'active').order_by(Boarding.pet_id.asc()).all()
             is_first = (not siblings) or siblings[0].pet_id == pet.id
             from app.rate_resolver import get_pet_boarding_rate as _gpbr
-            rate     = _gpbr(pet, customer, is_additional=not is_first)
+            rate   = _gpbr(pet, customer, is_additional=not is_first)
+            amount = rate * days
             addon_names = []
             try:
-                from app.models import Appointment as _A, ServiceType as _ST
-                _svc = _ST.query.filter(_ST.name.ilike('%boarding%')).first()
-                if _svc:
-                    _appt = _A.query.filter_by(
-                        pet_id=pet.id, user_id=customer.id,
-                        service_type_id=_svc.id
-                    ).order_by(_A.id.desc()).first()
-                    if _appt and _appt.notes:
-                        _addons, addon_cost = _parse_addons_from_notes(_appt.notes)
-                        amount += addon_cost
-                        addon_names = [a.split('(')[0].strip() for a in _addons]
+                _addons, addon_cost = _parse_addons_from_notes(b.special_notes or '')
+                amount += addon_cost
+                addon_names = [a.split('(')[0].strip() for a in _addons]
             except Exception:
                 pass
 
