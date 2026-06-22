@@ -1,15 +1,15 @@
 """Add booking_number to boarding table
 
-Revision ID: a1b2c3d4e5f6
-Revises: z4a5b6c7d8e9
+Revision ID: c0d1e2f3a4b5
+Revises: b7c8d9e0f1a2
 Create Date: 2026-06-22
 
 """
 from alembic import op
 import sqlalchemy as sa
 
-revision      = 'a1b2c3d4e5f6'
-down_revision = 'z4a5b6c7d8e9'
+revision      = 'c0d1e2f3a4b5'
+down_revision = 'b7c8d9e0f1a2'
 branch_labels = None
 depends_on    = None
 
