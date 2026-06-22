@@ -2253,11 +2253,8 @@ def boarding_detail(booking_id):
         try:
             from app.models import InvoiceAdjustment
 
-            # Days calculation
-            days    = max((booking.check_out_date - booking.check_in_date).days, 1)
-            cout    = str(booking.check_out_time or '17:00')[:5]
-            if cout > '10:00':
-                days += 1
+            # Nights calculation — checkout day is never charged
+            days = max((booking.check_out_date - booking.check_in_date).days, 1)
 
             # Is this the first pet for this stay?
             # Use lowest pet_id among siblings as the primary — same logic as invoice_audit
@@ -2300,7 +2297,7 @@ def boarding_detail(booking_id):
             ).all()
 
             invoice_preview = {
-                'days':        days,
+                'nights':      days,
                 'nightly':     nightly,
                 'is_first':    is_first,
                 'subtotal':    subtotal,
@@ -3106,15 +3103,11 @@ def delete_payment(payment_id):
 
 def _boarding_days(b):
     """
-    Calculate billable days for a boarding record.
-    Charges per calendar day — check-in day counts, check-out day counts
-    UNLESS the pet is checked out by 10:00 AM (early departure discount).
+    Calculate billable nights for a boarding record.
+    Charges per night stayed — check-out day is never charged regardless of time.
+    e.g. Jun 20 check-in, Jun 22 checkout = 2 nights.
     """
-    base_days = (b.check_out_date - b.check_in_date).days  # nights equivalent
-    # Check out time — stored as 'HH:MM' string
-    cout = str(b.check_out_time or '17:00')[:5]
-    early_checkout = cout <= '10:00'
-    return base_days if early_checkout else base_days + 1
+    return max((b.check_out_date - b.check_in_date).days, 1)
 
 
 @bp.route('/customers/<int:customer_id>/invoice')
@@ -3177,8 +3170,6 @@ def customer_invoice(customer_id):
                 is_first   = (not siblings) or siblings[0].pet_id == pet.id
                 rate       = get_pet_boarding_rate(pet, customer, is_additional=not is_first)
                 amount     = rate * days
-                cout       = str(b.check_out_time or '17:00')[:5]
-                early_note = ' (early checkout — no charge for departure day)' if cout <= '10:00' else ''
 
                 addons = []
                 try:
@@ -3202,7 +3193,7 @@ def customer_invoice(customer_id):
                     'boarding_id': b.id,
                     'line_key':    f'boarding_{b.id}',
                     'description': f'Boarding — {b.check_in_date.strftime("%b %d")} to {b.check_out_date.strftime("%b %d, %Y")}',
-                    'detail':      f'{days} day{"s" if days != 1 else ""} @ ${rate:.0f}/day{"  (additional pet)" if not is_first else ""}{early_note}',
+                    'detail':      f'{days} night{"s" if days != 1 else ""} @ ${rate:.0f}/night{"  (additional pet)" if not is_first else ""}',
                     'amount':      amount,
                     'addons':      addons,
                     'addon_total': sum(_parse_addon_price(a) for a in addons),
@@ -3376,9 +3367,7 @@ def send_estimate_sms(customer_id):
     DAYCARE_SINGLE = float(current_app.config.get('DAYCARE_RATE_SINGLE', 25.0))
 
     def _boarding_days(b):
-        base = (b.check_out_date - b.check_in_date).days
-        cout = str(b.check_out_time or '17:00')[:5]
-        return base if cout <= '10:00' else base + 1
+        return max((b.check_out_date - b.check_in_date).days, 1)
 
     total = 0.0
     pet_lines = []
@@ -3866,9 +3855,7 @@ def reports_dashboard():
     DAYCARE_SINGLE = 25.0
 
     def _boarding_days_r(b):
-        base = (b.check_out_date - b.check_in_date).days
-        cout = str(b.check_out_time or '17:00')[:5]
-        return base if cout <= '10:00' else base + 1
+        return max((b.check_out_date - b.check_in_date).days, 1)
 
     for i in range(11, -1, -1):
         mo = (today.month - 1 - i) % 12 + 1

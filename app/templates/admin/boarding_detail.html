@@ -83,7 +83,7 @@
                         <div class="col-md-4">
                             <p class="mb-0"><strong>Duration:</strong></p>
                             <p class="text-success">
-                                <span class="badge bg-success">{{ booking.duration_days }} days</span>
+                                <span class="badge bg-success">{{ booking.duration_days }} night{{ 's' if booking.duration_days != 1 }}</span>
                             </p>
                         </div>
                     </div>
@@ -435,7 +435,7 @@
                     <td class="ps-3">
                         <div class="fw-semibold">Boarding — {{ booking.check_in_date.strftime('%b %d') }} to {{ booking.check_out_date.strftime('%b %d, %Y') }}</div>
                         <div class="text-muted" style="font-size:0.78rem;">
-                            {{ invoice_preview.days }} day{{ 's' if invoice_preview.days != 1 }}
+                            {{ invoice_preview.nights }} night{{ 's' if invoice_preview.nights != 1 }}
                             @ ${{ '%.2f'|format(invoice_preview.nightly) }}/night
                             {% if not invoice_preview.is_first %}<span class="badge bg-secondary ms-1" style="font-size:0.68rem;">Additional Pet</span>{% endif %}
                         </div>

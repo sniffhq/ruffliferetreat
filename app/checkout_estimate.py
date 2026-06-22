@@ -61,9 +61,7 @@ def calculate_estimate(app, boarding):
 
     with app.app_context():
         def _boarding_days(b):
-            base = (b.check_out_date - b.check_in_date).days
-            cout = str(b.check_out_time or '17:00')[:5]
-            return base if cout <= '10:00' else base + 1
+            return max((b.check_out_date - b.check_in_date).days, 1)
 
         pet      = boarding.pet
         customer = pet.owner
@@ -101,7 +99,7 @@ def calculate_estimate(app, boarding):
         amount += addon_total
         total  += amount
 
-        stay_str  = f'{days} day{"s" if days != 1 else ""}'
+        stay_str  = f'{days} night{"s" if days != 1 else ""}'
         addon_str = f' + {", ".join(addon_names)}' if addon_names else ''
         lines.append(f'{pet.name}: {stay_str} boarding{addon_str} = ${amount:.2f}')
 
