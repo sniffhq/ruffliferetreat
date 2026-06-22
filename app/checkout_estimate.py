@@ -1,7 +1,7 @@
 """
 checkout_estimate.py
 On the morning of a pet's scheduled checkout day, automatically sends the
-owner an estimated balance SMS so they know what to expect at pickup.
+owner a single estimated balance SMS covering all pets checking out today.
 
 Runs daily at 7:00 AM via Windows Task Scheduler.
 Only fires for active boarding reservations checking out TODAY.
@@ -11,18 +11,23 @@ Place this file at: C:\\RuffLifeRetreat\\app\\checkout_estimate.py
 """
 
 import logging
-import re
-from datetime import datetime, timedelta, date
+from datetime import datetime, date
+from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
 MARKER = '[checkout-estimate]'
 
 
+def _boarding_days(b):
+    return max((b.check_out_date - b.check_in_date).days, 1)
+
+
 def get_checkouts_today(app):
     """
-    Returns all active Boarding records whose check_out_date is today
-    and whose owner has not already received an estimate SMS today.
+    Returns boardings checking out today, grouped by customer.
+    Skips customers who already received an estimate SMS today.
+    Returns: dict of {user_id: [boarding, ...]}
     """
     from app.models import Boarding, SmsMessage
 
@@ -34,81 +39,115 @@ def get_checkouts_today(app):
                      .filter(Boarding.check_out_date == today)
                      .all())
 
-        results = []
+        # Group by customer, skipping those already sent today
+        grouped = defaultdict(list)
+        seen_customers = set()
+
         for b in boardings:
             owner = b.pet.owner if b.pet else None
             if not owner or not owner.phone:
                 continue
 
-            # Skip if we already sent one today
+            if owner.id in seen_customers:
+                grouped[owner.id].append(b)
+                continue
+
             already_sent = SmsMessage.query.filter(
                 SmsMessage.user_id   == owner.id,
                 SmsMessage.direction == 'outbound',
                 SmsMessage.body.like(f'%{MARKER}%'),
                 SmsMessage.created_at >= datetime.combine(today, datetime.min.time())
             ).first()
-            if already_sent:
-                continue
 
-            results.append(b)
+            if not already_sent:
+                grouped[owner.id].append(b)
+                seen_customers.add(owner.id)
 
-        return results
+        return grouped
 
 
-def calculate_estimate(app, boarding):
-    """Calculate estimated total for a single boarding record — boarding + add-ons."""
-    from app.models import Boarding
-
+def calculate_customer_estimate(app, boardings):
+    """
+    Calculate the combined estimate for all a customer's boardings today.
+    Returns (total, pet_lines, checkout_time_str)
+    """
     with app.app_context():
-        def _boarding_days(b):
-            return max((b.check_out_date - b.check_in_date).days, 1)
-
-        pet      = boarding.pet
-        customer = pet.owner
-        total    = 0.0
-        lines    = []
-
-        # ── Boarding cost ─────────────────────────────────────────────────
-        days     = _boarding_days(boarding)
-        siblings = (Boarding.query
-                    .filter_by(user_id=boarding.user_id,
-                               check_in_date=boarding.check_in_date,
-                               check_out_date=boarding.check_out_date)
-                    .filter(Boarding.status == 'active')
-                    .order_by(Boarding.pet_id.asc()).all())
-        is_first = (not siblings) or siblings[0].pet_id == pet.id
-
         try:
             from app.rate_resolver import get_pet_boarding_rate
-            rate = get_pet_boarding_rate(pet, customer, is_additional=not is_first)
-        except Exception:
-            rate = 40.00 if is_first else 25.00
-
-        amount = rate * days
-
-        # ── Add-ons (stored in boarding.special_notes) ────────────────────
-        addon_total = 0.0
-        addon_names = []
-        try:
             from app.routes.admin import _parse_addons_from_notes
-            _addons, addon_total = _parse_addons_from_notes(boarding.special_notes or '')
-            addon_names = [a.split('(')[0].strip() for a in _addons]
         except Exception as e:
-            logger.warning(f'Could not parse add-ons for boarding {boarding.id}: {e}')
+            logger.warning(f'Import error in calculate_customer_estimate: {e}')
+            return 0.0, [], '5:00 PM'
 
-        amount += addon_total
-        total  += amount
+        from app.models import Boarding
 
-        stay_str  = f'{days} night{"s" if days != 1 else ""}'
-        addon_str = f' + {", ".join(addon_names)}' if addon_names else ''
-        lines.append(f'{pet.name}: {stay_str} boarding{addon_str} = ${amount:.2f}')
+        total     = 0.0
+        pet_lines = []
+        cout_fmt  = '5:00 PM'
 
-        return total, lines
+        # Sort boardings so primary pet (lowest pet_id in the stay group) is first
+        boardings = sorted(boardings, key=lambda b: b.pet_id)
+
+        for b in boardings:
+            pet      = b.pet
+            customer = pet.owner
+
+            days = _boarding_days(b)
+
+            siblings = (Boarding.query
+                        .filter_by(user_id=b.user_id,
+                                   check_in_date=b.check_in_date,
+                                   check_out_date=b.check_out_date)
+                        .filter(Boarding.status == 'active')
+                        .order_by(Boarding.pet_id.asc()).all())
+            is_first = (not siblings) or siblings[0].pet_id == pet.id
+
+            try:
+                rate = get_pet_boarding_rate(pet, customer, is_additional=not is_first)
+            except Exception:
+                rate = 40.00 if is_first else 25.00
+
+            amount = rate * days
+
+            # Add-ons: check special_notes first, fall back to appointment notes
+            addon_total = 0.0
+            addon_names = []
+            try:
+                _addons, addon_total = _parse_addons_from_notes(b.special_notes or '')
+                if not _addons:
+                    from app.models import Appointment as _A, ServiceType as _ST
+                    _svc = _ST.query.filter(_ST.name.ilike('%boarding%')).first()
+                    if _svc:
+                        _a = _A.query.filter_by(
+                            pet_id=pet.id, user_id=customer.id,
+                            service_type_id=_svc.id
+                        ).order_by(_A.id.desc()).first()
+                        if _a and _a.notes:
+                            _addons, addon_total = _parse_addons_from_notes(_a.notes)
+                addon_names = [a.split('(')[0].strip() for a in _addons]
+            except Exception as e:
+                logger.warning(f'Could not parse add-ons for boarding {b.id}: {e}')
+
+            amount += addon_total
+            total  += amount
+
+            addon_str = f' + {", ".join(addon_names)}' if addon_names else ''
+            pet_lines.append(f'{pet.name}: {days} night{"s" if days != 1 else ""}{addon_str} = ${amount:.2f}')
+
+            # Use the latest checkout time among all pets
+            cout = str(b.check_out_time or '17:00')[:5]
+            try:
+                t = datetime.strptime(cout, '%H:%M')
+                cout_fmt = t.strftime('%I:%M %p').lstrip('0')
+            except ValueError:
+                pass
+
+        return total, pet_lines, cout_fmt
 
 
-def send_estimate(app, boarding):
-    """Send the checkout-day estimate SMS for a single boarding record."""
-    from app.models import SmsMessage, InvoiceToken
+def send_customer_estimate(app, customer_id, boardings):
+    """Send one estimate SMS covering all of a customer's pets checking out today."""
+    from app.models import SmsMessage, InvoiceToken, User
     from app import db
     import secrets
 
@@ -117,14 +156,17 @@ def send_estimate(app, boarding):
             from twilio.rest import Client
             from app.sms_service import _normalize_phone
 
-            customer    = boarding.pet.owner
-            total, lines = calculate_estimate(app, boarding)
-
-            if total <= 0:
-                logger.info(f'No estimate amount for boarding {boarding.id}, skipping')
+            customer = User.query.get(customer_id)
+            if not customer:
                 return False
 
-            # Get or create token for the estimate link
+            total, pet_lines, cout_fmt = calculate_customer_estimate(app, boardings)
+
+            if total <= 0:
+                logger.info(f'No estimate amount for customer {customer_id}, skipping')
+                return False
+
+            # Get or create invoice token
             token_rec = InvoiceToken.query.filter_by(customer_id=customer.id).first()
             if not token_rec:
                 token_rec = InvoiceToken(
@@ -139,15 +181,17 @@ def send_estimate(app, boarding):
             business    = app.config.get('BUSINESS_NAME', 'Ruff Life Retreat')
             link        = f'https://rufflife.app/estimate/{token_rec.token}'
 
-            # Build checkout time string
-            cout = str(boarding.check_out_time or '17:00')[:5]
-            try:
-                cout_fmt = datetime.strptime(cout, '%H:%M').strftime('%I:%M %p').lstrip('0')
-            except ValueError:
-                cout_fmt = '5:00 PM'
+            # Build pet name list
+            pet_names = [b.pet.name for b in boardings if b.pet]
+            if len(pet_names) == 1:
+                pet_str = pet_names[0] + ' is'
+            elif len(pet_names) == 2:
+                pet_str = f'{pet_names[0]} & {pet_names[1]} are'
+            else:
+                pet_str = ', '.join(pet_names[:-1]) + f' & {pet_names[-1]} are'
 
             body = (
-                f"Good morning {customer.first_name}! {boarding.pet.name} is scheduled "
+                f"Good morning {customer.first_name}! {pet_str} scheduled "
                 f"to check out today by {cout_fmt}. "
                 f"Your estimated balance is ${total:.2f}. "
                 f"View the full breakdown: {link} "
@@ -170,34 +214,35 @@ def send_estimate(app, boarding):
             db.session.add(log)
             db.session.commit()
 
+            pet_summary = ', '.join(pet_lines)
             logger.info(
-                f'Checkout estimate sent: {boarding.pet.name} / '
-                f'{customer.first_name} {customer.last_name} — ${total:.2f}'
+                f'Checkout estimate sent: {customer.first_name} {customer.last_name} '
+                f'— ${total:.2f} ({pet_summary})'
             )
             return True
 
         except Exception as e:
-            logger.error(f'Failed to send checkout estimate for boarding {boarding.id}: {e}')
+            logger.error(f'Failed to send checkout estimate for customer {customer_id}: {e}')
             return False
 
 
 def run_checkout_estimates(app):
     """
-    Main entry point — find all checkouts today and send estimates.
+    Main entry point — group checkouts by customer and send one SMS each.
     Returns a summary dict.
     """
-    boardings = get_checkouts_today(app)
+    grouped = get_checkouts_today(app)
     sent    = 0
     skipped = 0
 
-    for b in boardings:
-        success = send_estimate(app, b)
+    for customer_id, boardings in grouped.items():
+        success = send_customer_estimate(app, customer_id, boardings)
         if success:
             sent += 1
         else:
             skipped += 1
 
-    summary = {'sent': sent, 'skipped': skipped, 'total': len(boardings)}
+    summary = {'sent': sent, 'skipped': skipped, 'total': len(grouped)}
     logger.info(f'Checkout estimate run complete: {summary}')
     return summary
 
