@@ -166,6 +166,7 @@
                                 {% endif %}
                             </td>
                             <td class="no-print text-end">
+                                {% if not open_mode %}
                                 <button type="button"
                                         class="btn btn-xs btn-outline-secondary py-0 px-1"
                                         style="font-size:0.7rem;"
@@ -173,6 +174,7 @@
                                         title="Edit amount">
                                     <i class="fas fa-pencil-alt"></i>
                                 </button>
+                                {% endif %}
                             </td>
                         </tr>
                         {% if line.addons %}
@@ -232,8 +234,8 @@
             </div>
             {% endif %}
 
-            <!-- Add adjustment (no-print, hidden on paid receipt view) -->
-            {% if not viewing_payment %}
+            <!-- Add adjustment (no-print, hidden on paid receipt view and open estimate) -->
+            {% if not viewing_payment and not open_mode %}
             <div class="no-print mb-4">
                 <button type="button" class="btn btn-sm btn-outline-secondary"
                         data-bs-toggle="collapse" data-bs-target="#addAdjPanel">

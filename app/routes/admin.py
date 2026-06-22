@@ -3276,11 +3276,17 @@ def customer_invoice(customer_id):
         section['subtotal'] = sum(l['display_amount'] for l in section['lines'])
 
     # ── Payment history ───────────────────────────────────────────────────
-    payments          = Payment.query.filter_by(
-        customer_id=customer_id,
-        service_type=invoice_type.capitalize()
-    ).order_by(Payment.payment_date.desc()).all()
-    total_paid        = sum(p.amount for p in payments if p.status == 'paid')
+    if open_mode:
+        # Open boarding estimate — don't load past payment history; it's not relevant
+        # and would incorrectly offset the projected balance.
+        payments   = []
+        total_paid = 0.0
+    else:
+        payments   = Payment.query.filter_by(
+            customer_id=customer_id,
+            service_type=invoice_type.capitalize()
+        ).order_by(Payment.payment_date.desc()).all()
+        total_paid = sum(p.amount for p in payments if p.status == 'paid')
     adj_total         = sum(a.amount for a in custom_lines)
     total_outstanding = sum(s['subtotal'] for s in pet_sections) + adj_total
     grand_total       = total_outstanding
