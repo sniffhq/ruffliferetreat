@@ -1358,6 +1358,19 @@ def invoice_audit():
                 from app.rate_resolver import get_pet_boarding_rate as _gpbr3
                 rate     = _gpbr3(pet, c, is_additional=not is_first)
                 _, addon_total = _parse_addons_from_notes(b.special_notes or '')
+                if addon_total == 0:
+                    try:
+                        from app.models import Appointment as _Ar, ServiceType as _STr
+                        _svcr = _STr.query.filter(_STr.name.ilike('%boarding%')).first()
+                        if _svcr:
+                            _ar = _Ar.query.filter_by(
+                                pet_id=pet.id, user_id=c.id,
+                                service_type_id=_svcr.id
+                            ).order_by(_Ar.id.desc()).first()
+                            if _ar and _ar.notes:
+                                _, addon_total = _parse_addons_from_notes(_ar.notes)
+                    except Exception:
+                        pass
                 boarding_balance += rate * days + addon_total
                 boarding_count   += 1
                 if oldest_unpaid is None or b.check_out_date < oldest_unpaid:
@@ -3169,7 +3182,18 @@ def customer_invoice(customer_id):
 
                 addons = []
                 try:
-                    addons, _ = _parse_addons_from_notes(b.special_notes or '')
+                    addons, _at = _parse_addons_from_notes(b.special_notes or '')
+                    if not addons:
+                        # Older bookings stored add-ons only in the appointment notes
+                        from app.models import Appointment as _Appt, ServiceType as _ST
+                        _svc = _ST.query.filter(_ST.name.ilike('%boarding%')).first()
+                        if _svc:
+                            _a = _Appt.query.filter_by(
+                                pet_id=pet.id, user_id=customer.id,
+                                service_type_id=_svc.id
+                            ).order_by(_Appt.id.desc()).first()
+                            if _a and _a.notes:
+                                addons, _ = _parse_addons_from_notes(_a.notes)
                 except Exception:
                     pass
 
