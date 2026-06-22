@@ -56,8 +56,8 @@ def get_checkouts_today(app):
 
 
 def calculate_estimate(app, boarding):
-    """Calculate estimated total for a single boarding record — boarding only."""
-    from app.models import Boarding, Appointment, ServiceType
+    """Calculate estimated total for a single boarding record — boarding + add-ons."""
+    from app.models import Boarding
 
     with app.app_context():
         def _boarding_days(b):
@@ -79,23 +79,22 @@ def calculate_estimate(app, boarding):
                     .filter(Boarding.status == 'active')
                     .order_by(Boarding.pet_id.asc()).all())
         is_first = (not siblings) or siblings[0].pet_id == pet.id
-        rate     = 40.00 if is_first else 25.00
-        amount   = rate * days
 
-        # Add-ons
+        try:
+            from app.rate_resolver import get_pet_boarding_rate
+            rate = get_pet_boarding_rate(pet, customer, is_additional=not is_first)
+        except Exception:
+            rate = 40.00 if is_first else 25.00
+
+        amount = rate * days
+
+        # ── Add-ons (stored in boarding.special_notes) ────────────────────
         addon_total = 0.0
         addon_names = []
         try:
-            _svc = ServiceType.query.filter(ServiceType.name.ilike('%boarding%')).first()
-            if _svc:
-                _appt = (Appointment.query
-                         .filter_by(pet_id=pet.id, user_id=customer.id,
-                                    service_type_id=_svc.id)
-                         .order_by(Appointment.id.desc()).first())
-                if _appt and _appt.notes:
-                    from app.routes.admin import _parse_addons_from_notes
-                    _addons, addon_total = _parse_addons_from_notes(_appt.notes)
-                    addon_names = [a.split('(')[0].strip() for a in _addons]
+            from app.routes.admin import _parse_addons_from_notes
+            _addons, addon_total = _parse_addons_from_notes(boarding.special_notes or '')
+            addon_names = [a.split('(')[0].strip() for a in _addons]
         except Exception as e:
             logger.warning(f'Could not parse add-ons for boarding {boarding.id}: {e}')
 
