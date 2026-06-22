@@ -2253,8 +2253,11 @@ def boarding_detail(booking_id):
         try:
             from app.models import InvoiceAdjustment
 
-            # Nights calculation — checkout day is never charged
-            days = max((booking.check_out_date - booking.check_in_date).days, 1)
+            # Nights: base nights + 1 if pickup after 10 AM
+            cout = str(booking.check_out_time or '17:00')[:5]
+            days = (booking.check_out_date - booking.check_in_date).days
+            if cout > '10:00':
+                days += 1
 
             # Is this the first pet for this stay?
             # Use lowest pet_id among siblings as the primary — same logic as invoice_audit
@@ -3104,10 +3107,13 @@ def delete_payment(payment_id):
 def _boarding_days(b):
     """
     Calculate billable nights for a boarding record.
-    Charges per night stayed — check-out day is never charged regardless of time.
-    e.g. Jun 20 check-in, Jun 22 checkout = 2 nights.
+    Base = checkout_date - checkin_date (nights slept).
+    If pickup is after 10:00 AM, the checkout day counts as an extra night.
+    e.g. Jun 20–22, pickup at 5 PM = 3 nights; pickup at 9 AM = 2 nights.
     """
-    return max((b.check_out_date - b.check_in_date).days, 1)
+    base = (b.check_out_date - b.check_in_date).days
+    cout = str(b.check_out_time or '17:00')[:5]
+    return base if cout <= '10:00' else base + 1
 
 
 @bp.route('/customers/<int:customer_id>/invoice')
@@ -3367,7 +3373,9 @@ def send_estimate_sms(customer_id):
     DAYCARE_SINGLE = float(current_app.config.get('DAYCARE_RATE_SINGLE', 25.0))
 
     def _boarding_days(b):
-        return max((b.check_out_date - b.check_in_date).days, 1)
+        base = (b.check_out_date - b.check_in_date).days
+        cout = str(b.check_out_time or '17:00')[:5]
+        return base if cout <= '10:00' else base + 1
 
     total = 0.0
     pet_lines = []
@@ -3855,7 +3863,9 @@ def reports_dashboard():
     DAYCARE_SINGLE = 25.0
 
     def _boarding_days_r(b):
-        return max((b.check_out_date - b.check_in_date).days, 1)
+        base = (b.check_out_date - b.check_in_date).days
+        cout = str(b.check_out_time or '17:00')[:5]
+        return base if cout <= '10:00' else base + 1
 
     for i in range(11, -1, -1):
         mo = (today.month - 1 - i) % 12 + 1

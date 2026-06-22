@@ -20,7 +20,9 @@ MARKER = '[checkout-estimate]'
 
 
 def _boarding_days(b):
-    return max((b.check_out_date - b.check_in_date).days, 1)
+    base = (b.check_out_date - b.check_in_date).days
+    cout = str(b.check_out_time or '17:00')[:5]
+    return base if cout <= '10:00' else base + 1
 
 
 def get_checkouts_today(app):
