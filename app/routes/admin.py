@@ -3169,15 +3169,7 @@ def customer_invoice(customer_id):
 
                 addons = []
                 try:
-                    from app.models import Appointment as _Appt, ServiceType as _ST
-                    _svc = _ST.query.filter(_ST.name.ilike('%boarding%')).first()
-                    if _svc:
-                        _a = _Appt.query.filter_by(
-                            pet_id=pet.id, user_id=customer.id,
-                            service_type_id=_svc.id
-                        ).order_by(_Appt.id.desc()).first()
-                        if _a and _a.notes:
-                            addons, _ = _parse_addons_from_notes(_a.notes)
+                    addons, _ = _parse_addons_from_notes(b.special_notes or '')
                 except Exception:
                     pass
 
