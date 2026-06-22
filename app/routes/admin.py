@@ -637,9 +637,10 @@ def daycare_enroll():
         tuesday   = bool(request.form.get('tuesday'))
         wednesday = bool(request.form.get('wednesday'))
         thursday  = bool(request.form.get('thursday'))
+        friday    = bool(request.form.get('friday'))
         notes     = request.form.get('notes', '')
 
-        if not pet_id or not (monday or tuesday or wednesday or thursday):
+        if not pet_id or not (monday or tuesday or wednesday or thursday or friday):
             flash('Please select pet and at least one day.', 'danger')
             return redirect(url_for('admin.daycare_enroll'))
 
@@ -651,7 +652,7 @@ def daycare_enroll():
             tuesday=tuesday,
             wednesday=wednesday,
             thursday=thursday,
-            friday=False,
+            friday=friday,
             notes=notes,
             active=True
         )
@@ -1136,9 +1137,10 @@ def approve_waitlist_entry(entry_id):
     tuesday   = bool(request.form.get('tuesday'))
     wednesday = bool(request.form.get('wednesday'))
     thursday  = bool(request.form.get('thursday'))
+    friday    = bool(request.form.get('friday'))
     notes     = request.form.get('notes', '')
 
-    if not pet_id or not any([monday, tuesday, wednesday, thursday]):
+    if not pet_id or not any([monday, tuesday, wednesday, thursday, friday]):
         flash('Please select a pet and at least one day.', 'danger')
         return redirect(url_for('admin.daycare_waitlist_admin'))
 
@@ -1147,7 +1149,7 @@ def approve_waitlist_entry(entry_id):
         pet_id          = pet_id,
         enrollment_date = datetime.now().date(),
         monday=monday, tuesday=tuesday, wednesday=wednesday,
-        thursday=thursday, friday=False,
+        thursday=thursday, friday=friday,
         notes=notes, active=True,
     )
     db.session.add(enrollment)
@@ -4143,7 +4145,7 @@ def update_daycare_schedule(customer_id):
         enrollment.tuesday   = bool(request.form.get(f'{prefix}tuesday'))
         enrollment.wednesday = bool(request.form.get(f'{prefix}wednesday'))
         enrollment.thursday  = bool(request.form.get(f'{prefix}thursday'))
-        enrollment.friday    = False  # Friday removed from daycare
+        enrollment.friday    = bool(request.form.get(f'{prefix}friday'))
     db.session.commit()
     flash('Daycare schedule updated.', 'success')
     return redirect(url_for('admin.customer_detail', customer_id=customer_id))
