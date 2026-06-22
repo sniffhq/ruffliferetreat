@@ -95,6 +95,14 @@
                                     data-bs-target="#editModal{{ c.id }}">
                                 <i class="fas fa-pencil-alt"></i>
                             </button>
+                            {% if show_archived %}
+                            <button class="btn btn-sm btn-outline-danger ms-1"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#deleteModal{{ c.id }}"
+                                    title="Permanently delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
@@ -199,6 +207,40 @@
     </div>
 </div>
 {% endfor %}
+
+<!-- Delete Customer Confirmation Modals -->
+{% if show_archived %}
+{% for c in customers %}
+<div class="modal fade" id="deleteModal{{ c.id }}" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white py-2">
+                <h6 class="modal-title fw-bold"><i class="fas fa-exclamation-triangle me-2"></i>Permanently Delete</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-1">This will permanently delete <strong>{{ c.first_name }} {{ c.last_name }}</strong> and all associated data:</p>
+                <ul class="small text-muted mb-2">
+                    <li>Pets &amp; vaccination records</li>
+                    <li>Boarding &amp; daycare history</li>
+                    <li>Appointments &amp; invoices</li>
+                    <li>SMS messages &amp; surveys</li>
+                </ul>
+                <p class="text-danger fw-bold mb-0 small">This cannot be undone.</p>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="POST" action="{{ url_for('admin.delete_customer', customer_id=c.id) }}" class="d-inline">
+                    <button type="submit" class="btn btn-sm btn-danger fw-bold">
+                        <i class="fas fa-trash me-1"></i>Delete Permanently
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endif %}
 
 <!-- Create Customer Modal -->
 <div class="modal fade" id="createCustomerModal" tabindex="-1">
