@@ -572,17 +572,26 @@
             </div>
             <form id="assignKennelForm" method="POST" action="">
                 <div class="modal-body">
-                    <div class="mb-0">
+                    <div class="mb-3">
                         <label class="form-label fw-bold">Kennel / Suite</label>
                         <select id="assignKennelSelect" class="form-select">
                             <option value="">Loading...</option>
                         </select>
-                        <div class="form-text" id="assignKennelHint">
-                            Occupied kennels are shown and can still be selected for bonded pairs.
-                        </div>
                         <!-- Hidden fields submitted with the form -->
-                        <input type="hidden" name="kennel_type"   id="assignKennelType">
-                        <input type="hidden" name="kennel_number" id="assignKennelNumber">
+                        <input type="hidden" name="kennel_type"    id="assignKennelType">
+                        <input type="hidden" name="kennel_number"  id="assignKennelNumber">
+                        <input type="hidden" name="confirm_share"  id="assignConfirmShareInput" value="0">
+                    </div>
+                    <!-- Sharing confirmation — shown only when occupied slot selected -->
+                    <div id="assignShareConfirmBox" class="alert alert-warning d-none py-2 mb-0" style="font-size:0.875rem;">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        <strong>This slot is already occupied.</strong> Only continue if these pets are sharing (bonded pair / siblings).
+                        <div class="form-check mt-2">
+                            <input class="form-check-input" type="checkbox" id="assignConfirmShareCheck">
+                            <label class="form-check-label fw-bold" for="assignConfirmShareCheck">
+                                Yes, these pets are sharing this kennel
+                            </label>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer py-2">
@@ -623,7 +632,8 @@ async function loadKennelDropdown(checkIn, checkOut, excludeId, selectEl, hidden
                 let label = prefix + ' #' + k.kennel_number;
                 if (k.notes)       { label += ' (' + k.notes + ')'; }
                 if (!k.available)  { label += ' — ' + k.occupants.join(' & ') + ' (occupied)'; }
-                opt.textContent = label;
+                opt.textContent        = label;
+                opt.dataset.occupied   = k.available ? '0' : '1';
                 if (!k.available)  { opt.style.color = '#856404'; }
                 group.appendChild(opt);
             });
@@ -640,15 +650,41 @@ async function loadKennelDropdown(checkIn, checkOut, excludeId, selectEl, hidden
 
     selectEl.disabled = false;
 
+    const shareBox   = document.getElementById('assignShareConfirmBox');
+    const shareCheck = document.getElementById('assignConfirmShareCheck');
+    const shareInput = document.getElementById('assignConfirmShareInput');
+    if (shareCheck) {
+        shareCheck.checked = false;
+        if (shareInput) shareInput.value = '0';
+        shareCheck.onchange = function () {
+            if (shareInput) shareInput.value = this.checked ? '1' : '0';
+        };
+    }
+
     selectEl.onchange = function () {
         if (!this.value) {
             hiddenTypeEl.value   = '';
             hiddenNumberEl.value = '';
+            if (shareBox)  shareBox.classList.add('d-none');
+            if (shareCheck) { shareCheck.checked = false; }
+            if (shareInput) shareInput.value = '0';
             return;
         }
         const [type, number] = this.value.split('|');
         hiddenTypeEl.value   = type;
         hiddenNumberEl.value = number;
+        // Show sharing warning if occupied
+        const opt = this.options[this.selectedIndex];
+        const isOccupied = opt && opt.dataset.occupied === '1';
+        if (shareBox) {
+            if (isOccupied) {
+                shareBox.classList.remove('d-none');
+            } else {
+                shareBox.classList.add('d-none');
+                if (shareCheck) shareCheck.checked = false;
+                if (shareInput) shareInput.value   = '0';
+            }
+        }
     };
 }
 

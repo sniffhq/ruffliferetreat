@@ -6541,24 +6541,26 @@ def assign_kennel(booking_id):
         flash('Please select a kennel or suite.', 'danger')
         return _back()
 
-    # Time-aware conflict check — block genuine overlaps (not just same-day checkout/checkin)
-    conflicts = _kennel_conflicts(
-        kennel_type, kennel_number,
-        booking.check_in_date, booking.check_out_date,
-        booking.check_in_time, booking.check_out_time,
-        exclude_id=booking_id,
-    )
-    if conflicts:
-        names = ', '.join(
-            f'{b.pet.name} (out {b.check_out_date.strftime("%m/%d")} @ {b.check_out_time})'
-            for b in conflicts
+    # Time-aware conflict check — block genuine overlaps unless staff explicitly confirms sharing
+    confirm_share = request.form.get('confirm_share') == '1'
+    if not confirm_share:
+        conflicts = _kennel_conflicts(
+            kennel_type, kennel_number,
+            booking.check_in_date, booking.check_out_date,
+            booking.check_in_time, booking.check_out_time,
+            exclude_id=booking_id,
         )
-        flash(
-            f'Cannot assign — {kennel_type.title()} #{kennel_number} has a time conflict with: {names}. '
-            f'Resolve the existing reservation first or choose a different slot.',
-            'danger'
-        )
-        return _back()
+        if conflicts:
+            names = ', '.join(
+                f'{b.pet.name} (out {b.check_out_date.strftime("%m/%d")} @ {b.check_out_time})'
+                for b in conflicts
+            )
+            flash(
+                f'Cannot assign — {kennel_type.title()} #{kennel_number} is occupied by {names}. '
+                f'If these pets are sharing (bonded pair/siblings), check "Confirm sharing" and resubmit.',
+                'danger'
+            )
+            return _back()
 
     booking.kennel_number = kennel_number
     booking.kennel_type   = kennel_type
