@@ -6168,7 +6168,7 @@ def approve_boarding_request(appt_id):
                     return str(t)
             if appt.needs_reapproval:
                 body = (
-                    f"\ud83d\udd04 Hi {owner.first_name}, your boarding reservation for "
+                    f"Hi {owner.first_name}, your boarding reservation for "
                     f"{appt.pet.name} has been updated. "
                     f"Ref: {booking.booking_number}. "
                     f"Check-in: {check_in_date.strftime('%a, %b %d')} at {_fmt_t(check_in_time)}. "
