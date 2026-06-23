@@ -6125,10 +6125,6 @@ def approve_boarding_request(appt_id):
     kennel_number      = request.form.get('kennel_number', '').strip() or None
     kennel_type        = request.form.get('kennel_type', 'kennel')
 
-    if not kennel_number:
-        flash('Kennel/suite number is required to approve a boarding reservation.', 'danger')
-        return redirect(url_for('admin.boarding_dashboard'))
-
     if not check_in_date_str or not check_out_date_str:
         flash('Check-in and check-out dates are required to approve.', 'danger')
         return redirect(url_for('admin.boarding_dashboard'))
