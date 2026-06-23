@@ -380,16 +380,22 @@
                         </div>
                         <div class="col-md-4">
                             <label class="form-label fw-bold">Accommodation Type</label>
-                            <select name="kennel_type" class="form-select">
-                                <option value="kennel" {% if booking.kennel_type == 'kennel' or not booking.kennel_type %}selected{% endif %}>Kennel</option>
-                                <option value="suite" {% if booking.kennel_type == 'suite' %}selected{% endif %}>Suite</option>
+                            <select name="kennel_type" id="editKennelType" class="form-select">
+                                <option value="kennel" {% if booking.kennel_type != 'suite' %}selected{% endif %}>Kennel</option>
+                                <option value="suite"  {% if booking.kennel_type == 'suite' %}selected{% endif %}>Suite</option>
                             </select>
                         </div>
                         <div class="col-md-8">
-                            <label class="form-label fw-bold">Kennel / Suite Number</label>
-                            <input type="text" name="kennel_number" class="form-control"
-                                   value="{{ booking.kennel_number or '' }}"
-                                   placeholder="e.g. 4, 4A — leave blank if not assigned">
+                            <label class="form-label fw-bold">Kennel / Suite Assignment</label>
+                            <select id="editKennelSelect" class="form-select">
+                                <option value="">Loading...</option>
+                            </select>
+                            <!-- Actual value submitted -->
+                            <input type="hidden" name="kennel_number" id="editKennelNumber"
+                                   value="{{ booking.kennel_number or '' }}">
+                            <div class="form-text" id="editKennelHint">
+                                Occupied slots can still be selected for bonded pairs.
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -403,6 +409,87 @@
         </div>
     </div>
 </div>
+
+<script>
+(function () {
+    const modal      = document.getElementById('editBookingModal');
+    if (!modal) return;
+
+    const typeEl     = document.getElementById('editKennelType');
+    const selectEl   = document.getElementById('editKennelSelect');
+    const hiddenEl   = document.getElementById('editKennelNumber');
+    const hintEl     = document.getElementById('editKennelHint');
+    const checkInEl  = modal.querySelector('[name=check_in_date]');
+    const checkOutEl = modal.querySelector('[name=check_out_date]');
+    const bookingId  = {{ booking.id }};
+    const initNumber = {{ ('"' + booking.kennel_number + '"') if booking.kennel_number else 'null' }};
+
+    async function reload() {
+        const type     = typeEl.value;
+        const checkIn  = checkInEl.value;
+        const checkOut = checkOutEl.value;
+
+        selectEl.innerHTML = '<option value="">Loading…</option>';
+        selectEl.disabled  = true;
+
+        const params = [`exclude=${bookingId}`];
+        if (checkIn && checkOut) {
+            params.push(`check_in=${checkIn}`, `check_out=${checkOut}`);
+        }
+
+        try {
+            const data   = await fetch('/admin/boarding/kennel-slots?' + params.join('&')).then(r => r.json());
+            const slots  = type === 'suite' ? (data.suites || []) : (data.kennels || []);
+            const prefix = type === 'suite' ? 'Suite' : 'Kennel';
+
+            selectEl.innerHTML = '';
+
+            // Blank "no assignment" option
+            const blank = document.createElement('option');
+            blank.value = '';
+            blank.textContent = '— No assignment —';
+            selectEl.appendChild(blank);
+
+            // If current kennel number isn't in the slot list, add it as a legacy option
+            const inList = slots.some(k => k.kennel_number === hiddenEl.value);
+            if (hiddenEl.value && !inList) {
+                const legacy = document.createElement('option');
+                legacy.value       = hiddenEl.value;
+                legacy.textContent = prefix + ' #' + hiddenEl.value + ' (current)';
+                legacy.selected    = true;
+                selectEl.appendChild(legacy);
+            }
+
+            slots.forEach(function (k) {
+                const opt = document.createElement('option');
+                opt.value = k.kennel_number;
+                let label = prefix + ' #' + k.kennel_number;
+                if (k.notes)       { label += ' (' + k.notes + ')'; }
+                if (!k.available)  { label += ' — ' + k.occupants.join(' & ') + ' (occupied)'; }
+                opt.textContent = label;
+                if (!k.available)  { opt.style.color = '#856404'; }
+                if (k.kennel_number === hiddenEl.value) { opt.selected = true; }
+                selectEl.appendChild(opt);
+            });
+
+            if (hintEl) hintEl.textContent = 'Occupied slots can still be selected for bonded pairs.';
+        } catch (e) {
+            selectEl.innerHTML = '<option value="">Error loading slots</option>';
+        }
+
+        selectEl.disabled = false;
+
+        selectEl.onchange = function () {
+            hiddenEl.value = this.value;
+        };
+    }
+
+    modal.addEventListener('show.bs.modal', reload);
+    typeEl.addEventListener('change',    reload);
+    checkInEl.addEventListener('change',  reload);
+    checkOutEl.addEventListener('change', reload);
+})();
+</script>
 {% endif %}
 {% if invoice_preview %}
 <!-- ── Invoice Preview ─────────────────────────────────────────────────── -->
