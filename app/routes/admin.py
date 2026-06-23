@@ -6116,14 +6116,20 @@ def approve_boarding_request(appt_id):
     # Conflict check — prevent double-booking the same pet
     conflict = _check_boarding_conflict(appt.pet_id, check_in_date, check_out_date)
     if conflict:
-        flash(
-            f'{appt.pet.name} already has an active boarding reservation from '
-            f'{conflict.check_in_date.strftime("%b %d")} to '
-            f'{conflict.check_out_date.strftime("%b %d, %Y")}. '
-            f'Adjust the dates or complete the existing reservation before approving.',
-            'danger'
-        )
-        return redirect(url_for('admin.boarding_dashboard'))
+        if appt.needs_reapproval:
+            # Customer edited an existing confirmed booking — silently cancel the
+            # old boarding so the updated one can be created without a cancel SMS.
+            conflict.status = 'cancelled'
+            db.session.flush()
+        else:
+            flash(
+                f'{appt.pet.name} already has an active boarding reservation from '
+                f'{conflict.check_in_date.strftime("%b %d")} to '
+                f'{conflict.check_out_date.strftime("%b %d, %Y")}. '
+                f'Adjust the dates or complete the existing reservation before approving.',
+                'danger'
+            )
+            return redirect(url_for('admin.boarding_dashboard'))
 
     # Create Boarding record
     booking = Boarding(
@@ -6160,14 +6166,24 @@ def approve_boarding_request(appt_id):
                     return _dt.strptime(str(t)[:5], '%H:%M').strftime('%I:%M %p').lstrip('0')
                 except Exception:
                     return str(t)
-            body = (
-                f"\u2705 Great news, {owner.first_name}! Your boarding request for "
-                f"{appt.pet.name} has been approved. "
-                f"Ref: {booking.booking_number}. "
-                f"Check-in: {check_in_date.strftime('%a, %b %d')} at {_fmt_t(check_in_time)}. "
-                f"Check-out: {check_out_date.strftime('%a, %b %d')} at {_fmt_t(check_out_time)}. "
-                f"Questions? Reply to this message. \u2014 Ruff Life Retreat"
-            )
+            if appt.needs_reapproval:
+                body = (
+                    f"\ud83d\udd04 Hi {owner.first_name}, your boarding reservation for "
+                    f"{appt.pet.name} has been updated. "
+                    f"Ref: {booking.booking_number}. "
+                    f"Check-in: {check_in_date.strftime('%a, %b %d')} at {_fmt_t(check_in_time)}. "
+                    f"Check-out: {check_out_date.strftime('%a, %b %d')} at {_fmt_t(check_out_time)}. "
+                    f"Questions? Reply to this message. \u2014 Ruff Life Retreat"
+                )
+            else:
+                body = (
+                    f"\u2705 Great news, {owner.first_name}! Your boarding request for "
+                    f"{appt.pet.name} has been approved. "
+                    f"Ref: {booking.booking_number}. "
+                    f"Check-in: {check_in_date.strftime('%a, %b %d')} at {_fmt_t(check_in_time)}. "
+                    f"Check-out: {check_out_date.strftime('%a, %b %d')} at {_fmt_t(check_out_time)}. "
+                    f"Questions? Reply to this message. \u2014 Ruff Life Retreat"
+                )
             client  = Client(current_app.config.get('TWILIO_ACCOUNT_SID'),
                              current_app.config.get('TWILIO_AUTH_TOKEN'))
             message = client.messages.create(body=body, from_=from_number, to=to_e164)
@@ -6184,7 +6200,10 @@ def approve_boarding_request(appt_id):
         audit('boarding.approved', 'boarding', booking.id, appt.pet.name,
               f'Boarding request approved for {appt.pet.name} ({check_in_date} to {check_out_date}) by {current_user.first_name} {current_user.last_name}')
     except Exception: pass
-    flash(f'Boarding request for {appt.pet.name} approved! Reservation created.', 'success')
+    if appt.needs_reapproval:
+        flash(f'Boarding reservation for {appt.pet.name} updated and customer notified.', 'success')
+    else:
+        flash(f'Boarding request for {appt.pet.name} approved! Reservation created.', 'success')
     return redirect(url_for('admin.boarding_dashboard'))
 
 
