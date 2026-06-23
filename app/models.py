@@ -310,7 +310,7 @@ class Boarding(db.Model):
     kennel_type    = db.Column(db.String(10))   # 'kennel' or 'suite'
     checked_in     = db.Column(db.Boolean, default=False)
     checked_in_at  = db.Column(db.DateTime)
-    booking_number = db.Column(db.String(20), nullable=True, unique=True)  # e.g. "BOARD-42"
+    booking_number = db.Column(db.String(20), nullable=True)  # e.g. "BOARD-42" — uniqueness enforced by _next_board_number()
 
     # Status
     status = db.Column(db.String(20), default='active')  # active, completed, cancelled

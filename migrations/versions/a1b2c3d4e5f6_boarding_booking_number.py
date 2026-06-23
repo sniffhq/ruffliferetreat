@@ -17,9 +17,9 @@ depends_on    = None
 def upgrade():
     op.add_column('boarding',
         sa.Column('booking_number', sa.String(20), nullable=True))
-    op.create_unique_constraint('uq_boarding_booking_number', 'boarding', ['booking_number'])
+    # SQLite does not support ALTER TABLE ADD CONSTRAINT — uniqueness is
+    # enforced at the application level via _next_board_number().
 
 
 def downgrade():
-    op.drop_constraint('uq_boarding_booking_number', 'boarding', type_='unique')
     op.drop_column('boarding', 'booking_number')
