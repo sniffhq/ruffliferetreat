@@ -474,10 +474,10 @@
 
             if (hintEl) hintEl.textContent = 'Occupied slots can still be selected for bonded pairs.';
         } catch (e) {
-            selectEl.innerHTML = '<option value="">Error loading slots</option>';
+            selectEl.innerHTML = '<option value="">Error loading — try again</option>';
+        } finally {
+            selectEl.disabled = false;
         }
-
-        selectEl.disabled = false;
 
         selectEl.onchange = function () {
             hiddenEl.value = this.value;
