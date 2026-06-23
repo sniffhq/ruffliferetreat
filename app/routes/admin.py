@@ -7105,6 +7105,57 @@ def waiver_report():
         not_accepted=not_accepted,
         total=len(all_customers))
 
+@bp.route('/customer/<int:customer_id>/waiver-reminder-sms', methods=['POST'])
+@login_required
+@admin_required
+def send_waiver_reminder_sms(customer_id):
+    """Send a waiver reminder SMS to a customer who hasn't signed yet."""
+    from app.models import User, SmsMessage
+    from app.sms_service import _normalize_phone
+    from twilio.rest import Client
+
+    customer = User.query.get_or_404(customer_id)
+
+    if getattr(customer, 'waiver_accepted', False):
+        flash(f'{customer.first_name} {customer.last_name} has already accepted the waiver.', 'info')
+        return redirect(url_for('admin.waiver_report'))
+
+    if not customer.phone:
+        flash(f'{customer.first_name} {customer.last_name} has no phone number on file.', 'danger')
+        return redirect(url_for('admin.waiver_report'))
+
+    try:
+        portal_url = current_app.config.get('PORTAL_URL') or request.host_url.rstrip('/')
+        to_e164     = _normalize_phone(customer.phone)
+        from_number = current_app.config.get('TWILIO_PHONE_NUMBER')
+        body = (
+            f"Hi {customer.first_name}! This is Ruff Life Retreat. "
+            f"Please log in to your customer portal to review and sign your service waiver: "
+            f"{portal_url}/login . "
+            f"Questions? Reply to this message or call us. — Ruff Life Retreat"
+        )
+        client  = Client(current_app.config.get('TWILIO_ACCOUNT_SID'),
+                         current_app.config.get('TWILIO_AUTH_TOKEN'))
+        message = client.messages.create(body=body, from_=from_number, to=to_e164)
+        log = SmsMessage(
+            user_id     = customer.id,
+            direction   = 'outbound',
+            from_number = from_number,
+            to_number   = to_e164,
+            body        = body,
+            twilio_sid  = message.sid,
+            is_read     = True
+        )
+        db.session.add(log)
+        db.session.commit()
+        flash(f'Waiver reminder sent to {customer.first_name} {customer.last_name}.', 'success')
+    except Exception as e:
+        current_app.logger.error(f'Waiver reminder SMS failed for customer {customer_id}: {e}')
+        flash(f'Failed to send reminder: {e}', 'danger')
+
+    return redirect(url_for('admin.waiver_report') + '#pending')
+
+
 @bp.route('/reports/boarding-occupancy')
 @login_required
 @admin_required

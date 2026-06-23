@@ -152,9 +152,21 @@
                                 {% endif %}
                             </td>
                             <td class="text-muted small">{{ c.created_at.strftime('%m/%d/%Y') if c.created_at else '—' }}</td>
-                            <td>
+                            <td class="text-nowrap">
                                 <a href="{{ url_for('admin.customer_detail', customer_id=c.id) }}"
-                                   class="btn btn-sm btn-outline-primary">View</a>
+                                   class="btn btn-sm btn-outline-primary me-1">View</a>
+                                {% if c.phone %}
+                                <form method="POST"
+                                      action="{{ url_for('admin.send_waiver_reminder_sms', customer_id=c.id) }}"
+                                      class="d-inline"
+                                      onsubmit="return confirm('Send waiver reminder SMS to {{ c.first_name }}?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-warning">
+                                        <i class="fas fa-sms me-1"></i>Send Reminder
+                                    </button>
+                                </form>
+                                {% else %}
+                                <span class="text-muted small" title="No phone number on file">No phone</span>
+                                {% endif %}
                             </td>
                         </tr>
                         {% endfor %}
