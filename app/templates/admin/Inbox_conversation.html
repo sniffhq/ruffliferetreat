@@ -252,8 +252,13 @@
                                 {% if msg.body %}<div>{{ msg.body }}</div>{% endif %}
                                 {% if msg.media_url %}
                                     {% for url in msg.media_url.split(',') %}
-                                        <div class="mt-1"><img src="{{ url }}" alt="MMS image"
-                                             style="max-width:100%; border-radius:8px;"></div>
+                                        <div class="mt-1">
+                                            <a href="{{ url_for('admin.sms_media_proxy', url=url) }}" target="_blank">
+                                                <img src="{{ url_for('admin.sms_media_proxy', url=url) }}"
+                                                     alt="MMS image"
+                                                     style="max-width:100%; border-radius:8px; cursor:zoom-in;">
+                                            </a>
+                                        </div>
                                     {% endfor %}
                                 {% endif %}
                                 <div class="text-end mt-1" style="font-size:0.7rem; opacity:0.65;">

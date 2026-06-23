@@ -4268,6 +4268,29 @@ def sms_inbox():
                            customers_json=customers_json)
 
 
+@bp.route('/sms/media-proxy')
+@login_required
+@admin_required
+def sms_media_proxy():
+    """Proxy Twilio MMS media URLs so the browser doesn't need Twilio credentials."""
+    import requests as _req
+    from flask import Response
+    url = request.args.get('url', '').strip()
+    if not url or 'twilio.com' not in url:
+        return ('Forbidden', 403)
+    try:
+        r = _req.get(
+            url,
+            auth=(current_app.config.get('TWILIO_ACCOUNT_SID'),
+                  current_app.config.get('TWILIO_AUTH_TOKEN')),
+            timeout=10
+        )
+        return Response(r.content, content_type=r.headers.get('Content-Type', 'image/jpeg'))
+    except Exception as e:
+        current_app.logger.error(f'MMS proxy error: {e}')
+        return ('Error fetching media', 502)
+
+
 @bp.route('/sms-report')
 @login_required
 @admin_required
