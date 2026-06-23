@@ -498,33 +498,15 @@
                             </div>
                             {% endif %}
                         </div>
-                        <!-- Share with occupied kennel -->
-                        <div class="col-12 approve-share-row" style="display:none;">
-                            <label class="form-label fw-bold">
-                                <i class="fas fa-paw me-1 text-warning"></i>Share with an occupied kennel
-                            </label>
-                            <select class="form-select approve-share-select">
-                                <option value="">— Enter manually below —</option>
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Kennel / Suite</label>
+                            <select class="form-select approve-kennel-select">
+                                <option value="">— Select dates first —</option>
                             </select>
-                            <div class="form-text">Pets already boarding during these dates. Select one to share their kennel.</div>
-                        </div>
-                        <div class="col-12 approve-share-divider" style="display:none;">
-                            <div class="d-flex align-items-center gap-2">
-                                <hr class="flex-grow-1 my-0"><span class="text-muted small">or enter manually</span><hr class="flex-grow-1 my-0">
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold">Accommodation Type</label>
-                            <select name="kennel_type" class="form-select">
-                                <option value="kennel">Kennel</option>
-                                <option value="suite">Suite</option>
-                            </select>
-                        </div>
-                        <div class="col-md-8">
-                            <label class="form-label fw-bold">Kennel / Suite Number</label>
-                            <input type="text" name="kennel_number" class="form-control"
-                                   placeholder="e.g. 4, 4A, 12 — can be shared for multiple pets">
-                            <div class="form-text">Use the same number for pets sharing a space.</div>
+                            <div class="form-text approve-kennel-hint text-muted">Enter check-in and check-out dates to see availability.</div>
+                            <!-- Hidden fields submitted with the form -->
+                            <input type="hidden" name="kennel_type"   class="approve-kennel-type">
+                            <input type="hidden" name="kennel_number" class="approve-kennel-number">
                         </div>
                         <div class="col-12">
                             <label class="form-label fw-bold">Special Notes</label>
@@ -590,34 +572,17 @@
             </div>
             <form id="assignKennelForm" method="POST" action="">
                 <div class="modal-body">
-
-                    <!-- Share with existing kennel -->
-                    <div id="assignShareRow" style="display:none;" class="mb-3">
-                        <label class="form-label fw-bold">
-                            <i class="fas fa-paw me-1 text-warning"></i>Share with an occupied kennel
-                        </label>
-                        <select id="assignShareSelect" class="form-select">
-                            <option value="">— Enter manually below —</option>
-                        </select>
-                        <div class="form-text">Pets already boarding during this stay. Select one to share their kennel.</div>
-                    </div>
-
-                    <div id="assignShareDivider" style="display:none;" class="d-flex align-items-center gap-2 mb-3">
-                        <hr class="flex-grow-1 my-0"><span class="text-muted small">or enter manually</span><hr class="flex-grow-1 my-0">
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Accommodation Type</label>
-                        <select name="kennel_type" id="assignKennelType" class="form-select">
-                            <option value="kennel">Kennel</option>
-                            <option value="suite">Suite</option>
-                        </select>
-                    </div>
                     <div class="mb-0">
-                        <label class="form-label fw-bold">Number <span class="text-danger">*</span></label>
-                        <input type="text" name="kennel_number" id="assignKennelNumber"
-                               class="form-control" placeholder="e.g. 4, 4A, 12" required>
-                        <div class="form-text">Use the same number for pets sharing a space.</div>
+                        <label class="form-label fw-bold">Kennel / Suite</label>
+                        <select id="assignKennelSelect" class="form-select">
+                            <option value="">Loading...</option>
+                        </select>
+                        <div class="form-text" id="assignKennelHint">
+                            Occupied kennels are shown and can still be selected for bonded pairs.
+                        </div>
+                        <!-- Hidden fields submitted with the form -->
+                        <input type="hidden" name="kennel_type"   id="assignKennelType">
+                        <input type="hidden" name="kennel_number" id="assignKennelNumber">
                     </div>
                 </div>
                 <div class="modal-footer py-2">
@@ -632,89 +597,102 @@
 </div>
 
 <script>
-// ── Shared: load occupied kennels for a date range ─────────────────────────
-async function loadOccupiedKennels(checkIn, checkOut, excludeId, selectEl, typeEl, numberEl, shareRow, shareDivider) {
-    if (!checkIn || !checkOut) return;
+// ── Shared: populate kennel dropdown from /boarding/kennel-slots ───────────
+async function loadKennelDropdown(checkIn, checkOut, excludeId, selectEl, hiddenTypeEl, hiddenNumberEl, hintEl) {
     selectEl.innerHTML = '<option value="">Loading...</option>';
-    try {
-        let url = `/admin/boarding/occupied-kennels?check_in=${checkIn}&check_out=${checkOut}`;
-        if (excludeId) url += `&exclude=${excludeId}`;
-        const data = await fetch(url).then(r => r.json());
+    selectEl.disabled  = true;
 
-        if (data.length) {
-            selectEl.innerHTML = '<option value="">— Enter manually below —</option>';
-            data.forEach(k => {
-                const opt = document.createElement('option');
-                opt.value = JSON.stringify({ type: k.kennel_type, number: k.kennel_number });
-                opt.textContent = k.label;
-                selectEl.appendChild(opt);
+    let url = '/admin/boarding/kennel-slots';
+    const params = [];
+    if (checkIn && checkOut) { params.push(`check_in=${checkIn}`, `check_out=${checkOut}`); }
+    if (excludeId)            { params.push(`exclude=${excludeId}`); }
+    if (params.length)        { url += '?' + params.join('&'); }
+
+    try {
+        const data = await fetch(url).then(r => r.json());
+        selectEl.innerHTML = '<option value="">— Select kennel/suite —</option>';
+
+        function addGroup(label, items, typeKey) {
+            if (!items || !items.length) return;
+            const group = document.createElement('optgroup');
+            group.label = label;
+            items.forEach(k => {
+                const opt       = document.createElement('option');
+                opt.value       = typeKey + '|' + k.kennel_number;
+                const prefix    = typeKey === 'suite' ? 'Suite' : 'Kennel';
+                let label = prefix + ' #' + k.kennel_number;
+                if (k.notes)       { label += ' (' + k.notes + ')'; }
+                if (!k.available)  { label += ' — ' + k.occupants.join(' & ') + ' (occupied)'; }
+                opt.textContent = label;
+                if (!k.available)  { opt.style.color = '#856404'; }
+                group.appendChild(opt);
             });
-            if (shareRow)    shareRow.style.display    = '';
-            if (shareDivider) shareDivider.style.display = '';
-        } else {
-            selectEl.innerHTML = '<option value="">— Enter manually below —</option>';
-            if (shareRow)    shareRow.style.display    = 'none';
-            if (shareDivider) shareDivider.style.display = 'none';
+            selectEl.appendChild(group);
         }
+
+        addGroup('Suites',  data.suites,  'suite');
+        addGroup('Kennels', data.kennels, 'kennel');
+
+        if (hintEl) hintEl.textContent = 'Occupied kennels can still be selected for bonded pairs.';
     } catch (e) {
-        selectEl.innerHTML = '<option value="">— Enter manually below —</option>';
+        selectEl.innerHTML = '<option value="">Error loading kennels</option>';
     }
 
+    selectEl.disabled = false;
+
     selectEl.onchange = function () {
-        if (!this.value) return;
-        const k = JSON.parse(this.value);
-        typeEl.value   = k.type;
-        numberEl.value = k.number;
+        if (!this.value) {
+            hiddenTypeEl.value   = '';
+            hiddenNumberEl.value = '';
+            return;
+        }
+        const [type, number] = this.value.split('|');
+        hiddenTypeEl.value   = type;
+        hiddenNumberEl.value = number;
     };
 }
 
 // ── Assign Kennel modal ────────────────────────────────────────────────────
 function openAssignKennel(bookingId, petName, checkIn, checkOut) {
-    document.getElementById('assignPetName').textContent  = petName;
-    document.getElementById('assignKennelForm').action    = '/admin/boarding/' + bookingId + '/assign-kennel';
-    document.getElementById('assignKennelNumber').value   = '';
-    document.getElementById('assignKennelType').value     = 'kennel';
-    document.getElementById('assignShareSelect').innerHTML = '<option value="">— Enter manually below —</option>';
-    document.getElementById('assignShareRow').style.display    = 'none';
-    document.getElementById('assignShareDivider').style.display = 'none';
+    document.getElementById('assignPetName').textContent = petName;
+    document.getElementById('assignKennelForm').action   = '/admin/boarding/' + bookingId + '/assign-kennel';
+    document.getElementById('assignKennelType').value    = '';
+    document.getElementById('assignKennelNumber').value  = '';
 
-    if (checkIn && checkOut) {
-        loadOccupiedKennels(
-            checkIn, checkOut, bookingId,
-            document.getElementById('assignShareSelect'),
-            document.getElementById('assignKennelType'),
-            document.getElementById('assignKennelNumber'),
-            document.getElementById('assignShareRow'),
-            document.getElementById('assignShareDivider')
-        );
-    }
+    loadKennelDropdown(
+        checkIn, checkOut, bookingId,
+        document.getElementById('assignKennelSelect'),
+        document.getElementById('assignKennelType'),
+        document.getElementById('assignKennelNumber'),
+        document.getElementById('assignKennelHint')
+    );
 }
 
 // ── Approval modals ────────────────────────────────────────────────────────
 document.querySelectorAll('.approve-boarding-modal').forEach(function (modal) {
     modal.addEventListener('show.bs.modal', function () {
-        initApproveShareDropdown(this);
+        initApprovalKennelDropdown(this);
     });
 });
 
-function initApproveShareDropdown(modal) {
-    const checkInEl   = modal.querySelector('[name=check_in_date]');
-    const checkOutEl  = modal.querySelector('[name=check_out_date]');
-    const shareSelect = modal.querySelector('.approve-share-select');
-    const typeEl      = modal.querySelector('[name=kennel_type]');
-    const numberEl    = modal.querySelector('[name=kennel_number]');
-    const shareRow    = modal.querySelector('.approve-share-row');
-    const shareDivider= modal.querySelector('.approve-share-divider');
+function initApprovalKennelDropdown(modal) {
+    const checkInEl  = modal.querySelector('[name=check_in_date]');
+    const checkOutEl = modal.querySelector('[name=check_out_date]');
+    const selectEl   = modal.querySelector('.approve-kennel-select');
+    const typeEl     = modal.querySelector('.approve-kennel-type');
+    const numberEl   = modal.querySelector('.approve-kennel-number');
+    const hintEl     = modal.querySelector('.approve-kennel-hint');
 
     function reload() {
-        loadOccupiedKennels(
-            checkInEl.value, checkOutEl.value, null,
-            shareSelect, typeEl, numberEl, shareRow, shareDivider
-        );
+        if (!checkInEl.value || !checkOutEl.value) {
+            selectEl.innerHTML = '<option value="">— Select dates first —</option>';
+            if (hintEl) hintEl.textContent = 'Enter check-in and check-out dates to see availability.';
+            return;
+        }
+        loadKennelDropdown(checkInEl.value, checkOutEl.value, null, selectEl, typeEl, numberEl, hintEl);
     }
 
     reload();
-    // Re-fetch if staff adjusts dates
     checkInEl.addEventListener('change',  reload);
     checkOutEl.addEventListener('change', reload);
 }

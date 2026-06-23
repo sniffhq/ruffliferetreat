@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}Kennel & Suite Setup{% endblock %}
+{% block content %}
+<div class="container mt-4" style="max-width:860px;">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="mb-1"><i class="fas fa-bed me-2" style="color:#1a1a2e;"></i>Kennel & Suite Setup</h3>
+            <div class="text-muted small">Define the available kennels and suites shown in the assignment dropdown.</div>
+        </div>
+        <a href="{{ url_for('admin.boarding_dashboard') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>Dashboard
+        </a>
+    </div>
+
+    <!-- Add new slot -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header py-2" style="background:#1a1a2e;">
+            <strong class="text-white"><i class="fas fa-plus me-2"></i>Add Kennel or Suite</strong>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('admin.kennel_settings_add') }}" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Type</label>
+                    <select name="kennel_type" class="form-select">
+                        <option value="suite">Suite</option>
+                        <option value="kennel">Kennel</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold">Number</label>
+                    <input type="text" name="kennel_number" class="form-control"
+                           placeholder="e.g. 17" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Notes <span class="text-muted fw-normal">(optional)</span></label>
+                    <input type="text" name="notes" class="form-control"
+                           placeholder="e.g. Small dogs only">
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-warning fw-bold w-100">
+                        <i class="fas fa-plus me-1"></i>Add
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row g-4">
+
+        <!-- Suites -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header py-2 d-flex justify-content-between align-items-center"
+                     style="background:#0d6efd;">
+                    <strong class="text-white"><i class="fas fa-star me-2"></i>Suites</strong>
+                    <span class="badge bg-white text-primary">{{ suites|length }}</span>
+                </div>
+                <div class="card-body p-0">
+                    {% if suites %}
+                    <table class="table table-hover mb-0" style="font-size:0.875rem;">
+                        <thead class="table-light">
+                            <tr><th>#</th><th>Notes</th><th>Status</th><th class="text-end"></th></tr>
+                        </thead>
+                        <tbody>
+                            {% for s in suites %}
+                            <tr class="{% if not s.active %}table-secondary{% endif %}">
+                                <td class="fw-bold {% if not s.active %}text-muted{% endif %}">{{ s.kennel_number }}</td>
+                                <td class="text-muted small">{{ s.notes or '—' }}</td>
+                                <td>
+                                    {% if s.active %}
+                                    <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Inactive</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <form method="POST"
+                                          action="{{ url_for('admin.kennel_settings_toggle', slot_id=s.id) }}"
+                                          class="d-inline">
+                                        <button type="submit" class="btn btn-sm {% if s.active %}btn-outline-secondary{% else %}btn-outline-success{% endif %} py-0 px-2">
+                                            {% if s.active %}Off{% else %}On{% endif %}
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="text-center text-muted py-4 small">No suites defined.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Kennels -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header py-2 d-flex justify-content-between align-items-center"
+                     style="background:#6c757d;">
+                    <strong class="text-white"><i class="fas fa-home me-2"></i>Kennels</strong>
+                    <span class="badge bg-white text-secondary">{{ kennels|length }}</span>
+                </div>
+                <div class="card-body p-0">
+                    {% if kennels %}
+                    <table class="table table-hover mb-0" style="font-size:0.875rem;">
+                        <thead class="table-light">
+                            <tr><th>#</th><th>Notes</th><th>Status</th><th class="text-end"></th></tr>
+                        </thead>
+                        <tbody>
+                            {% for k in kennels %}
+                            <tr class="{% if not k.active %}table-secondary{% endif %}">
+                                <td class="fw-bold {% if not k.active %}text-muted{% endif %}">{{ k.kennel_number }}</td>
+                                <td class="text-muted small">{{ k.notes or '—' }}</td>
+                                <td>
+                                    {% if k.active %}
+                                    <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Inactive</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <form method="POST"
+                                          action="{{ url_for('admin.kennel_settings_toggle', slot_id=k.id) }}"
+                                          class="d-inline">
+                                        <button type="submit" class="btn btn-sm {% if k.active %}btn-outline-secondary{% else %}btn-outline-success{% endif %} py-0 px-2">
+                                            {% if k.active %}Off{% else %}On{% endif %}
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="text-center text-muted py-4 small">No kennels defined.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="alert alert-info small mt-4">
+        <i class="fas fa-info-circle me-2"></i>
+        Toggling a slot off hides it from the assignment dropdown but does not affect existing reservations.
+        Notes (e.g. "Small dogs only") appear in the dropdown to guide staff.
+    </div>
+
+</div>
+{% endblock %}

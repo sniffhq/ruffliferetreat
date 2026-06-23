@@ -6230,6 +6230,132 @@ def approve_boarding_request(appt_id):
     return redirect(url_for('admin.boarding_dashboard'))
 
 
+@bp.route('/boarding/kennel-slots')
+@login_required
+@admin_required
+def kennel_slots():
+    """
+    AJAX: return all active kennel slots with occupancy status for a date range.
+    Query params: check_in, check_out (ISO dates), exclude (booking_id to omit).
+    Response groups by type: { suites: [...], kennels: [...] }
+    Each entry: { id, kennel_number, available, occupants: [pet_name, ...] }
+    """
+    from app.models import KennelSlot, Boarding
+    from datetime import date as _date
+
+    try:
+        check_in  = _date.fromisoformat(request.args.get('check_in',  ''))
+        check_out = _date.fromisoformat(request.args.get('check_out', ''))
+        has_dates = True
+    except (ValueError, TypeError):
+        has_dates = False
+
+    exclude_id = request.args.get('exclude', type=int)
+
+    # Build occupancy map: (kennel_type, kennel_number) -> [pet_name, ...]
+    occupancy = {}
+    if has_dates:
+        active_boardings = Boarding.query.filter(
+            Boarding.status == 'active',
+            Boarding.kennel_number.isnot(None),
+            Boarding.check_in_date  <= check_out,
+            Boarding.check_out_date >= check_in,
+        ).all()
+        for b in active_boardings:
+            if exclude_id and b.id == exclude_id:
+                continue
+            key = (b.kennel_type or 'kennel', b.kennel_number)
+            pet_name = b.pet.name if b.pet else '—'
+            occupancy.setdefault(key, []).append(pet_name)
+
+    slots = KennelSlot.query.filter_by(active=True)\
+                .order_by(KennelSlot.kennel_type, KennelSlot.sort_order, KennelSlot.kennel_number)\
+                .all()
+
+    suites  = []
+    kennels = []
+    for s in slots:
+        key = (s.kennel_type, s.kennel_number)
+        occupants = occupancy.get(key, [])
+        entry = {
+            'id':            s.id,
+            'kennel_number': s.kennel_number,
+            'notes':         s.notes or '',
+            'available':     len(occupants) == 0,
+            'occupants':     occupants,
+        }
+        if s.kennel_type == 'suite':
+            suites.append(entry)
+        else:
+            kennels.append(entry)
+
+    return {'suites': suites, 'kennels': kennels}
+
+
+@bp.route('/settings/kennels')
+@login_required
+@admin_required
+def kennel_settings():
+    """Kennel/suite slot management page."""
+    from app.models import KennelSlot
+    suites  = KennelSlot.query.filter_by(kennel_type='suite') \
+                  .order_by(KennelSlot.sort_order, KennelSlot.kennel_number).all()
+    kennels = KennelSlot.query.filter_by(kennel_type='kennel') \
+                  .order_by(KennelSlot.sort_order, KennelSlot.kennel_number).all()
+    return render_template('admin/kennel_settings.html', suites=suites, kennels=kennels)
+
+
+@bp.route('/settings/kennels/add', methods=['POST'])
+@login_required
+@admin_required
+def kennel_settings_add():
+    """Add a new kennel or suite slot."""
+    from app.models import KennelSlot
+    kennel_type   = request.form.get('kennel_type', 'kennel')
+    kennel_number = request.form.get('kennel_number', '').strip()
+    notes         = request.form.get('notes', '').strip() or None
+    if not kennel_number:
+        flash('Kennel/suite number is required.', 'danger')
+        return redirect(url_for('admin.kennel_settings'))
+    existing = KennelSlot.query.filter_by(
+        kennel_type=kennel_type, kennel_number=kennel_number).first()
+    if existing:
+        existing.active = True
+        existing.notes  = notes
+        db.session.commit()
+        flash(f'{"Suite" if kennel_type == "suite" else "Kennel"} #{kennel_number} re-activated.', 'success')
+    else:
+        try:
+            sort_order = int(kennel_number)
+        except ValueError:
+            sort_order = 9999
+        slot = KennelSlot(
+            kennel_type=kennel_type,
+            kennel_number=kennel_number,
+            notes=notes,
+            active=True,
+            sort_order=sort_order,
+        )
+        db.session.add(slot)
+        db.session.commit()
+        flash(f'{"Suite" if kennel_type == "suite" else "Kennel"} #{kennel_number} added.', 'success')
+    return redirect(url_for('admin.kennel_settings'))
+
+
+@bp.route('/settings/kennels/<int:slot_id>/toggle', methods=['POST'])
+@login_required
+@admin_required
+def kennel_settings_toggle(slot_id):
+    """Toggle a kennel slot active/inactive."""
+    from app.models import KennelSlot
+    slot = KennelSlot.query.get_or_404(slot_id)
+    slot.active = not slot.active
+    db.session.commit()
+    state = 'activated' if slot.active else 'deactivated'
+    flash(f'{slot.display_label} {state}.', 'success')
+    return redirect(url_for('admin.kennel_settings'))
+
+
 @bp.route('/boarding/occupied-kennels')
 @login_required
 @admin_required

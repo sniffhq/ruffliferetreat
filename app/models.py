@@ -1012,6 +1012,31 @@ class OpsNote(db.Model):
                               backref=db.backref('ops_notes_created', lazy=True))
 
 
+class KennelSlot(db.Model):
+    """Pre-defined kennel and suite slots available for boarding assignment."""
+    __tablename__ = 'kennel_slot'
+
+    id            = db.Column(db.Integer, primary_key=True)
+    kennel_type   = db.Column(db.String(10), nullable=False)   # 'kennel' or 'suite'
+    kennel_number = db.Column(db.String(20), nullable=False)
+    notes         = db.Column(db.String(100), nullable=True)   # e.g. "Small dogs only"
+    active        = db.Column(db.Boolean, default=True, nullable=False)
+    sort_order    = db.Column(db.Integer, default=0)
+
+    __table_args__ = (db.UniqueConstraint('kennel_type', 'kennel_number', name='uq_kennel_slot'),)
+
+    @property
+    def display_label(self):
+        prefix = 'Suite' if self.kennel_type == 'suite' else 'Kennel'
+        label  = f'{prefix} #{self.kennel_number}'
+        if self.notes:
+            label += f' ({self.notes})'
+        return label
+
+    def __repr__(self):
+        return f'<KennelSlot {self.display_label}>'
+
+
 class FacilitySetting(db.Model):
     """Key/value store for facility-wide configuration."""
     __tablename__ = 'facility_setting'
