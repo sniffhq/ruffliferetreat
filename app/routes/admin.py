@@ -6296,13 +6296,70 @@ def kennel_slots():
 @login_required
 @admin_required
 def kennel_settings():
-    """Kennel/suite slot management page."""
-    from app.models import KennelSlot
-    suites  = KennelSlot.query.filter_by(kennel_type='suite') \
-                  .order_by(KennelSlot.sort_order, KennelSlot.kennel_number).all()
-    kennels = KennelSlot.query.filter_by(kennel_type='kennel') \
-                  .order_by(KennelSlot.sort_order, KennelSlot.kennel_number).all()
-    return render_template('admin/kennel_settings.html', suites=suites, kennels=kennels)
+    """Kennel/suite board page."""
+    from datetime import date
+    return render_template('admin/kennel_settings.html', today=date.today())
+
+
+@bp.route('/boarding/kennel-board')
+@login_required
+@admin_required
+def kennel_board():
+    """
+    AJAX: return all active kennel slots with full occupancy for a date.
+    Each slot includes booking details (pet, owner, dates) for that day.
+    """
+    from app.models import KennelSlot, Boarding
+    from datetime import date as _date
+
+    try:
+        d = _date.fromisoformat(request.args.get('date', ''))
+    except (ValueError, TypeError):
+        d = _date.today()
+
+    slots = KennelSlot.query.filter_by(active=True) \
+                .order_by(KennelSlot.sort_order, KennelSlot.kennel_number).all()
+
+    boardings = Boarding.query.filter(
+        Boarding.status == 'active',
+        Boarding.kennel_number.isnot(None),
+        Boarding.check_in_date  <= d,
+        Boarding.check_out_date >= d,
+    ).all()
+
+    # Map (kennel_type, kennel_number) -> [booking info, ...]
+    occupancy = {}
+    for b in boardings:
+        key = (b.kennel_type or 'kennel', b.kennel_number)
+        owner = b.pet.owner if b.pet else None
+        occupancy.setdefault(key, []).append({
+            'booking_id':     b.id,
+            'booking_number': b.booking_number or '—',
+            'pet_name':       b.pet.name if b.pet else '—',
+            'owner_name':     f'{owner.first_name} {owner.last_name}' if owner else '—',
+            'check_in':       b.check_in_date.isoformat(),
+            'check_out':      b.check_out_date.isoformat(),
+            'check_in_time':  b.check_in_time  or '—',
+            'check_out_time': b.check_out_time or '—',
+        })
+
+    suites  = []
+    kennels = []
+    for s in slots:
+        key = (s.kennel_type, s.kennel_number)
+        entry = {
+            'id':            s.id,
+            'kennel_type':   s.kennel_type,
+            'kennel_number': s.kennel_number,
+            'notes':         s.notes or '',
+            'bookings':      occupancy.get(key, []),
+        }
+        if s.kennel_type == 'suite':
+            suites.append(entry)
+        else:
+            kennels.append(entry)
+
+    return {'date': d.isoformat(), 'suites': suites, 'kennels': kennels}
 
 
 @bp.route('/settings/kennels/add', methods=['POST'])
@@ -6419,8 +6476,11 @@ def assign_kennel(booking_id):
     booking = Boarding.query.get_or_404(booking_id)
     kennel_number = request.form.get('kennel_number', '').strip() or None
     kennel_type   = request.form.get('kennel_type', 'kennel')
+    return_date   = request.form.get('return_date', '').strip()
     if not kennel_number:
-        flash('Please enter a kennel or suite number.', 'danger')
+        flash('Please select a kennel or suite.', 'danger')
+        if return_date:
+            return redirect(url_for('admin.kennel_settings') + f'?date={return_date}')
         return redirect(url_for('admin.boarding_dashboard'))
     booking.kennel_number = kennel_number
     booking.kennel_type   = kennel_type
@@ -6429,6 +6489,8 @@ def assign_kennel(booking_id):
         f'{(kennel_type or "Kennel").title()} #{kennel_number} assigned to {booking.pet.name}.',
         'success'
     )
+    if return_date:
+        return redirect(url_for('admin.kennel_settings') + f'?date={return_date}')
     return redirect(url_for('admin.boarding_dashboard'))
 
 

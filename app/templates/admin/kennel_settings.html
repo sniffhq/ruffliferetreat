@@ -1,152 +1,419 @@
 {% extends "base.html" %}
-{% block title %}Kennel & Suite Setup{% endblock %}
+{% block title %}Kennel & Suite Board{% endblock %}
 {% block content %}
-<div class="container mt-4" style="max-width:860px;">
+<div class="container-fluid mt-4" style="max-width:1280px;">
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-start mb-3">
         <div>
-            <h3 class="mb-1"><i class="fas fa-bed me-2" style="color:#1a1a2e;"></i>Kennel & Suite Setup</h3>
-            <div class="text-muted small">Define the available kennels and suites shown in the assignment dropdown.</div>
+            <h3 class="mb-1"><i class="fas fa-th me-2" style="color:#1a1a2e;"></i>Kennel & Suite Board</h3>
+            <div class="text-muted small">Daily occupancy view — select a date to see assignments.</div>
         </div>
         <a href="{{ url_for('admin.boarding_dashboard') }}" class="btn btn-sm btn-outline-secondary">
             <i class="fas fa-arrow-left me-1"></i>Dashboard
         </a>
     </div>
 
-    <!-- Add new slot -->
+    <!-- Date Navigator -->
     <div class="card shadow-sm mb-4">
-        <div class="card-header py-2" style="background:#1a1a2e;">
-            <strong class="text-white"><i class="fas fa-plus me-2"></i>Add Kennel or Suite</strong>
+        <div class="card-body py-2 px-3">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <button class="btn btn-outline-secondary btn-sm" id="prevDay" title="Previous day">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <input type="date" id="boardDate" class="form-control form-control-sm"
+                       style="max-width:180px;" value="{{ today.isoformat() }}">
+                <button class="btn btn-outline-secondary btn-sm" id="nextDay" title="Next day">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-primary" id="todayBtn">Today</button>
+
+                <div class="ms-auto d-flex align-items-center gap-3" style="font-size:0.8rem;">
+                    <span><span class="badge" style="background:#1a1a2e;">&nbsp;</span> Occupied</span>
+                    <span><span class="badge bg-success">&nbsp;</span> Available</span>
+                    <span><span class="badge bg-warning text-dark">&nbsp;</span> Multi-pet</span>
+                </div>
+
+                <!-- Manage Slots toggle -->
+                <button class="btn btn-sm btn-outline-secondary ms-2" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#manageSlots" aria-expanded="false">
+                    <i class="fas fa-cog me-1"></i>Manage Slots
+                </button>
+            </div>
         </div>
-        <div class="card-body">
-            <form method="POST" action="{{ url_for('admin.kennel_settings_add') }}" class="row g-3 align-items-end">
-                <div class="col-md-3">
-                    <label class="form-label fw-bold">Type</label>
-                    <select name="kennel_type" class="form-select">
-                        <option value="suite">Suite</option>
-                        <option value="kennel">Kennel</option>
-                    </select>
+    </div>
+
+    <!-- Manage Slots (collapsed) -->
+    <div class="collapse mb-4" id="manageSlots">
+        <div class="card shadow-sm border-secondary">
+            <div class="card-header py-2" style="background:#343a40;">
+                <strong class="text-white"><i class="fas fa-cog me-2"></i>Manage Kennel Slots</strong>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('admin.kennel_settings_add') }}"
+                      class="row g-2 align-items-end mb-3">
+                    <div class="col-auto">
+                        <label class="form-label fw-bold small mb-1">Type</label>
+                        <select name="kennel_type" class="form-select form-select-sm">
+                            <option value="suite">Suite</option>
+                            <option value="kennel" selected>Kennel</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label fw-bold small mb-1">Number</label>
+                        <input type="text" name="kennel_number" class="form-control form-control-sm"
+                               placeholder="e.g. 56" style="width:90px;" required>
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label fw-bold small mb-1">Notes (optional)</label>
+                        <input type="text" name="notes" class="form-control form-control-sm"
+                               placeholder="e.g. Small dogs only" style="width:200px;">
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-warning btn-sm fw-bold">
+                            <i class="fas fa-plus me-1"></i>Add Slot
+                        </button>
+                    </div>
+                </form>
+                <div id="slotTableContainer">
+                    <p class="text-muted small mb-0">Loading slots…</p>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-bold">Number</label>
-                    <input type="text" name="kennel_number" class="form-control"
-                           placeholder="e.g. 17" required>
+            </div>
+        </div>
+    </div>
+
+    <!-- Board -->
+    <div id="boardContainer">
+        <div class="text-center py-5 text-muted">
+            <div class="spinner-border spinner-border-sm me-2"></div>Loading board…
+        </div>
+    </div>
+
+</div>
+
+<!-- Reassign Modal -->
+<div class="modal fade" id="reassignModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#1a1a2e;">
+                <h5 class="modal-title text-white"><i class="fas fa-exchange-alt me-2"></i>Change Kennel Assignment</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="reassignForm" method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="return_date" id="reassignReturnDate">
+                    <input type="hidden" name="kennel_type" id="reassignKennelType">
+                    <input type="hidden" name="kennel_number" id="reassignKennelNumber">
+
+                    <div class="mb-3">
+                        <div class="fw-bold" id="reassignPetLabel"></div>
+                        <div class="text-muted small" id="reassignDateRange"></div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">New Kennel / Suite</label>
+                        <select id="reassignSelect" class="form-select">
+                            <option value="">Loading…</option>
+                        </select>
+                        <div class="form-text text-warning reassign-amber d-none">
+                            <i class="fas fa-exclamation-triangle me-1"></i>
+                            Amber slots are already occupied — only assign if sharing (bonded pairs).
+                        </div>
+                    </div>
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-bold">Notes <span class="text-muted fw-normal">(optional)</span></label>
-                    <input type="text" name="notes" class="form-control"
-                           placeholder="e.g. Small dogs only">
-                </div>
-                <div class="col-md-3">
-                    <button type="submit" class="btn btn-warning fw-bold w-100">
-                        <i class="fas fa-plus me-1"></i>Add
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning fw-bold" id="reassignSubmitBtn">
+                        <i class="fas fa-save me-1"></i>Save Assignment
                     </button>
                 </div>
             </form>
         </div>
     </div>
-
-    <div class="row g-4">
-
-        <!-- Suites -->
-        <div class="col-md-6">
-            <div class="card shadow-sm h-100">
-                <div class="card-header py-2 d-flex justify-content-between align-items-center"
-                     style="background:#0d6efd;">
-                    <strong class="text-white"><i class="fas fa-star me-2"></i>Suites</strong>
-                    <span class="badge bg-white text-primary">{{ suites|length }}</span>
-                </div>
-                <div class="card-body p-0">
-                    {% if suites %}
-                    <table class="table table-hover mb-0" style="font-size:0.875rem;">
-                        <thead class="table-light">
-                            <tr><th>#</th><th>Notes</th><th>Status</th><th class="text-end"></th></tr>
-                        </thead>
-                        <tbody>
-                            {% for s in suites %}
-                            <tr class="{% if not s.active %}table-secondary{% endif %}">
-                                <td class="fw-bold {% if not s.active %}text-muted{% endif %}">{{ s.kennel_number }}</td>
-                                <td class="text-muted small">{{ s.notes or '—' }}</td>
-                                <td>
-                                    {% if s.active %}
-                                    <span class="badge bg-success">Active</span>
-                                    {% else %}
-                                    <span class="badge bg-secondary">Inactive</span>
-                                    {% endif %}
-                                </td>
-                                <td class="text-end">
-                                    <form method="POST"
-                                          action="{{ url_for('admin.kennel_settings_toggle', slot_id=s.id) }}"
-                                          class="d-inline">
-                                        <button type="submit" class="btn btn-sm {% if s.active %}btn-outline-secondary{% else %}btn-outline-success{% endif %} py-0 px-2">
-                                            {% if s.active %}Off{% else %}On{% endif %}
-                                        </button>
-                                    </form>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                    {% else %}
-                    <div class="text-center text-muted py-4 small">No suites defined.</div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        <!-- Kennels -->
-        <div class="col-md-6">
-            <div class="card shadow-sm h-100">
-                <div class="card-header py-2 d-flex justify-content-between align-items-center"
-                     style="background:#6c757d;">
-                    <strong class="text-white"><i class="fas fa-home me-2"></i>Kennels</strong>
-                    <span class="badge bg-white text-secondary">{{ kennels|length }}</span>
-                </div>
-                <div class="card-body p-0">
-                    {% if kennels %}
-                    <table class="table table-hover mb-0" style="font-size:0.875rem;">
-                        <thead class="table-light">
-                            <tr><th>#</th><th>Notes</th><th>Status</th><th class="text-end"></th></tr>
-                        </thead>
-                        <tbody>
-                            {% for k in kennels %}
-                            <tr class="{% if not k.active %}table-secondary{% endif %}">
-                                <td class="fw-bold {% if not k.active %}text-muted{% endif %}">{{ k.kennel_number }}</td>
-                                <td class="text-muted small">{{ k.notes or '—' }}</td>
-                                <td>
-                                    {% if k.active %}
-                                    <span class="badge bg-success">Active</span>
-                                    {% else %}
-                                    <span class="badge bg-secondary">Inactive</span>
-                                    {% endif %}
-                                </td>
-                                <td class="text-end">
-                                    <form method="POST"
-                                          action="{{ url_for('admin.kennel_settings_toggle', slot_id=k.id) }}"
-                                          class="d-inline">
-                                        <button type="submit" class="btn btn-sm {% if k.active %}btn-outline-secondary{% else %}btn-outline-success{% endif %} py-0 px-2">
-                                            {% if k.active %}Off{% else %}On{% endif %}
-                                        </button>
-                                    </form>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                    {% else %}
-                    <div class="text-center text-muted py-4 small">No kennels defined.</div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-    </div>
-
-    <div class="alert alert-info small mt-4">
-        <i class="fas fa-info-circle me-2"></i>
-        Toggling a slot off hides it from the assignment dropdown but does not affect existing reservations.
-        Notes (e.g. "Small dogs only") appear in the dropdown to guide staff.
-    </div>
-
 </div>
+
+<script>
+(function () {
+    const dateInput  = document.getElementById('boardDate');
+    const boardEl    = document.getElementById('boardContainer');
+    const slotTable  = document.getElementById('slotTableContainer');
+
+    /* ── Date nav ─────────────────────────────────────── */
+    function shiftDate(days) {
+        const d = new Date(dateInput.value + 'T00:00:00');
+        d.setDate(d.getDate() + days);
+        dateInput.value = d.toISOString().slice(0, 10);
+        loadBoard();
+    }
+    document.getElementById('prevDay').addEventListener('click', () => shiftDate(-1));
+    document.getElementById('nextDay').addEventListener('click', () => shiftDate(1));
+    document.getElementById('todayBtn').addEventListener('click', () => {
+        dateInput.value = '{{ today.isoformat() }}';
+        loadBoard();
+    });
+    dateInput.addEventListener('change', loadBoard);
+
+    /* ── Load board (AJAX) ────────────────────────────── */
+    function loadBoard() {
+        const d = dateInput.value;
+        boardEl.innerHTML = '<div class="text-center py-5 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>Loading…</div>';
+        fetch(`/admin/boarding/kennel-board?date=${d}`)
+            .then(r => r.json())
+            .then(data => renderBoard(data))
+            .catch(() => {
+                boardEl.innerHTML = '<div class="alert alert-danger">Failed to load board.</div>';
+            });
+    }
+
+    /* ── Render board ─────────────────────────────────── */
+    function renderBoard(data) {
+        let html = '';
+
+        html += renderSection('Suites', data.suites, 'suite', '#0d6efd', 'fa-star');
+        html += renderSection('Kennels', data.kennels, 'kennel', '#1a1a2e', 'fa-home');
+
+        boardEl.innerHTML = html;
+
+        // Attach reassign button events
+        boardEl.querySelectorAll('.btn-reassign').forEach(btn => {
+            btn.addEventListener('click', () => openReassign(btn.dataset));
+        });
+    }
+
+    function renderSection(title, slots, type, color, icon) {
+        if (!slots || slots.length === 0) return '';
+
+        const occupied  = slots.filter(s => s.bookings.length > 0).length;
+        const available = slots.length - occupied;
+
+        let cards = '';
+        slots.forEach(slot => {
+            cards += renderCard(slot);
+        });
+
+        return `
+        <div class="mb-4">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <h5 class="mb-0"><i class="fas ${icon} me-2" style="color:${color};"></i>${title}</h5>
+                <span class="badge text-white" style="background:${color};">${slots.length} total</span>
+                <span class="badge bg-success">${available} available</span>
+                <span class="badge" style="background:#b8860b;">${occupied} occupied</span>
+            </div>
+            <div class="row g-2">
+                ${cards}
+            </div>
+        </div>`;
+    }
+
+    function renderCard(slot) {
+        const hasBookings  = slot.bookings.length > 0;
+        const isMulti      = slot.bookings.length > 1;
+        const notesBadge   = slot.notes
+            ? `<span class="badge bg-info text-dark ms-1" style="font-size:0.65rem;">${escHtml(slot.notes)}</span>`
+            : '';
+
+        let headerBg, headerText, bodyHtml;
+
+        if (!hasBookings) {
+            headerBg   = '#198754';
+            headerText = 'Available';
+            bodyHtml   = '<div class="text-center text-success py-2" style="font-size:0.8rem;"><i class="fas fa-check-circle me-1"></i>No bookings</div>';
+        } else if (isMulti) {
+            headerBg   = '#b8860b';
+            headerText = `${slot.bookings.length} Pets`;
+            bodyHtml   = slot.bookings.map(b => bookingRow(slot, b)).join('<hr class="my-1">');
+        } else {
+            headerBg   = '#1a1a2e';
+            headerText = '';
+            bodyHtml   = bookingRow(slot, slot.bookings[0]);
+        }
+
+        const label = slot.kennel_type === 'suite' ? 'Suite' : 'Kennel';
+
+        return `
+        <div class="col-6 col-md-4 col-lg-3 col-xl-2">
+            <div class="card shadow-sm h-100" style="font-size:0.82rem; min-height:90px;">
+                <div class="card-header py-1 px-2 d-flex justify-content-between align-items-center"
+                     style="background:${headerBg}; color:#fff;">
+                    <span class="fw-bold">${label} #${escHtml(slot.kennel_number)}</span>
+                    <span style="font-size:0.7rem;">${headerText}</span>
+                </div>
+                ${notesBadge ? `<div class="px-2 pt-1">${notesBadge}</div>` : ''}
+                <div class="card-body p-2">
+                    ${bodyHtml}
+                </div>
+            </div>
+        </div>`;
+    }
+
+    function bookingRow(slot, b) {
+        const dateLabel = `${formatDate(b.check_in)} – ${formatDate(b.check_out)}`;
+        return `
+        <div>
+            <div class="fw-bold text-truncate" title="${escHtml(b.pet_name)}">${escHtml(b.pet_name)}</div>
+            <div class="text-muted text-truncate" title="${escHtml(b.owner_name)}">
+                <i class="fas fa-user fa-xs me-1"></i>${escHtml(b.owner_name)}
+            </div>
+            <div class="text-muted" style="font-size:0.75rem;">${dateLabel}</div>
+            <div class="d-flex align-items-center gap-1 mt-1">
+                <span class="badge bg-secondary" style="font-size:0.65rem;">${escHtml(b.booking_number)}</span>
+                <button class="btn btn-xs btn-outline-warning btn-reassign py-0 px-1 ms-auto"
+                        style="font-size:0.7rem; line-height:1.5;"
+                        data-booking-id="${b.booking_id}"
+                        data-pet-name="${escHtml(b.pet_name)}"
+                        data-owner-name="${escHtml(b.owner_name)}"
+                        data-booking-number="${escHtml(b.booking_number)}"
+                        data-check-in="${b.check_in}"
+                        data-check-out="${b.check_out}"
+                        data-kennel-type="${escHtml(slot.kennel_type)}"
+                        data-kennel-number="${escHtml(slot.kennel_number)}">
+                    <i class="fas fa-exchange-alt fa-xs me-1"></i>Reassign
+                </button>
+            </div>
+        </div>`;
+    }
+
+    /* ── Reassign modal ───────────────────────────────── */
+    function openReassign(ds) {
+        const modal      = new bootstrap.Modal(document.getElementById('reassignModal'));
+        const form       = document.getElementById('reassignForm');
+        const select     = document.getElementById('reassignSelect');
+        const typeInput  = document.getElementById('reassignKennelType');
+        const numInput   = document.getElementById('reassignKennelNumber');
+        const dateReturn = document.getElementById('reassignReturnDate');
+
+        document.getElementById('reassignPetLabel').textContent =
+            `${ds.petName} (${ds.bookingNumber})`;
+        document.getElementById('reassignDateRange').textContent =
+            `${ds.ownerName} · ${formatDate(ds.checkIn)} – ${formatDate(ds.checkOut)}`;
+
+        dateReturn.value = dateInput.value;
+
+        form.action = `/admin/boarding/${ds.bookingId}/assign-kennel`;
+
+        // Clear previous selection handlers
+        select.onchange = null;
+        select.innerHTML = '<option value="">Loading…</option>';
+        select.disabled = true;
+        typeInput.value  = '';
+        numInput.value   = '';
+        document.querySelector('.reassign-amber').classList.add('d-none');
+
+        modal.show();
+
+        // Load slots
+        const ci = ds.checkIn, co = ds.checkOut, excl = ds.bookingId;
+        fetch(`/admin/boarding/kennel-slots?check_in=${ci}&check_out=${co}&exclude=${excl}`)
+            .then(r => r.json())
+            .then(data => {
+                select.innerHTML = '<option value="">— Select a slot —</option>';
+                let hasAmber = false;
+
+                ['suite', 'kennel'].forEach(type => {
+                    const list = type === 'suite' ? data.suites : data.kennels;
+                    if (!list || list.length === 0) return;
+                    const label = type === 'suite' ? 'Suites' : 'Kennels';
+                    const grp   = document.createElement('optgroup');
+                    grp.label   = label;
+                    list.forEach(s => {
+                        const opt   = document.createElement('option');
+                        opt.dataset.type   = type;
+                        opt.dataset.number = s.kennel_number;
+                        opt.value = `${type}::${s.kennel_number}`;
+                        const isCurrent = (type === ds.kennelType && s.kennel_number === ds.kennelNumber);
+                        const isOccupied = !s.available;
+                        let txt = `${type === 'suite' ? 'Suite' : 'Kennel'} #${s.kennel_number}`;
+                        if (s.notes)    txt += ` (${s.notes})`;
+                        if (isCurrent)  txt += ' [current]';
+                        if (isOccupied) { txt += ' [occupied]'; opt.style.color = '#b8860b'; hasAmber = true; }
+                        opt.textContent = txt;
+                        if (isCurrent)  opt.selected = true;
+                        grp.appendChild(opt);
+                    });
+                    select.appendChild(grp);
+                });
+
+                if (hasAmber) {
+                    document.querySelector('.reassign-amber').classList.remove('d-none');
+                }
+
+                select.disabled = false;
+
+                // Pre-fill hidden fields from current selection
+                function syncHidden() {
+                    const parts = select.value.split('::');
+                    if (parts.length === 2) {
+                        typeInput.value = parts[0];
+                        numInput.value  = parts[1];
+                    } else {
+                        typeInput.value = '';
+                        numInput.value  = '';
+                    }
+                }
+                select.addEventListener('change', syncHidden);
+                syncHidden();
+            })
+            .catch(() => {
+                select.innerHTML = '<option value="">Failed to load slots</option>';
+                select.disabled  = false;
+            });
+    }
+
+    /* ── Manage Slots table ───────────────────────────── */
+    document.getElementById('manageSlots').addEventListener('show.bs.collapse', function () {
+        loadSlotTable();
+    });
+
+    function loadSlotTable() {
+        fetch('/admin/boarding/kennel-slots?check_in=&check_out=')
+            .then(r => r.json())
+            .then(data => {
+                const allSlots = [...(data.suites || []).map(s => ({...s, type:'suite'})),
+                                  ...(data.kennels || []).map(k => ({...k, type:'kennel'}))];
+                let rows = allSlots.map(s => `
+                    <tr>
+                        <td>${s.type === 'suite' ? 'Suite' : 'Kennel'}</td>
+                        <td class="fw-bold">#${escHtml(s.kennel_number)}</td>
+                        <td class="text-muted small">${escHtml(s.notes || '—')}</td>
+                        <td>
+                            <form method="POST"
+                                  action="/admin/settings/kennels/${s.id}/toggle"
+                                  class="d-inline">
+                                <button type="submit"
+                                        class="btn btn-sm btn-outline-secondary py-0 px-2">
+                                    Deactivate
+                                </button>
+                            </form>
+                        </td>
+                    </tr>`).join('');
+                slotTable.innerHTML = `
+                    <table class="table table-sm table-hover mb-0" style="font-size:0.84rem;">
+                        <thead class="table-light">
+                            <tr><th>Type</th><th>#</th><th>Notes</th><th></th></tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>`;
+            })
+            .catch(() => {
+                slotTable.innerHTML = '<p class="text-danger small mb-0">Failed to load slots.</p>';
+            });
+    }
+
+    /* ── Helpers ──────────────────────────────────────── */
+    function escHtml(str) {
+        return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function formatDate(iso) {
+        if (!iso) return '—';
+        const [y,m,d] = iso.split('-');
+        return `${m}/${d}/${y}`;
+    }
+
+    // Handle URL ?date= on page load
+    const urlDate = new URLSearchParams(location.search).get('date');
+    if (urlDate) dateInput.value = urlDate;
+
+    loadBoard();
+})();
+</script>
 {% endblock %}
