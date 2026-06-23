@@ -6125,6 +6125,10 @@ def approve_boarding_request(appt_id):
     kennel_number      = request.form.get('kennel_number', '').strip() or None
     kennel_type        = request.form.get('kennel_type', 'kennel')
 
+    if not kennel_number:
+        flash('Kennel/suite number is required to approve a boarding reservation.', 'danger')
+        return redirect(url_for('admin.boarding_dashboard'))
+
     if not check_in_date_str or not check_out_date_str:
         flash('Check-in and check-out dates are required to approve.', 'danger')
         return redirect(url_for('admin.boarding_dashboard'))
@@ -6227,6 +6231,28 @@ def approve_boarding_request(appt_id):
         flash(f'Boarding reservation for {appt.pet.name} updated and customer notified.', 'success')
     else:
         flash(f'Boarding request for {appt.pet.name} approved! Reservation created.', 'success')
+    return redirect(url_for('admin.boarding_dashboard'))
+
+
+@bp.route('/boarding/<int:booking_id>/assign-kennel', methods=['POST'])
+@login_required
+@admin_required
+def assign_kennel(booking_id):
+    """Assign or update kennel/suite number on an existing boarding record."""
+    from app.models import Boarding
+    booking = Boarding.query.get_or_404(booking_id)
+    kennel_number = request.form.get('kennel_number', '').strip() or None
+    kennel_type   = request.form.get('kennel_type', 'kennel')
+    if not kennel_number:
+        flash('Please enter a kennel or suite number.', 'danger')
+        return redirect(url_for('admin.boarding_dashboard'))
+    booking.kennel_number = kennel_number
+    booking.kennel_type   = kennel_type
+    db.session.commit()
+    flash(
+        f'{(kennel_type or "Kennel").title()} #{kennel_number} assigned to {booking.pet.name}.',
+        'success'
+    )
     return redirect(url_for('admin.boarding_dashboard'))
 
 

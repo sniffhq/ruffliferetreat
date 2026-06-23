@@ -309,7 +309,13 @@
                                 {{ b.kennel_type|title if b.kennel_type else 'Kennel' }} #{{ b.kennel_number }}
                             </span>
                             {% else %}
-                            <span class="text-muted small">—</span>
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-warning py-0 px-2"
+                                    style="font-size:0.75rem;"
+                                    onclick="openAssignKennel({{ b.id }}, '{{ b.pet.name }}')"
+                                    data-bs-toggle="modal" data-bs-target="#assignKennelModal">
+                                <i class="fas fa-bed me-1"></i>Assign
+                            </button>
                             {% endif %}
                         </td>
                         <td>
@@ -379,7 +385,13 @@
                                 {{ b.kennel_type|title if b.kennel_type else 'Kennel' }} #{{ b.kennel_number }}
                             </span>
                             {% else %}
-                            <span class="text-muted small">—</span>
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-warning py-0 px-2"
+                                    style="font-size:0.75rem;"
+                                    onclick="openAssignKennel({{ b.id }}, '{{ b.pet.name }}')"
+                                    data-bs-toggle="modal" data-bs-target="#assignKennelModal">
+                                <i class="fas fa-bed me-1"></i>Assign
+                            </button>
                             {% endif %}
                         </td>
                         <td>
@@ -494,10 +506,11 @@
                             </select>
                         </div>
                         <div class="col-md-8">
-                            <label class="form-label fw-bold">Kennel / Suite Number</label>
+                            <label class="form-label fw-bold">Kennel / Suite Number <span class="text-danger">*</span></label>
                             <input type="text" name="kennel_number" class="form-control"
-                                   placeholder="e.g. 4, 4A, 12 — can be shared for multiple pets">
-                            <div class="form-text">Use the same number for pets sharing a space.</div>
+                                   placeholder="e.g. 4, 4A, 12 — can be shared for multiple pets"
+                                   required>
+                            <div class="form-text">Required. Use the same number for pets sharing a space.</div>
                         </div>
                         <div class="col-12">
                             <label class="form-label fw-bold">Special Notes</label>
@@ -550,6 +563,52 @@
     </div>
 </div>
 {% endfor %}
+
+<!-- ── ASSIGN KENNEL MODAL (shared) ───────────────────────────────────────── -->
+<div class="modal fade" id="assignKennelModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header py-2" style="background:#1a1a2e;">
+                <h6 class="modal-title text-white mb-0">
+                    <i class="fas fa-bed me-2"></i>Assign Kennel — <span id="assignPetName"></span>
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="assignKennelForm" method="POST" action="">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Accommodation Type</label>
+                        <select name="kennel_type" id="assignKennelType" class="form-select">
+                            <option value="kennel">Kennel</option>
+                            <option value="suite">Suite</option>
+                        </select>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label fw-bold">Number <span class="text-danger">*</span></label>
+                        <input type="text" name="kennel_number" id="assignKennelNumber"
+                               class="form-control" placeholder="e.g. 4, 4A, 12" required autofocus>
+                        <div class="form-text">Use the same number for pets sharing a space.</div>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning btn-sm fw-bold text-dark">
+                        <i class="fas fa-save me-1"></i>Save
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function openAssignKennel(bookingId, petName) {
+    document.getElementById('assignPetName').textContent = petName;
+    document.getElementById('assignKennelForm').action   = '/admin/boarding/' + bookingId + '/assign-kennel';
+    document.getElementById('assignKennelNumber').value  = '';
+    document.getElementById('assignKennelType').value    = 'kennel';
+}
+</script>
 
 <!-- ── NEW RESERVATION MODAL ──────────────────────────────────────────────── -->
 <div class="modal fade" id="addBoardingModal" tabindex="-1">
