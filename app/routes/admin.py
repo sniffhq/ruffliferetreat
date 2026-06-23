@@ -6230,15 +6230,60 @@ def approve_boarding_request(appt_id):
     return redirect(url_for('admin.boarding_dashboard'))
 
 
+def _kennel_dt(d, time_str, default_hour=12):
+    """Combine a date and 'HH:MM' string into a datetime; fallback to default_hour."""
+    from datetime import datetime
+    try:
+        h, m = (time_str or '').split(':')
+        return datetime(d.year, d.month, d.day, int(h), int(m))
+    except Exception:
+        return datetime(d.year, d.month, d.day, default_hour, 0)
+
+
+def _kennel_conflicts(kennel_type, kennel_number,
+                      check_in_date, check_out_date,
+                      check_in_time, check_out_time,
+                      exclude_id=None):
+    """
+    Return active Boarding records that time-overlap with the given kennel + datetime window.
+    Uses strict datetime comparison so same-day checkout before check-in is NOT a conflict.
+    Default assumption when times are missing: check-in = noon, check-out = noon.
+    """
+    from app.models import Boarding
+    new_in  = _kennel_dt(check_in_date,  check_in_time,  12)
+    new_out = _kennel_dt(check_out_date, check_out_time, 12)
+
+    candidates = Boarding.query.filter(
+        Boarding.status        == 'active',
+        Boarding.kennel_type   == kennel_type,
+        Boarding.kennel_number == kennel_number,
+        Boarding.check_in_date  <= check_out_date,
+        Boarding.check_out_date >= check_in_date,
+    )
+    if exclude_id:
+        candidates = candidates.filter(Boarding.id != exclude_id)
+
+    conflicts = []
+    for b in candidates.all():
+        b_in  = _kennel_dt(b.check_in_date,  b.check_in_time,  12)
+        b_out = _kennel_dt(b.check_out_date, b.check_out_time, 12)
+        # True overlap: new window starts before existing ends AND ends after existing starts
+        if new_in < b_out and new_out > b_in:
+            conflicts.append(b)
+    return conflicts
+
+
 @bp.route('/boarding/kennel-slots')
 @login_required
 @admin_required
 def kennel_slots():
     """
     AJAX: return all active kennel slots with occupancy status for a date range.
-    Query params: check_in, check_out (ISO dates), exclude (booking_id to omit).
+    Query params: check_in, check_out (ISO dates), check_in_time, check_out_time (HH:MM),
+                  exclude (booking_id to omit).
     Response groups by type: { suites: [...], kennels: [...] }
     Each entry: { id, kennel_number, available, occupants: [pet_name, ...] }
+    Occupancy uses time-aware overlap when times are provided.
     """
     from app.models import KennelSlot, Boarding
     from datetime import date as _date
@@ -6250,23 +6295,32 @@ def kennel_slots():
     except (ValueError, TypeError):
         has_dates = False
 
-    exclude_id = request.args.get('exclude', type=int)
+    check_in_time  = request.args.get('check_in_time',  '').strip() or None
+    check_out_time = request.args.get('check_out_time', '').strip() or None
+    exclude_id     = request.args.get('exclude', type=int)
 
     # Build occupancy map: (kennel_type, kennel_number) -> [pet_name, ...]
     occupancy = {}
     if has_dates:
+        # Broad date candidates first
         active_boardings = Boarding.query.filter(
             Boarding.status == 'active',
             Boarding.kennel_number.isnot(None),
             Boarding.check_in_date  <= check_out,
             Boarding.check_out_date >= check_in,
         ).all()
+        new_in  = _kennel_dt(check_in,  check_in_time,  12)
+        new_out = _kennel_dt(check_out, check_out_time, 12)
         for b in active_boardings:
             if exclude_id and b.id == exclude_id:
                 continue
-            key = (b.kennel_type or 'kennel', b.kennel_number)
-            pet_name = b.pet.name if b.pet else '—'
-            occupancy.setdefault(key, []).append(pet_name)
+            b_in  = _kennel_dt(b.check_in_date,  b.check_in_time,  12)
+            b_out = _kennel_dt(b.check_out_date, b.check_out_time, 12)
+            # Time-aware overlap check
+            if new_in < b_out and new_out > b_in:
+                key = (b.kennel_type or 'kennel', b.kennel_number)
+                pet_name = b.pet.name if b.pet else '—'
+                occupancy.setdefault(key, []).append(pet_name)
 
     slots = KennelSlot.query.filter_by(active=True)\
                 .order_by(KennelSlot.kennel_type, KennelSlot.sort_order, KennelSlot.kennel_number)\
@@ -6477,11 +6531,35 @@ def assign_kennel(booking_id):
     kennel_number = request.form.get('kennel_number', '').strip() or None
     kennel_type   = request.form.get('kennel_type', 'kennel')
     return_date   = request.form.get('return_date', '').strip()
-    if not kennel_number:
-        flash('Please select a kennel or suite.', 'danger')
+
+    def _back():
         if return_date:
             return redirect(url_for('admin.kennel_settings') + f'?date={return_date}')
         return redirect(url_for('admin.boarding_dashboard'))
+
+    if not kennel_number:
+        flash('Please select a kennel or suite.', 'danger')
+        return _back()
+
+    # Time-aware conflict check — block genuine overlaps (not just same-day checkout/checkin)
+    conflicts = _kennel_conflicts(
+        kennel_type, kennel_number,
+        booking.check_in_date, booking.check_out_date,
+        booking.check_in_time, booking.check_out_time,
+        exclude_id=booking_id,
+    )
+    if conflicts:
+        names = ', '.join(
+            f'{b.pet.name} (out {b.check_out_date.strftime("%m/%d")} @ {b.check_out_time})'
+            for b in conflicts
+        )
+        flash(
+            f'Cannot assign — {kennel_type.title()} #{kennel_number} has a time conflict with: {names}. '
+            f'Resolve the existing reservation first or choose a different slot.',
+            'danger'
+        )
+        return _back()
+
     booking.kennel_number = kennel_number
     booking.kennel_type   = kennel_type
     db.session.commit()

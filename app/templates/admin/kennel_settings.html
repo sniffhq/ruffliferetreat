@@ -265,6 +265,8 @@
                         data-booking-number="${escHtml(b.booking_number)}"
                         data-check-in="${b.check_in}"
                         data-check-out="${b.check_out}"
+                        data-check-in-time="${escHtml(b.check_in_time)}"
+                        data-check-out-time="${escHtml(b.check_out_time)}"
                         data-kennel-type="${escHtml(slot.kennel_type)}"
                         data-kennel-number="${escHtml(slot.kennel_number)}">
                     <i class="fas fa-exchange-alt fa-xs me-1"></i>Reassign
@@ -301,9 +303,11 @@
 
         modal.show();
 
-        // Load slots
-        const ci = ds.checkIn, co = ds.checkOut, excl = ds.bookingId;
-        fetch(`/admin/boarding/kennel-slots?check_in=${ci}&check_out=${co}&exclude=${excl}`)
+        // Load slots with times so same-day conflicts are detected accurately
+        const ci   = ds.checkIn,       co   = ds.checkOut;
+        const cit  = ds.checkInTime  || '', cot = ds.checkOutTime || '';
+        const excl = ds.bookingId;
+        fetch(`/admin/boarding/kennel-slots?check_in=${ci}&check_out=${co}&check_in_time=${encodeURIComponent(cit)}&check_out_time=${encodeURIComponent(cot)}&exclude=${excl}`)
             .then(r => r.json())
             .then(data => {
                 select.innerHTML = '<option value="">— Select a slot —</option>';
