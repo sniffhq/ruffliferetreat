@@ -340,6 +340,7 @@ def approve_appointment(appt_id):
                         body = (
                             f"\u2705 Great news, {owner.first_name}! Your boarding request for "
                             f"{appt.pet.name} has been approved. "
+                            f"Ref: {booking.booking_number}. "
                             f"Check-in: {appt.appointment_date.strftime('%a, %b %d')} at {_fmt_t(check_in_time)}. "
                             f"Check-out: {check_out_date.strftime('%a, %b %d')} at {_fmt_t(check_out_time)}. "
                             f"Questions? Reply to this message. \u2014 Ruff Life Retreat"
@@ -6162,6 +6163,7 @@ def approve_boarding_request(appt_id):
             body = (
                 f"\u2705 Great news, {owner.first_name}! Your boarding request for "
                 f"{appt.pet.name} has been approved. "
+                f"Ref: {booking.booking_number}. "
                 f"Check-in: {check_in_date.strftime('%a, %b %d')} at {_fmt_t(check_in_time)}. "
                 f"Check-out: {check_out_date.strftime('%a, %b %d')} at {_fmt_t(check_out_time)}. "
                 f"Questions? Reply to this message. \u2014 Ruff Life Retreat"

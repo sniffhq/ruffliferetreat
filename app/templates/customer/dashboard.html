@@ -35,6 +35,7 @@
             ('dashboard','Dashboard','fas fa-home'),
             ('pets','My Pets','fas fa-paw'),
             ('appointments','Appointments','fas fa-calendar-alt'),
+            ('boarding','Boarding','fas fa-moon'),
             ('reportcards','Report Cards','fas fa-clipboard-list'),
             ('calendar','Calendar','fas fa-calendar'),
             ('profile','Profile','fas fa-user')
@@ -372,6 +373,111 @@
                 </a>
             </div>
             {% endif %}
+        </div>
+
+        <!-- ── BOARDING ── -->
+        <div class="tab-pane fade" id="pane-boarding">
+
+            {% if upcoming_boarding %}
+            <h5 class="fw-bold mb-3" style="color:#1a1a2e;">Upcoming &amp; Active</h5>
+            <div class="card shadow-sm mb-4">
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Ref #</th>
+                                <th>Pet</th>
+                                <th>Check-in</th>
+                                <th>Check-out</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for b in upcoming_boarding %}
+                            <tr>
+                                <td>
+                                    {% if b.booking_number %}
+                                    <span class="badge bg-warning text-dark fw-bold" style="font-size:0.78rem;">{{ b.booking_number }}</span>
+                                    {% else %}<span class="text-muted">—</span>{% endif %}
+                                </td>
+                                <td>{{ b.pet.name }}</td>
+                                <td>
+                                    {{ b.check_in_date.strftime('%a, %b %d, %Y') }}
+                                    {% if b.check_in_time %}
+                                    <div class="text-muted small">
+                                        {%- set h = b.check_in_time[:2]|int -%}
+                                        {%- set m = b.check_in_time[3:5] -%}
+                                        {%- if h == 0 %}12:{{ m }} AM{%- elif h < 12 %}{{ h }}:{{ m }} AM{%- elif h == 12 %}12:{{ m }} PM{%- else %}{{ h - 12 }}:{{ m }} PM{%- endif %}
+                                    </div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ b.check_out_date.strftime('%a, %b %d, %Y') }}
+                                    {% if b.check_out_time %}
+                                    <div class="text-muted small">
+                                        {%- set h = b.check_out_time[:2]|int -%}
+                                        {%- set m = b.check_out_time[3:5] -%}
+                                        {%- if h == 0 %}12:{{ m }} AM{%- elif h < 12 %}{{ h }}:{{ m }} AM{%- elif h == 12 %}12:{{ m }} PM{%- else %}{{ h - 12 }}:{{ m }} PM{%- endif %}
+                                    </div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge {% if b.status == 'active' %}bg-success{% else %}bg-warning text-dark{% endif %}">
+                                        {{ b.status|title }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if past_boarding %}
+            <h5 class="fw-bold mb-3 text-muted">Past Stays</h5>
+            <div class="card shadow-sm">
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0" style="font-size:0.875rem;">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Ref #</th>
+                                <th>Pet</th>
+                                <th>Check-in</th>
+                                <th>Check-out</th>
+                                <th>Nights</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for b in past_boarding %}
+                            <tr>
+                                <td>
+                                    {% if b.booking_number %}
+                                    <span class="badge bg-secondary" style="font-size:0.78rem;">{{ b.booking_number }}</span>
+                                    {% else %}<span class="text-muted">—</span>{% endif %}
+                                </td>
+                                <td>{{ b.pet.name }}</td>
+                                <td>{{ b.check_in_date.strftime('%b %d, %Y') }}</td>
+                                <td>{{ b.check_out_date.strftime('%b %d, %Y') }}</td>
+                                <td>{{ (b.check_out_date - b.check_in_date).days }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if not upcoming_boarding and not past_boarding %}
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-moon fa-3x mb-3 d-block opacity-25"></i>
+                <p>No boarding stays on record yet.</p>
+                <a href="{{ url_for('customer.book_appointment') }}?service=boarding" class="btn btn-warning text-dark fw-bold">
+                    <i class="fas fa-calendar-plus me-2"></i>Book Boarding
+                </a>
+            </div>
+            {% endif %}
+
         </div>
 
         <!-- ── REPORT CARDS ── -->
