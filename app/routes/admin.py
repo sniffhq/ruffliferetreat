@@ -7148,13 +7148,12 @@ def send_waiver_reminder_sms(customer_id):
         return redirect(url_for('admin.waiver_report'))
 
     try:
-        portal_url = current_app.config.get('PORTAL_URL') or request.host_url.rstrip('/')
         to_e164     = _normalize_phone(customer.phone)
         from_number = current_app.config.get('TWILIO_PHONE_NUMBER')
         body = (
             f"Hi {customer.first_name}! This is Ruff Life Retreat. "
             f"Please log in to your customer portal to review and sign your service waiver: "
-            f"{portal_url}/login . "
+            f"https://rufflife.app/login . "
             f"Questions? Reply to this message or call us. — Ruff Life Retreat"
         )
         client  = Client(current_app.config.get('TWILIO_ACCOUNT_SID'),
