@@ -7281,6 +7281,82 @@ def boarding_occupancy_report():
 
 
 # ============================================================
+# BOARDING CAPACITY VIEW
+# ============================================================
+
+@bp.route('/boarding/capacity')
+@login_required
+@admin_required
+def boarding_capacity():
+    """Boarding capacity page — pie chart + date picker."""
+    from datetime import date
+    return render_template('admin/boarding_capacity.html', today=date.today())
+
+
+@bp.route('/boarding/capacity-data')
+@login_required
+@admin_required
+def boarding_capacity_data():
+    """AJAX: return capacity breakdown JSON for a given date."""
+    from datetime import date as _date
+    from app.models import Boarding
+    from app.settings_service import get_kennel_capacity
+
+    try:
+        d = _date.fromisoformat(request.args.get('date', ''))
+    except (ValueError, TypeError):
+        d = _date.today()
+
+    capacity = get_kennel_capacity()
+
+    boardings = Boarding.query.filter(
+        Boarding.status == 'active',
+        Boarding.check_in_date  <= d,
+        Boarding.check_out_date >= d,
+    ).order_by(Boarding.check_in_date).all()
+
+    arriving  = []
+    staying   = []
+    departing = []
+
+    for b in boardings:
+        owner = b.pet.owner if b.pet else None
+        entry = {
+            'id':            b.id,
+            'pet_name':      b.pet.name if b.pet else '—',
+            'pet_breed':     (b.pet.breed or '') if b.pet else '',
+            'owner_name':    f'{owner.first_name} {owner.last_name}' if owner else '—',
+            'booking_number': b.booking_number or '—',
+            'check_in_date':  b.check_in_date.isoformat(),
+            'check_out_date': b.check_out_date.isoformat(),
+            'check_in_time':  b.check_in_time  or '—',
+            'check_out_time': b.check_out_time or '—',
+            'nights':         (b.check_out_date - b.check_in_date).days,
+            'kennel_label':   f'{(b.kennel_type or "Kennel").title()} #{b.kennel_number}'
+                              if b.kennel_number else 'Unassigned',
+        }
+        if b.check_in_date == d:
+            arriving.append(entry)
+        elif b.check_out_date == d:
+            departing.append(entry)
+        else:
+            staying.append(entry)
+
+    total     = len(arriving) + len(staying) + len(departing)
+    available = max(0, capacity - total)
+
+    return {
+        'date':      d.isoformat(),
+        'capacity':  capacity,
+        'total':     total,
+        'available': available,
+        'arriving':  arriving,
+        'staying':   staying,
+        'departing': departing,
+    }
+
+
+# ============================================================
 # FACILITY SETTINGS
 # ============================================================
 

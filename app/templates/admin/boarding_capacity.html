@@ -1,0 +1,373 @@
+{% extends "base.html" %}
+{% block title %}Boarding Capacity{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
+        <div>
+            <h3 class="mb-1">
+                <i class="fas fa-chart-pie me-2" style="color:#1a1a2e;"></i>Boarding Capacity
+            </h3>
+            <div class="text-muted" style="font-size:0.88rem;">
+                Daily kennel occupancy &bull; pick-ups, drop-offs, and overnight guests
+            </div>
+        </div>
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            <a href="{{ url_for('admin.boarding_occupancy_report') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-calendar-alt me-1"></i>Boarding Outlook
+            </a>
+            <a href="{{ url_for('admin.boarding_dashboard') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-hotel me-1"></i>Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Date Picker -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body py-3">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <button class="btn btn-outline-secondary btn-sm" id="btn-prev">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <div class="d-flex align-items-center gap-2">
+                    <label class="fw-bold mb-0" for="date-picker" style="white-space:nowrap;">Select Date:</label>
+                    <input type="date" id="date-picker" class="form-control form-control-sm"
+                           value="{{ today.isoformat() }}" style="width:160px;">
+                </div>
+                <button class="btn btn-outline-secondary btn-sm" id="btn-next">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+                <button class="btn btn-primary btn-sm" id="btn-today">Today</button>
+                <span id="date-label" class="text-muted fw-bold" style="font-size:0.92rem;"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading spinner -->
+    <div id="loading" class="text-center py-5 d-none">
+        <div class="spinner-border text-secondary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+
+    <!-- Main content (hidden until loaded) -->
+    <div id="content-area">
+
+        <!-- Summary stat cards -->
+        <div class="row g-3 mb-4" id="stat-cards">
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm text-center py-3">
+                    <div class="display-5 fw-bold" id="stat-total" style="color:#1a1a2e;">—</div>
+                    <div class="text-muted small">Total Guests</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm text-center py-3">
+                    <div class="display-5 fw-bold text-success" id="stat-available">—</div>
+                    <div class="text-muted small">Available Kennels</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm text-center py-3">
+                    <div class="display-5 fw-bold text-primary" id="stat-arriving">—</div>
+                    <div class="text-muted small">Arriving Today</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm text-center py-3">
+                    <div class="display-5 fw-bold text-warning" id="stat-departing">—</div>
+                    <div class="text-muted small">Departing Today</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pie chart + legend side by side -->
+        <div class="row g-4 mb-4">
+
+            <!-- Pie chart -->
+            <div class="col-md-5 d-flex align-items-center justify-content-center">
+                <div style="position:relative; width:100%; max-width:340px;">
+                    <canvas id="capacityChart" height="340"></canvas>
+                    <!-- Center label -->
+                    <div id="chart-center" style="
+                        position:absolute;
+                        top:50%; left:50%;
+                        transform:translate(-50%,-50%);
+                        text-align:center;
+                        pointer-events:none;">
+                        <div id="center-pct" style="font-size:2rem;font-weight:700;color:#1a1a2e;line-height:1;">—</div>
+                        <div style="font-size:0.78rem;color:#6c757d;margin-top:2px;">Full</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Legend + capacity bar -->
+            <div class="col-md-7 d-flex flex-column justify-content-center gap-3">
+
+                <!-- Legend rows -->
+                <div class="d-flex flex-column gap-2" id="legend">
+                    <!-- Injected by JS -->
+                </div>
+
+                <!-- Progress bar -->
+                <div class="mt-2">
+                    <div class="d-flex justify-content-between mb-1" style="font-size:0.82rem;">
+                        <span class="text-muted">Capacity</span>
+                        <span id="bar-label" class="fw-bold text-muted">—</span>
+                    </div>
+                    <div class="progress" style="height:18px; border-radius:10px;">
+                        <div id="progress-staying"
+                             class="progress-bar"
+                             role="progressbar"
+                             style="background:#1a1a2e; transition:width 0.5s ease;"
+                             title="Staying overnight"></div>
+                        <div id="progress-arriving"
+                             class="progress-bar"
+                             role="progressbar"
+                             style="background:#3d8b3d; transition:width 0.5s ease;"
+                             title="Arriving today"></div>
+                        <div id="progress-departing"
+                             class="progress-bar"
+                             role="progressbar"
+                             style="background:#e6a817; transition:width 0.5s ease;"
+                             title="Departing today"></div>
+                    </div>
+                    <div class="d-flex justify-content-between mt-1" style="font-size:0.75rem; color:#aaa;">
+                        <span>0</span>
+                        <span id="bar-capacity-label">40 kennels</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Pets detail tables -->
+        <div id="pet-tables">
+
+            <!-- Arriving -->
+            <div class="card shadow-sm mb-3" id="card-arriving">
+                <div class="card-header d-flex align-items-center gap-2 py-2"
+                     style="background:#d4edda;">
+                    <i class="fas fa-sign-in-alt text-success"></i>
+                    <strong class="text-success">Arriving Today</strong>
+                    <span class="badge bg-success ms-auto" id="badge-arriving">0</span>
+                </div>
+                <div class="card-body p-0" id="tbody-arriving">
+                    <div class="text-center text-muted py-3 small">No arrivals.</div>
+                </div>
+            </div>
+
+            <!-- Staying overnight -->
+            <div class="card shadow-sm mb-3" id="card-staying">
+                <div class="card-header d-flex align-items-center gap-2 py-2"
+                     style="background:#1a1a2e;">
+                    <i class="fas fa-moon text-white"></i>
+                    <strong class="text-white">Staying Overnight</strong>
+                    <span class="badge bg-secondary ms-auto" id="badge-staying">0</span>
+                </div>
+                <div class="card-body p-0" id="tbody-staying">
+                    <div class="text-center text-muted py-3 small">No overnight guests.</div>
+                </div>
+            </div>
+
+            <!-- Departing -->
+            <div class="card shadow-sm mb-3" id="card-departing">
+                <div class="card-header d-flex align-items-center gap-2 py-2"
+                     style="background:#fff3cd;">
+                    <i class="fas fa-sign-out-alt" style="color:#856404;"></i>
+                    <strong style="color:#856404;">Departing Today</strong>
+                    <span class="badge bg-warning text-dark ms-auto" id="badge-departing">0</span>
+                </div>
+                <div class="card-body p-0" id="tbody-departing">
+                    <div class="text-center text-muted py-3 small">No departures.</div>
+                </div>
+            </div>
+
+        </div>
+
+    </div><!-- /content-area -->
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+(function () {
+
+    const picker    = document.getElementById('date-picker');
+    const dateLabel = document.getElementById('date-label');
+    const loading   = document.getElementById('loading');
+    const content   = document.getElementById('content-area');
+    let chart = null;
+
+    // ── helpers ──────────────────────────────────────────────
+    function fmtDate(iso) {
+        const [y, m, d] = iso.split('-').map(Number);
+        const dt = new Date(y, m - 1, d);
+        return dt.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
+    }
+
+    function fmtTime(t) {
+        if (!t || t === '—') return '—';
+        const [hh, mm] = t.split(':').map(Number);
+        const ampm = hh >= 12 ? 'PM' : 'AM';
+        const h = hh % 12 || 12;
+        return `${h}:${String(mm).padStart(2,'0')} ${ampm}`;
+    }
+
+    function petTable(pets, timeKey) {
+        if (!pets.length) return '<div class="text-center text-muted py-3 small">None.</div>';
+        let html = `<table class="table table-hover mb-0" style="font-size:0.85rem;">
+            <thead class="table-light">
+                <tr>
+                    <th>Pet</th>
+                    <th>Owner</th>
+                    <th>Ref #</th>
+                    <th>Kennel</th>
+                    <th>${timeKey === 'check_in_time' ? 'Check-in' : timeKey === 'check_out_time' ? 'Check-out' : 'In / Out'}</th>
+                    <th>Nights</th>
+                </tr>
+            </thead><tbody>`;
+        pets.forEach(p => {
+            const time = timeKey === 'both'
+                ? `${fmtTime(p.check_in_time)} <span class="text-muted">→</span> ${fmtTime(p.check_out_time)}`
+                : fmtTime(p[timeKey]);
+            html += `<tr>
+                <td><strong>${p.pet_name}</strong>${p.pet_breed ? `<div class="text-muted" style="font-size:0.75rem;">${p.pet_breed}</div>` : ''}</td>
+                <td>${p.owner_name}</td>
+                <td><span class="badge bg-warning text-dark" style="font-size:0.72rem;">${p.booking_number}</span></td>
+                <td class="text-muted">${p.kennel_label}</td>
+                <td>${time}</td>
+                <td>${p.nights}</td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        return html;
+    }
+
+    function legendRow(color, label, count, capacity) {
+        const pct = capacity > 0 ? Math.round((count / capacity) * 100) : 0;
+        return `<div class="d-flex align-items-center gap-3">
+            <div style="width:14px;height:14px;border-radius:3px;background:${color};flex-shrink:0;"></div>
+            <div style="flex:1;font-size:0.88rem;">${label}</div>
+            <div class="fw-bold" style="font-size:0.95rem;min-width:28px;text-align:right;">${count}</div>
+            <div class="text-muted" style="font-size:0.78rem;min-width:42px;">${pct}% of cap</div>
+        </div>`;
+    }
+
+    // ── load data ────────────────────────────────────────────
+    function load(dateIso) {
+        loading.classList.remove('d-none');
+        content.style.opacity = '0.4';
+
+        fetch(`/admin/boarding/capacity-data?date=${dateIso}`)
+            .then(r => r.json())
+            .then(data => render(data))
+            .catch(() => {
+                loading.classList.add('d-none');
+                content.style.opacity = '1';
+            });
+    }
+
+    function render(data) {
+        loading.classList.add('d-none');
+        content.style.opacity = '1';
+
+        const { capacity, total, available, arriving, staying, departing } = data;
+        const pct = capacity > 0 ? Math.round((total / capacity) * 100) : 0;
+
+        // Date label
+        dateLabel.textContent = fmtDate(data.date);
+
+        // Stat cards
+        document.getElementById('stat-total').textContent     = total;
+        document.getElementById('stat-available').textContent = available;
+        document.getElementById('stat-arriving').textContent  = arriving.length;
+        document.getElementById('stat-departing').textContent = departing.length;
+
+        // Center label
+        document.getElementById('center-pct').textContent = pct + '%';
+
+        // Capacity bar
+        document.getElementById('bar-label').textContent          = `${total} / ${capacity} kennels`;
+        document.getElementById('bar-capacity-label').textContent = `${capacity} kennels`;
+        const toW = n => capacity > 0 ? Math.round((n / capacity) * 100) + '%' : '0%';
+        document.getElementById('progress-staying').style.width   = toW(staying.length);
+        document.getElementById('progress-arriving').style.width  = toW(arriving.length);
+        document.getElementById('progress-departing').style.width = toW(departing.length);
+
+        // Legend
+        document.getElementById('legend').innerHTML =
+            legendRow('#1a1a2e',   'Staying overnight', staying.length,   capacity) +
+            legendRow('#3d8b3d',   'Arriving today',    arriving.length,  capacity) +
+            legendRow('#e6a817',   'Departing today',   departing.length, capacity) +
+            legendRow('#e0e0e0',   'Available',         available,        capacity);
+
+        // Pie chart
+        const chartData = {
+            labels: ['Staying', 'Arriving', 'Departing', 'Available'],
+            datasets: [{
+                data: [staying.length, arriving.length, departing.length, available],
+                backgroundColor: ['#1a1a2e', '#3d8b3d', '#e6a817', '#e8e8e8'],
+                borderColor:     ['#fff','#fff','#fff','#ddd'],
+                borderWidth: 3,
+                hoverOffset: 8,
+            }]
+        };
+        if (chart) {
+            chart.data = chartData;
+            chart.update();
+        } else {
+            chart = new Chart(document.getElementById('capacityChart'), {
+                type: 'doughnut',
+                data: chartData,
+                options: {
+                    cutout: '65%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => {
+                                    const v = ctx.parsed;
+                                    const p = capacity > 0 ? Math.round((v / capacity) * 100) : 0;
+                                    return `  ${ctx.label}: ${v} (${p}%)`;
+                                }
+                            }
+                        }
+                    },
+                    animation: { animateRotate: true, duration: 500 }
+                }
+            });
+        }
+
+        // Pet tables
+        document.getElementById('tbody-arriving').innerHTML  = petTable(arriving,  'check_in_time');
+        document.getElementById('tbody-staying').innerHTML   = petTable(staying,   'both');
+        document.getElementById('tbody-departing').innerHTML = petTable(departing, 'check_out_time');
+        document.getElementById('badge-arriving').textContent  = arriving.length;
+        document.getElementById('badge-staying').textContent   = staying.length;
+        document.getElementById('badge-departing').textContent = departing.length;
+    }
+
+    // ── date navigation ───────────────────────────────────────
+    function changeDate(delta) {
+        const [y, m, d] = picker.value.split('-').map(Number);
+        const dt = new Date(y, m - 1, d + delta);
+        picker.value = dt.toISOString().slice(0, 10);
+        load(picker.value);
+    }
+
+    document.getElementById('btn-prev').addEventListener('click',  () => changeDate(-1));
+    document.getElementById('btn-next').addEventListener('click',  () => changeDate(+1));
+    document.getElementById('btn-today').addEventListener('click', () => {
+        picker.value = new Date().toISOString().slice(0, 10);
+        load(picker.value);
+    });
+    picker.addEventListener('change', () => load(picker.value));
+
+    // ── initial load ──────────────────────────────────────────
+    load(picker.value);
+
+})();
+</script>
+{% endblock %}
