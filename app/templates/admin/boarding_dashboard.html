@@ -312,7 +312,7 @@
                             <button type="button"
                                     class="btn btn-sm btn-outline-warning py-0 px-2"
                                     style="font-size:0.75rem;"
-                                    onclick="openAssignKennel({{ b.id }}, '{{ b.pet.name }}')"
+                                    onclick="openAssignKennel({{ b.id }}, '{{ b.pet.name }}', '{{ b.check_in_date.isoformat() }}', '{{ b.check_out_date.isoformat() }}')"
                                     data-bs-toggle="modal" data-bs-target="#assignKennelModal">
                                 <i class="fas fa-bed me-1"></i>Assign
                             </button>
@@ -388,7 +388,7 @@
                             <button type="button"
                                     class="btn btn-sm btn-outline-warning py-0 px-2"
                                     style="font-size:0.75rem;"
-                                    onclick="openAssignKennel({{ b.id }}, '{{ b.pet.name }}')"
+                                    onclick="openAssignKennel({{ b.id }}, '{{ b.pet.name }}', '{{ b.check_in_date.isoformat() }}', '{{ b.check_out_date.isoformat() }}')"
                                     data-bs-toggle="modal" data-bs-target="#assignKennelModal">
                                 <i class="fas fa-bed me-1"></i>Assign
                             </button>
@@ -458,7 +458,7 @@
 
 <!-- ── APPROVE MODALS (one per pending request) ────────────────────────────── -->
 {% for appt in pending_requests %}
-<div class="modal fade" id="approveModal{{ appt.id }}" tabindex="-1">
+<div class="modal fade approve-boarding-modal" id="approveModal{{ appt.id }}" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header bg-success text-white">
@@ -497,6 +497,21 @@
                                 <i class="fas fa-user me-1"></i>Customer requested {{ appt.end_time.strftime('%I:%M %p') }}
                             </div>
                             {% endif %}
+                        </div>
+                        <!-- Share with occupied kennel -->
+                        <div class="col-12 approve-share-row" style="display:none;">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-paw me-1 text-warning"></i>Share with an occupied kennel
+                            </label>
+                            <select class="form-select approve-share-select">
+                                <option value="">— Enter manually below —</option>
+                            </select>
+                            <div class="form-text">Pets already boarding during these dates. Select one to share their kennel.</div>
+                        </div>
+                        <div class="col-12 approve-share-divider" style="display:none;">
+                            <div class="d-flex align-items-center gap-2">
+                                <hr class="flex-grow-1 my-0"><span class="text-muted small">or enter manually</span><hr class="flex-grow-1 my-0">
+                            </div>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label fw-bold">Accommodation Type</label>
@@ -566,7 +581,7 @@
 
 <!-- ── ASSIGN KENNEL MODAL (shared) ───────────────────────────────────────── -->
 <div class="modal fade" id="assignKennelModal" tabindex="-1">
-    <div class="modal-dialog modal-sm">
+    <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header py-2" style="background:#1a1a2e;">
                 <h6 class="modal-title text-white mb-0">
@@ -576,6 +591,22 @@
             </div>
             <form id="assignKennelForm" method="POST" action="">
                 <div class="modal-body">
+
+                    <!-- Share with existing kennel -->
+                    <div id="assignShareRow" style="display:none;" class="mb-3">
+                        <label class="form-label fw-bold">
+                            <i class="fas fa-paw me-1 text-warning"></i>Share with an occupied kennel
+                        </label>
+                        <select id="assignShareSelect" class="form-select">
+                            <option value="">— Enter manually below —</option>
+                        </select>
+                        <div class="form-text">Pets already boarding during this stay. Select one to share their kennel.</div>
+                    </div>
+
+                    <div id="assignShareDivider" style="display:none;" class="d-flex align-items-center gap-2 mb-3">
+                        <hr class="flex-grow-1 my-0"><span class="text-muted small">or enter manually</span><hr class="flex-grow-1 my-0">
+                    </div>
+
                     <div class="mb-3">
                         <label class="form-label fw-bold">Accommodation Type</label>
                         <select name="kennel_type" id="assignKennelType" class="form-select">
@@ -586,7 +617,7 @@
                     <div class="mb-0">
                         <label class="form-label fw-bold">Number <span class="text-danger">*</span></label>
                         <input type="text" name="kennel_number" id="assignKennelNumber"
-                               class="form-control" placeholder="e.g. 4, 4A, 12" required autofocus>
+                               class="form-control" placeholder="e.g. 4, 4A, 12" required>
                         <div class="form-text">Use the same number for pets sharing a space.</div>
                     </div>
                 </div>
@@ -602,11 +633,91 @@
 </div>
 
 <script>
-function openAssignKennel(bookingId, petName) {
-    document.getElementById('assignPetName').textContent = petName;
-    document.getElementById('assignKennelForm').action   = '/admin/boarding/' + bookingId + '/assign-kennel';
-    document.getElementById('assignKennelNumber').value  = '';
-    document.getElementById('assignKennelType').value    = 'kennel';
+// ── Shared: load occupied kennels for a date range ─────────────────────────
+async function loadOccupiedKennels(checkIn, checkOut, excludeId, selectEl, typeEl, numberEl, shareRow, shareDivider) {
+    if (!checkIn || !checkOut) return;
+    selectEl.innerHTML = '<option value="">Loading...</option>';
+    try {
+        let url = `/admin/boarding/occupied-kennels?check_in=${checkIn}&check_out=${checkOut}`;
+        if (excludeId) url += `&exclude=${excludeId}`;
+        const data = await fetch(url).then(r => r.json());
+
+        if (data.length) {
+            selectEl.innerHTML = '<option value="">— Enter manually below —</option>';
+            data.forEach(k => {
+                const opt = document.createElement('option');
+                opt.value = JSON.stringify({ type: k.kennel_type, number: k.kennel_number });
+                opt.textContent = k.label;
+                selectEl.appendChild(opt);
+            });
+            if (shareRow)    shareRow.style.display    = '';
+            if (shareDivider) shareDivider.style.display = '';
+        } else {
+            selectEl.innerHTML = '<option value="">— Enter manually below —</option>';
+            if (shareRow)    shareRow.style.display    = 'none';
+            if (shareDivider) shareDivider.style.display = 'none';
+        }
+    } catch (e) {
+        selectEl.innerHTML = '<option value="">— Enter manually below —</option>';
+    }
+
+    selectEl.onchange = function () {
+        if (!this.value) return;
+        const k = JSON.parse(this.value);
+        typeEl.value   = k.type;
+        numberEl.value = k.number;
+    };
+}
+
+// ── Assign Kennel modal ────────────────────────────────────────────────────
+function openAssignKennel(bookingId, petName, checkIn, checkOut) {
+    document.getElementById('assignPetName').textContent  = petName;
+    document.getElementById('assignKennelForm').action    = '/admin/boarding/' + bookingId + '/assign-kennel';
+    document.getElementById('assignKennelNumber').value   = '';
+    document.getElementById('assignKennelType').value     = 'kennel';
+    document.getElementById('assignShareSelect').innerHTML = '<option value="">— Enter manually below —</option>';
+    document.getElementById('assignShareRow').style.display    = 'none';
+    document.getElementById('assignShareDivider').style.display = 'none';
+
+    if (checkIn && checkOut) {
+        loadOccupiedKennels(
+            checkIn, checkOut, bookingId,
+            document.getElementById('assignShareSelect'),
+            document.getElementById('assignKennelType'),
+            document.getElementById('assignKennelNumber'),
+            document.getElementById('assignShareRow'),
+            document.getElementById('assignShareDivider')
+        );
+    }
+}
+
+// ── Approval modals ────────────────────────────────────────────────────────
+document.querySelectorAll('.approve-boarding-modal').forEach(function (modal) {
+    modal.addEventListener('show.bs.modal', function () {
+        initApproveShareDropdown(this);
+    });
+});
+
+function initApproveShareDropdown(modal) {
+    const checkInEl   = modal.querySelector('[name=check_in_date]');
+    const checkOutEl  = modal.querySelector('[name=check_out_date]');
+    const shareSelect = modal.querySelector('.approve-share-select');
+    const typeEl      = modal.querySelector('[name=kennel_type]');
+    const numberEl    = modal.querySelector('[name=kennel_number]');
+    const shareRow    = modal.querySelector('.approve-share-row');
+    const shareDivider= modal.querySelector('.approve-share-divider');
+
+    function reload() {
+        loadOccupiedKennels(
+            checkInEl.value, checkOutEl.value, null,
+            shareSelect, typeEl, numberEl, shareRow, shareDivider
+        );
+    }
+
+    reload();
+    // Re-fetch if staff adjusts dates
+    checkInEl.addEventListener('change',  reload);
+    checkOutEl.addEventListener('change', reload);
 }
 </script>
 

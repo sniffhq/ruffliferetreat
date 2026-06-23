@@ -6234,6 +6234,60 @@ def approve_boarding_request(appt_id):
     return redirect(url_for('admin.boarding_dashboard'))
 
 
+@bp.route('/boarding/occupied-kennels')
+@login_required
+@admin_required
+def occupied_kennels():
+    """
+    AJAX: return kennels already occupied during a date range.
+    Groups multiple pets sharing the same kennel into one entry.
+    Query params: check_in, check_out (ISO dates), exclude (booking_id to skip).
+    """
+    from app.models import Boarding
+    from datetime import date as _date
+
+    try:
+        check_in  = _date.fromisoformat(request.args.get('check_in',  ''))
+        check_out = _date.fromisoformat(request.args.get('check_out', ''))
+    except (ValueError, TypeError):
+        return []
+
+    exclude_id = request.args.get('exclude', type=int)
+
+    boardings = Boarding.query.filter(
+        Boarding.status == 'active',
+        Boarding.kennel_number.isnot(None),
+        Boarding.check_in_date  <= check_out,
+        Boarding.check_out_date >= check_in,
+    ).order_by(Boarding.kennel_type, Boarding.kennel_number).all()
+
+    # Group by (kennel_type, kennel_number) so shared kennels appear once
+    groups = {}
+    for b in boardings:
+        if exclude_id and b.id == exclude_id:
+            continue
+        key = (b.kennel_type or 'kennel', b.kennel_number)
+        pet_name = b.pet.name if b.pet else '—'
+        if key in groups:
+            groups[key]['pet_names'].append(pet_name)
+        else:
+            groups[key] = {
+                'kennel_type':   b.kennel_type or 'kennel',
+                'kennel_number': b.kennel_number,
+                'pet_names':     [pet_name],
+            }
+
+    result = []
+    for (ktype, knum), g in groups.items():
+        result.append({
+            'kennel_type':   ktype,
+            'kennel_number': knum,
+            'label':         f'{"Suite" if ktype == "suite" else "Kennel"} #{knum} — {" & ".join(g["pet_names"])}',
+        })
+
+    return result
+
+
 @bp.route('/boarding/<int:booking_id>/assign-kennel', methods=['POST'])
 @login_required
 @admin_required
