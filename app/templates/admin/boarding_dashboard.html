@@ -352,13 +352,15 @@
                 <strong class="text-white">
                     <i class="fas fa-suitcase me-2"></i>Upcoming Reservations
                 </strong>
-                <div class="d-flex align-items-center gap-2">
-                    <input type="date" id="upcomingDateFilter" class="form-control form-control-sm"
-                           style="max-width:160px; background:#fff;"
-                           title="Filter by check-in date">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <input type="date" id="upcomingFilterFrom" class="form-control form-control-sm"
+                           style="max-width:150px; background:#fff;" title="Check-in from">
+                    <span class="text-white small">→</span>
+                    <input type="date" id="upcomingFilterTo" class="form-control form-control-sm"
+                           style="max-width:150px; background:#fff;" title="Check-in to">
                     <button type="button" class="btn btn-sm btn-light" id="upcomingDateClear"
-                            title="Show all" style="display:none;">
-                        <i class="fas fa-times me-1"></i>All
+                            title="Clear filter" style="display:none;">
+                        <i class="fas fa-times me-1"></i>Clear
                     </button>
                     <span class="badge bg-white text-success" id="upcomingCount">{{ upcoming_bookings|length }}</span>
                 </div>
@@ -750,34 +752,44 @@ function initApprovalKennelDropdown(modal) {
     checkOutEl.addEventListener('change', reload);
 }
 
-// ── Upcoming reservations date filter ─────────────────────────────────────
+// ── Upcoming reservations date range filter ────────────────────────────────
 (function () {
-    const filterInput = document.getElementById('upcomingDateFilter');
-    const clearBtn    = document.getElementById('upcomingDateClear');
-    const countBadge  = document.getElementById('upcomingCount');
-    const noMatch     = document.getElementById('upcomingNoMatch');
-    const table       = document.getElementById('upcomingTable');
-    if (!filterInput || !table) return;
+    const fromInput  = document.getElementById('upcomingFilterFrom');
+    const toInput    = document.getElementById('upcomingFilterTo');
+    const clearBtn   = document.getElementById('upcomingDateClear');
+    const countBadge = document.getElementById('upcomingCount');
+    const noMatch    = document.getElementById('upcomingNoMatch');
+    const table      = document.getElementById('upcomingTable');
+    if (!fromInput || !table) return;
 
     const allRows = Array.from(table.querySelectorAll('tbody tr[data-checkin]'));
     const total   = allRows.length;
 
     function applyFilter() {
-        const val = filterInput.value; // 'YYYY-MM-DD' or ''
+        const from = fromInput.value; // 'YYYY-MM-DD' or ''
+        const to   = toInput.value;
+        const active = from || to;
         let visible = 0;
+
         allRows.forEach(row => {
-            const show = !val || row.dataset.checkin === val;
+            const ci = row.dataset.checkin;
+            const afterFrom  = !from || ci >= from;
+            const beforeTo   = !to   || ci <= to;
+            const show = afterFrom && beforeTo;
             row.style.display = show ? '' : 'none';
             if (show) visible++;
         });
-        noMatch.style.display = (visible === 0 && val) ? '' : 'none';
-        countBadge.textContent = val ? `${visible} / ${total}` : total;
-        clearBtn.style.display = val ? '' : 'none';
+
+        noMatch.style.display  = (visible === 0 && active) ? '' : 'none';
+        countBadge.textContent = active ? `${visible} / ${total}` : total;
+        clearBtn.style.display = active ? '' : 'none';
     }
 
-    filterInput.addEventListener('change', applyFilter);
+    fromInput.addEventListener('change', applyFilter);
+    toInput.addEventListener('change',   applyFilter);
     clearBtn.addEventListener('click', () => {
-        filterInput.value = '';
+        fromInput.value = '';
+        toInput.value   = '';
         applyFilter();
     });
 })();
