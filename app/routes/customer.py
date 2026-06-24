@@ -154,11 +154,13 @@ def dashboard():
     pets = Pet.query.filter_by(user_id=current_user.id, is_active=True).all()
 
     # Upcoming appointments — show all pending and confirmed
-    # For boarding: hide only if the boarding stay is already completed
-    completed_boarding_pet_dates = {
+    # For boarding: hide if an active or completed Boarding record already exists
+    # (approved boardings show in the Boarding tab instead)
+    handled_boarding_pet_dates = {
         (b.pet_id, b.check_in_date) for b in Boarding.query
         .join(Pet, Boarding.pet_id == Pet.id)
-        .filter(Pet.user_id == current_user.id, Boarding.status == 'completed')
+        .filter(Pet.user_id == current_user.id,
+                Boarding.status.in_(['active', 'completed']))
         .all()
     }
     all_upcoming = (Appointment.query
@@ -170,7 +172,7 @@ def dashboard():
     upcoming_appointments = [
         a for a in all_upcoming
         if not (a.service_type and 'boarding' in a.service_type.name.lower()
-                and (a.pet_id, a.appointment_date) in completed_boarding_pet_dates)
+                and (a.pet_id, a.appointment_date) in handled_boarding_pet_dates)
     ]
 
     # Cancelled future reservations not yet acknowledged by the customer

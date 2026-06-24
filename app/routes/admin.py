@@ -2053,6 +2053,26 @@ def revert_boarding(booking_id):
     booking.checked_in   = True
     db.session.commit()
 
+    # Also revert the linked appointment so it shows correctly on customer portal
+    try:
+        boarding_service = ServiceType.query.filter(
+            ServiceType.name.ilike('%boarding%')
+        ).first()
+        if boarding_service:
+            linked_appt = Appointment.query.filter_by(
+                pet_id          = booking.pet_id,
+                user_id         = booking.user_id,
+                service_type_id = boarding_service.id,
+                status          = 'completed',
+            ).filter(
+                Appointment.appointment_date == booking.check_in_date
+            ).first()
+            if linked_appt:
+                linked_appt.status = 'confirmed'
+                db.session.commit()
+    except Exception as e:
+        current_app.logger.error(f'Failed to revert linked appointment: {e}')
+
     try:
         from app.audit_service import audit
         audit('boarding.reverted', 'boarding', booking_id, booking.pet.name,
@@ -2073,18 +2093,20 @@ def complete_boarding(booking_id):
     booking.completed_at = datetime.now()
     db.session.commit()
 
-    # Mark any linked confirmed appointment as completed too
+    # Mark the specific linked appointment as completed (match by check_in_date)
     try:
         boarding_service = ServiceType.query.filter(
             ServiceType.name.ilike('%boarding%')
         ).first()
         if boarding_service:
             linked_appt = Appointment.query.filter_by(
-                pet_id         = booking.pet_id,
-                user_id        = booking.user_id,
+                pet_id          = booking.pet_id,
+                user_id         = booking.user_id,
                 service_type_id = boarding_service.id,
-                status         = 'confirmed'
-            ).order_by(Appointment.appointment_date.desc()).first()
+                status          = 'confirmed',
+            ).filter(
+                Appointment.appointment_date == booking.check_in_date
+            ).first()
             if linked_appt:
                 linked_appt.status = 'completed'
                 db.session.commit()

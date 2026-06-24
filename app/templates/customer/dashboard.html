@@ -422,9 +422,15 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <span class="badge {% if b.status == 'active' %}bg-success{% else %}bg-warning text-dark{% endif %}">
-                                        {{ b.status|title }}
-                                    </span>
+                                    {% if b.checked_in %}
+                                    <span class="badge bg-primary">Checked In</span>
+                                    {% elif b.check_in_date > today %}
+                                    <span class="badge bg-success">Confirmed</span>
+                                    {% elif b.check_in_date == today %}
+                                    <span class="badge bg-warning text-dark">Arriving Today</span>
+                                    {% else %}
+                                    <span class="badge bg-success">Active</span>
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% endfor %}
