@@ -4812,6 +4812,90 @@ def add_vaccination(pet_id):
     return redirect(url_for('admin.pet_detail', pet_id=pet_id))
 
 
+@bp.route('/pets/<int:pet_id>/vaccinations/ocr-scan', methods=['POST'])
+@login_required
+@admin_required
+def ocr_scan_vaccination(pet_id):
+    """Run OCR on the pet's stored vaccination document and return extracted records as JSON."""
+    import json as _json, tempfile as _tmp
+    from app.models import Pet
+    from app.vacc_ocr import extract_vaccination_data
+
+    pet = Pet.query.get_or_404(pet_id)
+    cert_file = pet.vaccination_record_path or pet.vaccination_record
+    if not cert_file:
+        return _json.dumps({'error': 'No vaccination document on file for this pet.'}), 404, {'Content-Type': 'application/json'}
+
+    file_path = os.path.join(current_app.root_path, 'static',
+                             cert_file if cert_file.startswith('uploads/') else f'uploads/{cert_file}')
+    if not os.path.exists(file_path):
+        return _json.dumps({'error': 'Document file not found on server.'}), 404, {'Content-Type': 'application/json'}
+
+    try:
+        records = extract_vaccination_data(file_path)
+        serialised = []
+        for r in records:
+            serialised.append({
+                'vaccine_name':     r.get('vaccine_name', ''),
+                'vaccination_date': r['vaccination_date'].strftime('%Y-%m-%d') if r.get('vaccination_date') else '',
+                'expiration_date':  r['expiration_date'].strftime('%Y-%m-%d')  if r.get('expiration_date')  else '',
+                'confidence':       r.get('confidence', ''),
+            })
+        from app.audit_service import audit
+        audit('vaccination.ocr_scanned', 'pet', pet.id, pet.name,
+              f'Staff scanned vaccination document for {pet.name} — {len(serialised)} record(s) extracted by {current_user.first_name} {current_user.last_name}')
+        return _json.dumps({'records': serialised}), 200, {'Content-Type': 'application/json'}
+    except Exception as e:
+        import traceback, logging as _log
+        _log.getLogger(__name__).error(f'Admin OCR error pet={pet_id}: {e}\n{traceback.format_exc()}')
+        return _json.dumps({'error': str(e)}), 500, {'Content-Type': 'application/json'}
+
+
+@bp.route('/pets/<int:pet_id>/vaccinations/bulk-add', methods=['POST'])
+@login_required
+@admin_required
+def bulk_add_vaccinations(pet_id):
+    """Save multiple OCR-extracted vaccination records at once."""
+    import json as _json
+    from app.models import Pet, VaccinationRecord
+    from datetime import datetime as _dt
+    from app.audit_service import audit
+
+    pet = Pet.query.get_or_404(pet_id)
+    data = request.get_json(silent=True) or {}
+    records = data.get('records', [])
+
+    if not records:
+        return _json.dumps({'error': 'No records provided.'}), 400, {'Content-Type': 'application/json'}
+
+    saved = []
+    for r in records:
+        vax_date = r.get('vaccination_date', '').strip()
+        exp_date = r.get('expiration_date', '').strip()
+        name     = r.get('vaccine_name', '').strip()
+        if not name or not vax_date or not exp_date:
+            continue
+        try:
+            rec = VaccinationRecord(
+                pet_id           = pet_id,
+                vaccine_name     = name,
+                vaccination_date = _dt.strptime(vax_date, '%Y-%m-%d').date(),
+                expiration_date  = _dt.strptime(exp_date, '%Y-%m-%d').date(),
+                veterinarian     = r.get('veterinarian', '').strip() or None,
+            )
+            db.session.add(rec)
+            saved.append(name)
+        except Exception:
+            continue
+
+    db.session.commit()
+
+    audit('vaccination.bulk_imported', 'pet', pet.id, pet.name,
+          f'{len(saved)} vaccination record(s) imported from OCR scan for {pet.name} by {current_user.first_name} {current_user.last_name}: {", ".join(saved)}')
+
+    return _json.dumps({'saved': len(saved), 'names': saved}), 200, {'Content-Type': 'application/json'}
+
+
 @bp.route('/vaccinations/<int:rec_id>/edit', methods=['POST'])
 @login_required
 @admin_required

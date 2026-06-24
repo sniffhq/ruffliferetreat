@@ -433,31 +433,23 @@ document.addEventListener('DOMContentLoaded', function() {
                     {% if pet.vaccination_record_path or pet.vaccination_record %}
                     {% set cert_file = pet.vaccination_record_path or pet.vaccination_record %}
                     {% set cert = 'uploads/' + cert_file if not cert_file.startswith('uploads/') else cert_file %}
+                    {% set ext = cert.split('.')[-1].lower() %}
                     <div class="p-3 border-bottom bg-light d-flex align-items-center gap-3">
-                        <i class="fas fa-file-certificate fa-lg text-warning"></i>
+                        <i class="fas fa-file-medical fa-lg text-warning"></i>
                         <div class="flex-grow-1">
-                            <div class="fw-bold small">Uploaded Certificate (whole record)</div>
+                            <div class="fw-bold small">Customer-Uploaded Vaccination Document</div>
                             <div class="text-muted" style="font-size:0.78rem;">
-                                Originally uploaded during onboarding or pet setup
+                                Uploaded during onboarding or pet setup
                             </div>
                         </div>
-                        {% set ext = cert.split('.')[-1].lower() %}
-                        {% if ext in ['jpg','jpeg','png','webp'] %}
-                        <a href="{{ url_for('static', filename=cert) }}"
-                           target="_blank" class="btn btn-sm btn-outline-warning">
-                            <i class="fas fa-image me-1"></i>View Image
+                        <a href="{{ url_for('static', filename=cert) }}" target="_blank"
+                           class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-external-link-alt me-1"></i>Open
                         </a>
-                        {% elif ext == 'pdf' %}
-                        <a href="{{ url_for('static', filename=cert) }}"
-                           target="_blank" class="btn btn-sm btn-outline-danger">
-                            <i class="fas fa-file-pdf me-1"></i>View PDF
-                        </a>
-                        {% else %}
-                        <a href="{{ url_for('static', filename=cert) }}"
-                           target="_blank" class="btn btn-sm btn-outline-secondary">
-                            <i class="fas fa-download me-1"></i>Download
-                        </a>
-                        {% endif %}
+                        <button type="button" class="btn btn-sm btn-warning fw-bold"
+                                onclick="openVaccScanModal('{{ url_for('static', filename=cert) }}', '{{ ext }}', {{ pet.id }})">
+                            <i class="fas fa-magic me-1"></i>Scan &amp; Import
+                        </button>
                     </div>
                     {% endif %}
                     {% if pet.vacc_expiring_soon %}
@@ -736,8 +728,197 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 {% endif %}
 {% endblock %}
+
+<!-- ── Vaccination Scan & Import Modal ── -->
+<div class="modal fade" id="vaccScanModal" tabindex="-1" aria-labelledby="vaccScanModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#1a1a2e;">
+                <h5 class="modal-title text-white" id="vaccScanModalLabel">
+                    <i class="fas fa-magic me-2 text-warning"></i>Scan &amp; Import Vaccination Document
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="row g-0" style="min-height:520px;">
+                    <!-- Left: document viewer -->
+                    <div class="col-md-6 border-end bg-light d-flex flex-column align-items-center justify-content-center p-3" id="vaccDocViewer">
+                        <p class="text-muted">Loading document…</p>
+                    </div>
+                    <!-- Right: extracted records -->
+                    <div class="col-md-6 d-flex flex-column p-4">
+                        <div id="vaccScanIdle" class="text-center my-auto">
+                            <i class="fas fa-magic fa-3x text-warning mb-3 d-block"></i>
+                            <p class="text-muted mb-3">Click <strong>Run OCR</strong> to extract vaccination records from the document.</p>
+                            <button class="btn btn-warning fw-bold px-4" onclick="runVaccOcr()">
+                                <i class="fas fa-search me-2"></i>Run OCR
+                            </button>
+                        </div>
+                        <div id="vaccScanSpinner" class="text-center my-auto d-none">
+                            <div class="spinner-border text-warning mb-3" role="status"></div>
+                            <p class="text-muted">Scanning document…</p>
+                        </div>
+                        <div id="vaccScanResults" class="d-none flex-column h-100">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="fw-bold mb-0">Extracted Records</h6>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="addVaccRow()">
+                                    <i class="fas fa-plus me-1"></i>Add Row
+                                </button>
+                            </div>
+                            <div id="vaccRowsContainer" class="flex-grow-1 overflow-auto mb-3"></div>
+                            <div class="alert alert-info py-2 small mb-3">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Review and correct any fields before saving. Existing records will not be duplicated.
+                            </div>
+                            <button class="btn btn-success fw-bold w-100" onclick="saveVaccRecords()">
+                                <i class="fas fa-save me-2"></i>Save Records to Pet Profile
+                            </button>
+                        </div>
+                        <div id="vaccScanError" class="d-none text-center my-auto">
+                            <i class="fas fa-exclamation-triangle fa-2x text-danger mb-2 d-block"></i>
+                            <p class="text-danger fw-bold mb-1" id="vaccScanErrorMsg"></p>
+                            <button class="btn btn-outline-warning mt-2" onclick="runVaccOcr()">
+                                <i class="fas fa-redo me-1"></i>Try Again
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% block scripts %}
 <script>
-// Tag JS loaded early via block scripts — functions must be global
+let _vaccPetId = null;
+
+function openVaccScanModal(docUrl, ext, petId) {
+    _vaccPetId = petId;
+
+    // Reset state
+    document.getElementById('vaccScanIdle').classList.remove('d-none');
+    document.getElementById('vaccScanSpinner').classList.add('d-none');
+    document.getElementById('vaccScanResults').classList.add('d-none');
+    document.getElementById('vaccScanError').classList.add('d-none');
+    document.getElementById('vaccRowsContainer').innerHTML = '';
+
+    // Render document
+    const viewer = document.getElementById('vaccDocViewer');
+    if (ext === 'pdf') {
+        viewer.innerHTML = `<iframe src="${docUrl}" style="width:100%;height:500px;border:none;"></iframe>`;
+    } else if (['jpg','jpeg','png','webp','bmp','tiff'].includes(ext)) {
+        viewer.innerHTML = `<img src="${docUrl}" class="img-fluid rounded shadow-sm" style="max-height:500px;object-fit:contain;" alt="Vaccination document">`;
+    } else {
+        viewer.innerHTML = `<div class="text-center text-muted p-4"><i class="fas fa-file fa-3x mb-3 d-block"></i><p>Preview not available for this file type.</p><a href="${docUrl}" target="_blank" class="btn btn-outline-secondary btn-sm">Download File</a></div>`;
+    }
+
+    new bootstrap.Modal(document.getElementById('vaccScanModal')).show();
+}
+
+function runVaccOcr() {
+    document.getElementById('vaccScanIdle').classList.add('d-none');
+    document.getElementById('vaccScanSpinner').classList.remove('d-none');
+    document.getElementById('vaccScanResults').classList.add('d-none');
+    document.getElementById('vaccScanError').classList.add('d-none');
+
+    fetch(`/admin/pets/${_vaccPetId}/vaccinations/ocr-scan`, {
+        method: 'POST',
+        headers: {'X-CSRFToken': document.querySelector('meta[name=csrf-token]')?.content || ''}
+    })
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('vaccScanSpinner').classList.add('d-none');
+        if (data.error) {
+            document.getElementById('vaccScanErrorMsg').textContent = data.error;
+            document.getElementById('vaccScanError').classList.remove('d-none');
+            return;
+        }
+        const records = data.records || [];
+        if (records.length === 0) {
+            document.getElementById('vaccScanErrorMsg').textContent = 'No vaccination records could be extracted. Try adding them manually.';
+            document.getElementById('vaccScanError').classList.remove('d-none');
+            return;
+        }
+        records.forEach(r => addVaccRow(r));
+        document.getElementById('vaccScanResults').classList.remove('d-none');
+    })
+    .catch(err => {
+        document.getElementById('vaccScanSpinner').classList.add('d-none');
+        document.getElementById('vaccScanErrorMsg').textContent = 'An unexpected error occurred. Please try again.';
+        document.getElementById('vaccScanError').classList.remove('d-none');
+    });
+}
+
+function addVaccRow(record) {
+    record = record || {};
+    const container = document.getElementById('vaccRowsContainer');
+    const idx = container.children.length;
+    const confidence = record.confidence ? `<span class="badge bg-secondary ms-1" title="OCR confidence">${Math.round(record.confidence * 100)}%</span>` : '';
+    const div = document.createElement('div');
+    div.className = 'card mb-2';
+    div.innerHTML = `
+        <div class="card-body p-2">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <strong class="small">Record ${idx + 1} ${confidence}</strong>
+                <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" onclick="this.closest('.card').remove()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="row g-2">
+                <div class="col-12">
+                    <label class="form-label small mb-1">Vaccine Name</label>
+                    <input type="text" class="form-control form-control-sm vacc-name" value="${record.vaccine_name || ''}" placeholder="e.g. Bordetella">
+                </div>
+                <div class="col-6">
+                    <label class="form-label small mb-1">Date Given</label>
+                    <input type="date" class="form-control form-control-sm vacc-date" value="${record.vaccination_date || ''}">
+                </div>
+                <div class="col-6">
+                    <label class="form-label small mb-1">Expires</label>
+                    <input type="date" class="form-control form-control-sm vacc-exp" value="${record.expiration_date || ''}">
+                </div>
+                <div class="col-12">
+                    <label class="form-label small mb-1">Veterinarian (optional)</label>
+                    <input type="text" class="form-control form-control-sm vacc-vet" value="${record.veterinarian || ''}" placeholder="Dr. Smith">
+                </div>
+            </div>
+        </div>`;
+    container.appendChild(div);
+}
+
+function saveVaccRecords() {
+    const rows = document.querySelectorAll('#vaccRowsContainer .card');
+    const records = [];
+    rows.forEach(row => {
+        records.push({
+            vaccine_name:     row.querySelector('.vacc-name').value.trim(),
+            vaccination_date: row.querySelector('.vacc-date').value.trim(),
+            expiration_date:  row.querySelector('.vacc-exp').value.trim(),
+            veterinarian:     row.querySelector('.vacc-vet').value.trim(),
+        });
+    });
+
+    const valid = records.filter(r => r.vaccine_name && r.vaccination_date && r.expiration_date);
+    if (valid.length === 0) {
+        alert('Please fill in at least one complete record (name, date given, and expiry).');
+        return;
+    }
+
+    fetch(`/admin/pets/${_vaccPetId}/vaccinations/bulk-add`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('meta[name=csrf-token]')?.content || ''
+        },
+        body: JSON.stringify({records: valid})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) { alert('Error: ' + data.error); return; }
+        bootstrap.Modal.getInstance(document.getElementById('vaccScanModal')).hide();
+        location.reload();
+    })
+    .catch(() => alert('An error occurred while saving. Please try again.'));
+}
 </script>
 {% endblock %}
