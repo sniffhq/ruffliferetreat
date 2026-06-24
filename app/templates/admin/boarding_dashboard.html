@@ -347,21 +347,33 @@
 
     <!-- ── UPCOMING / ARRIVING ───────────────────────────────────────────────── -->
     <div class="card shadow-sm mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center bg-success">
-            <strong class="text-white">
-                <i class="fas fa-suitcase me-2"></i>Upcoming Reservations
-            </strong>
-            <span class="badge bg-white text-success">{{ upcoming_bookings|length }}</span>
+        <div class="card-header bg-success">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <strong class="text-white">
+                    <i class="fas fa-suitcase me-2"></i>Upcoming Reservations
+                </strong>
+                <div class="d-flex align-items-center gap-2">
+                    <input type="date" id="upcomingDateFilter" class="form-control form-control-sm"
+                           style="max-width:160px; background:#fff;"
+                           title="Filter by check-in date">
+                    <button type="button" class="btn btn-sm btn-light" id="upcomingDateClear"
+                            title="Show all" style="display:none;">
+                        <i class="fas fa-times me-1"></i>All
+                    </button>
+                    <span class="badge bg-white text-success" id="upcomingCount">{{ upcoming_bookings|length }}</span>
+                </div>
+            </div>
         </div>
         <div class="card-body p-0">
             {% if upcoming_bookings %}
-            <table class="table table-hover mb-0">
+            <table class="table table-hover mb-0" id="upcomingTable">
                 <thead class="table-light">
                     <tr><th>Pet</th><th>Owner</th><th>Check-In</th><th>Check-Out</th><th>Nights</th><th>Location</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
                     {% for b in upcoming_bookings %}
-                    <tr {% if b.check_in_date == today %}class="table-warning"{% endif %}>
+                    <tr data-checkin="{{ b.check_in_date.isoformat() }}"
+                        {% if b.check_in_date == today %}class="table-warning"{% endif %}>
                         <td>
                             <strong>{{ b.pet.name }}</strong>
                             {% if not b.pet.vaccination_records %}
@@ -411,6 +423,11 @@
                         </td>
                     </tr>
                     {% endfor %}
+                    <tr id="upcomingNoMatch" style="display:none;">
+                        <td colspan="7" class="text-center text-muted py-3">
+                            <i class="fas fa-calendar me-1 opacity-50"></i>No reservations for the selected date.
+                        </td>
+                    </tr>
                 </tbody>
             </table>
             {% else %}
@@ -732,6 +749,38 @@ function initApprovalKennelDropdown(modal) {
     checkInEl.addEventListener('change',  reload);
     checkOutEl.addEventListener('change', reload);
 }
+
+// ── Upcoming reservations date filter ─────────────────────────────────────
+(function () {
+    const filterInput = document.getElementById('upcomingDateFilter');
+    const clearBtn    = document.getElementById('upcomingDateClear');
+    const countBadge  = document.getElementById('upcomingCount');
+    const noMatch     = document.getElementById('upcomingNoMatch');
+    const table       = document.getElementById('upcomingTable');
+    if (!filterInput || !table) return;
+
+    const allRows = Array.from(table.querySelectorAll('tbody tr[data-checkin]'));
+    const total   = allRows.length;
+
+    function applyFilter() {
+        const val = filterInput.value; // 'YYYY-MM-DD' or ''
+        let visible = 0;
+        allRows.forEach(row => {
+            const show = !val || row.dataset.checkin === val;
+            row.style.display = show ? '' : 'none';
+            if (show) visible++;
+        });
+        noMatch.style.display = (visible === 0 && val) ? '' : 'none';
+        countBadge.textContent = val ? `${visible} / ${total}` : total;
+        clearBtn.style.display = val ? '' : 'none';
+    }
+
+    filterInput.addEventListener('change', applyFilter);
+    clearBtn.addEventListener('click', () => {
+        filterInput.value = '';
+        applyFilter();
+    });
+})();
 </script>
 
 <!-- ── NEW RESERVATION MODAL ──────────────────────────────────────────────── -->
