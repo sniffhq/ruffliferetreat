@@ -15,7 +15,8 @@
                 <div style="color:rgba(255,255,255,0.65);font-size:0.9rem;">
                     {% if pets %}
                         You have {{ pets|length }} pet{{ 's' if pets|length != 1 }} registered
-                        {% if upcoming_appointments %} &nbsp;·&nbsp; {{ upcoming_appointments|length }} upcoming appointment{{ 's' if upcoming_appointments|length != 1 }}{% endif %}
+                        {% set total_upcoming = (upcoming_appointments|length) + (upcoming_boarding|selectattr('checked_in', 'false')|list|length) %}
+                        {% if total_upcoming > 0 %} &nbsp;·&nbsp; {{ total_upcoming }} upcoming reservation{{ 's' if total_upcoming != 1 }}{% endif %}
                     {% else %}
                         Get started by adding your pet below
                     {% endif %}
@@ -66,7 +67,7 @@
                             <i class="fas fa-calendar-check me-2"></i>Upcoming Appointments
                         </div>
                         <div class="card-body p-0">
-                            {% if upcoming_appointments or cancelled_upcoming %}
+                            {% if upcoming_appointments or cancelled_upcoming or upcoming_boarding %}
                             <ul class="list-group list-group-flush">
                                 {% for appt in upcoming_appointments %}
                                 <li class="list-group-item py-3">
@@ -100,6 +101,37 @@
                                         </div>
                                     </div>
                                 </li>
+                                {% endfor %}
+                                {% for b in upcoming_boarding %}
+                                {% if not b.checked_in %}
+                                <li class="list-group-item py-3">
+                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                        <div>
+                                            <div class="fw-bold">
+                                                <i class="fas fa-moon me-1 text-primary"></i>Boarding Stay
+                                                {% if b.booking_number %}
+                                                <span class="badge bg-warning text-dark ms-1" style="font-size:0.7rem;">{{ b.booking_number }}</span>
+                                                {% endif %}
+                                            </div>
+                                            <div class="text-muted small">
+                                                {{ b.pet.name }} &bull;
+                                                {{ b.check_in_date.strftime('%b %d') }} → {{ b.check_out_date.strftime('%b %d') }}
+                                            </div>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                                            {% if b.check_in_date == today %}
+                                            <span class="badge bg-warning text-dark">Arriving Today</span>
+                                            {% else %}
+                                            <span class="badge bg-success">Confirmed</span>
+                                            {% endif %}
+                                            <a href="{{ url_for('customer.dashboard') }}#pane-boarding"
+                                               class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size:0.75rem;">
+                                                <i class="fas fa-info-circle me-1"></i>Details
+                                            </a>
+                                        </div>
+                                    </div>
+                                </li>
+                                {% endif %}
                                 {% endfor %}
                                 {% for appt in cancelled_upcoming %}
                                 <li class="list-group-item py-3 list-group-item-danger">
