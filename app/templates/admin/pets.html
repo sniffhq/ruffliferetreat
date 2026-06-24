@@ -32,7 +32,6 @@
             <table class="table table-hover mb-0 align-middle">
                 <thead class="table-light">
                     <tr>
-                        <th class="ps-3">Photo</th>
                         <th>Pet Name</th>
                         <th>Owner</th>
                         <th>Breed</th>
@@ -49,19 +48,6 @@
                     {% for pet in pets %}
                     <tr class="pet-row"
                         data-search="{{ pet.name|lower }} {{ pet.breed|lower if pet.breed else '' }} {{ pet.owner.first_name|lower }} {{ pet.owner.last_name|lower }}">
-                        <!-- Photo -->
-                        <td class="ps-3">
-                            {% if pet.photo_path %}
-                            <img src="{{ url_for('static', filename='uploads/' + pet.photo_path) }}"
-                                 class="rounded" style="width:50px;height:50px;object-fit:cover;">
-                            {% else %}
-                            <div class="rounded bg-light d-flex align-items-center justify-content-center"
-                                 style="width:50px;height:50px;">
-                                <i class="fas fa-paw text-muted"></i>
-                            </div>
-                            {% endif %}
-                        </td>
-
                         <!-- Name -->
                         <td>
                             <strong>{{ pet.name }}</strong>
