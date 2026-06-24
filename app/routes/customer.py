@@ -6,6 +6,7 @@ from werkzeug.utils import secure_filename
 from datetime import datetime
 import os
 import logging
+from app.audit_service import audit
 
 logger = logging.getLogger(__name__)
 
@@ -388,8 +389,19 @@ def add_pet():
                     )
                     db.session.add(vaccination)
             # ========== END NEW CODE ==========
-            
+
             db.session.commit()
+
+            # Audit: document upload
+            if pet.vaccination_record_path:
+                audit('vaccination.document_uploaded', 'pet', pet.id, pet.name,
+                      f'{current_user.first_name} {current_user.last_name} uploaded a vaccination document for {pet.name} during pet registration')
+            # Audit: individual records entered
+            added_vaccines = [vaccine_names[i] for i in range(len(vaccine_names)) if vaccine_names[i] and i < len(vaccine_dates) and vaccine_dates[i]]
+            if added_vaccines:
+                audit('vaccination.records_added', 'pet', pet.id, pet.name,
+                      f'{current_user.first_name} {current_user.last_name} submitted {len(added_vaccines)} vaccination record(s) for {pet.name}: {", ".join(added_vaccines)}')
+
             flash(f'{pet.name} has been added successfully with vaccination records!', 'success')
             return redirect(url_for('customer.pets'))
             
@@ -496,8 +508,19 @@ def edit_pet(pet_id):
                     )
                     db.session.add(vaccination)
             # ========== END NEW CODE ==========
-            
+
             db.session.commit()
+
+            # Audit: document upload
+            if 'vaccination_record' in request.files and request.files['vaccination_record'].filename:
+                audit('vaccination.document_uploaded', 'pet', pet.id, pet.name,
+                      f'{current_user.first_name} {current_user.last_name} uploaded a vaccination document for {pet.name}')
+            # Audit: individual records entered
+            added_vaccines = [vaccine_names[i] for i in range(len(vaccine_names)) if vaccine_names[i] and i < len(vaccine_dates) and vaccine_dates[i]]
+            if added_vaccines:
+                audit('vaccination.records_added', 'pet', pet.id, pet.name,
+                      f'{current_user.first_name} {current_user.last_name} submitted {len(added_vaccines)} vaccination record(s) for {pet.name}: {", ".join(added_vaccines)}')
+
             flash(f'{pet.name} has been updated successfully!', 'success')
             return redirect(url_for('customer.pets'))
             
