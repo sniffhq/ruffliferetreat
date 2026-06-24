@@ -341,7 +341,11 @@
                         let txt = `${type === 'suite' ? 'Suite' : 'Kennel'} #${s.kennel_number}`;
                         if (s.notes)    txt += ` (${s.notes})`;
                         if (isCurrent)  txt += ' [current]';
-                        if (isOccupied) { txt += ' [occupied]'; opt.style.color = '#b8860b'; }
+                        if (isOccupied) {
+                            const names = (s.occupants && s.occupants.length) ? s.occupants.join(', ') : 'occupied';
+                            txt += ` [${names}]`;
+                            opt.style.color = '#b8860b';
+                        }
                         opt.textContent = txt;
                         if (isCurrent)  opt.selected = true;
                         grp.appendChild(opt);
