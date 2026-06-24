@@ -137,19 +137,31 @@ MONTH_MAP = {
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
 def _ocr_image(image_path):
+    import tempfile, os as _os
+    tmp_path = None
     try:
         import pytesseract
         from PIL import Image
         pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
         img = Image.open(image_path)
-        # pytesseract only handles 1, L, RGB, RGBA — convert anything else (e.g. CMYK, P)
-        if img.mode not in ('1', 'L', 'RGB', 'RGBA'):
+        # Flatten any mode Tesseract can't handle — always target RGB
+        if img.mode != 'RGB':
             img = img.convert('RGB')
-        text = pytesseract.image_to_string(img, config='--psm 6')
+        # Save to a temp PNG so Tesseract gets a clean, unambiguous file
+        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+            tmp_path = tmp.name
+        img.save(tmp_path, 'PNG')
+        text = pytesseract.image_to_string(tmp_path, config='--psm 6')
         return text
     except Exception as e:
         logger.error(f'OCR image error: {e}')
         return ''
+    finally:
+        if tmp_path:
+            try:
+                _os.unlink(tmp_path)
+            except Exception:
+                pass
 
 
 def _ocr_pdf(pdf_path):
