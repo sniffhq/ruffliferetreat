@@ -565,9 +565,13 @@ def _parse_invoice_format(text):
             break
 
     # ── Strategy A: Reminders section ────────────────────────────────────────
-    # Match lines like "05/12/2027   Bordetella & PI Oral 1yr"
-    # or "Bordetella Vaccine    2/12/2027"
-    reminder_section = re.search(r'reminder[s]?\s*\n(.*?)(?:\n\n|\Z)', text, re.IGNORECASE | re.DOTALL)
+    # Matches headers like:
+    #   "Reminders\n"                   (simple)
+    #   "Reminders for: Charlie ...\n"  (Guyton Animal Hospital / invoice style)
+    reminder_section = re.search(
+        r'reminder[s]?(?:\s+for\s*:[^\n]*)?\s*\n(.*?)(?:\n\s*\n|\Z)',
+        text, re.IGNORECASE | re.DOTALL
+    )
     if reminder_section:
         reminder_text = reminder_section.group(1)
         lines = reminder_text.split('\n')
@@ -575,21 +579,47 @@ def _parse_invoice_format(text):
         for line in lines:
             if len(line.strip()) < 4:
                 continue
-            # Update last seen date from this line
-            dates_on_line = _extract_all_dates(line)
-            if dates_on_line:
-                last_reminder_date = dates_on_line[-1][1]
-
-            vaccine = _match_vaccine_name(line)
-            if not vaccine:
+            # Skip the "Last done" column header line
+            if re.search(r'last\s*done', line, re.IGNORECASE):
                 continue
-            # Use date from this line, or carry forward from previous line
-            expiry = dates_on_line[-1][1] if dates_on_line else last_reminder_date
+
+            dates_on_line = _extract_all_dates(line)
+            vaccine = _match_vaccine_name(line)
+
+            if not vaccine:
+                # Update carry-forward date even on non-vaccine lines
+                if dates_on_line:
+                    last_reminder_date = dates_on_line[0][1]
+                continue
+
+            if len(dates_on_line) >= 2:
+                # Two-date format: "DUE_DATE  Vaccine Name  LAST_DONE_DATE"
+                # Determine which date is future (due/expiry) and which is past (given)
+                d0, d1 = dates_on_line[0][1], dates_on_line[1][1]
+                today = date.today()
+                if d0 >= today and d1 <= today:
+                    expiry, given = d0, d1
+                elif d1 >= today and d0 <= today:
+                    expiry, given = d1, d0
+                else:
+                    # Both future or both past — first is due, second is last done
+                    expiry, given = (d0, d1) if d0 > d1 else (d1, d0)
+                last_reminder_date = expiry
+            elif len(dates_on_line) == 1:
+                d = dates_on_line[0][1]
+                today = date.today()
+                expiry = d if d > today else last_reminder_date
+                given  = d if d <= today else visit_date
+                last_reminder_date = expiry or last_reminder_date
+            else:
+                expiry = last_reminder_date
+                given  = visit_date
+
             results.append({
                 'vaccine_name':     vaccine,
-                'vaccination_date': visit_date,
+                'vaccination_date': given,
                 'expiration_date':  expiry,
-                'confidence':       'high' if (visit_date and expiry) else 'low',
+                'confidence':       'high' if expiry else 'low',
             })
 
     # ── Strategy B: Line items (if reminders didn't produce results) ─────────
