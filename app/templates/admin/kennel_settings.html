@@ -302,43 +302,46 @@
 
         form.action = `/admin/boarding/${ds.bookingId}/assign-kennel`;
 
-        // Clear previous selection handlers
-        select.onchange = null;
+        const shareBox   = document.getElementById('shareConfirmBox');
+        const shareCheck = document.getElementById('confirmShareCheck');
+        const shareInput = document.getElementById('confirmShareInput');
+
+        // Clear previous state
         select.innerHTML = '<option value="">Loading…</option>';
-        select.disabled = true;
+        select.disabled  = true;
         typeInput.value  = '';
         numInput.value   = '';
-        document.querySelector('.reassign-amber').classList.add('d-none');
+        shareBox.classList.add('d-none');
+        shareCheck.checked = false;
+        shareInput.value   = '0';
 
         modal.show();
 
         // Load slots with times so same-day conflicts are detected accurately
-        const ci   = ds.checkIn,       co   = ds.checkOut;
+        const ci   = ds.checkIn,      co  = ds.checkOut;
         const cit  = ds.checkInTime  || '', cot = ds.checkOutTime || '';
         const excl = ds.bookingId;
         fetch(`/admin/boarding/kennel-slots?check_in=${ci}&check_out=${co}&check_in_time=${encodeURIComponent(cit)}&check_out_time=${encodeURIComponent(cot)}&exclude=${excl}`)
             .then(r => r.json())
             .then(data => {
                 select.innerHTML = '<option value="">— Select a slot —</option>';
-                let hasAmber = false;
 
                 ['suite', 'kennel'].forEach(type => {
                     const list = type === 'suite' ? data.suites : data.kennels;
                     if (!list || list.length === 0) return;
-                    const label = type === 'suite' ? 'Suites' : 'Kennels';
-                    const grp   = document.createElement('optgroup');
-                    grp.label   = label;
+                    const grp = document.createElement('optgroup');
+                    grp.label = type === 'suite' ? 'Suites' : 'Kennels';
                     list.forEach(s => {
-                        const opt   = document.createElement('option');
-                        opt.dataset.type   = type;
+                        const opt        = document.createElement('option');
+                        opt.dataset.type = type;
                         opt.dataset.number = s.kennel_number;
                         opt.value = `${type}::${s.kennel_number}`;
-                        const isCurrent = (type === ds.kennelType && s.kennel_number === ds.kennelNumber);
+                        const isCurrent  = (type === ds.kennelType && s.kennel_number === ds.kennelNumber);
                         const isOccupied = !s.available;
                         let txt = `${type === 'suite' ? 'Suite' : 'Kennel'} #${s.kennel_number}`;
                         if (s.notes)    txt += ` (${s.notes})`;
                         if (isCurrent)  txt += ' [current]';
-                        if (isOccupied) { txt += ' [occupied]'; opt.style.color = '#b8860b'; hasAmber = true; }
+                        if (isOccupied) { txt += ' [occupied]'; opt.style.color = '#b8860b'; }
                         opt.textContent = txt;
                         if (isCurrent)  opt.selected = true;
                         grp.appendChild(opt);
@@ -346,20 +349,8 @@
                     select.appendChild(grp);
                 });
 
-                if (hasAmber) {
-                    document.querySelector('.reassign-amber').classList.remove('d-none');
-                }
-
                 select.disabled = false;
 
-                const shareBox   = document.getElementById('shareConfirmBox');
-                const shareCheck = document.getElementById('confirmShareCheck');
-                const shareInput = document.getElementById('confirmShareInput');
-
-                // Reset sharing state on each modal open
-                shareBox.classList.add('d-none');
-                shareCheck.checked  = false;
-                shareInput.value    = '0';
                 shareCheck.addEventListener('change', () => {
                     shareInput.value = shareCheck.checked ? '1' : '0';
                 });

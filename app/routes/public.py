@@ -78,7 +78,8 @@ def daycare():
 
 @bp.route('/about')
 def about():
-    return render_template('public/about.html')
+    from flask import redirect, url_for
+    return redirect(url_for('public.index'))
 
 @bp.route('/privacy')
 def privacy():
