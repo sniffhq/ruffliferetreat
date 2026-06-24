@@ -690,7 +690,7 @@ document.addEventListener('DOMContentLoaded', function() {
 {% set boardings = pet.boarding_reservations|sort(attribute='check_in_date', reverse=True) if pet.boarding_reservations else [] %}
 {% if boardings %}
 <div class="container-fluid mt-0 px-4">
-    <div class="card shadow-sm" style="max-width:860px;">
+    <div class="card shadow-sm">
         <div class="card-header" style="background:#1a1a2e;">
             <strong class="text-white">
                 <i class="fas fa-hotel me-2 text-warning"></i>Boarding History
