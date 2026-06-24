@@ -206,6 +206,16 @@ def dashboard():
                 Boarding.check_out_date >= today)
         .order_by(Boarding.check_in_date.asc()).all())
 
+    # Map boarding.id → linked appointment.id so customers can edit from the dashboard
+    boarding_appt_map = {}
+    for b in upcoming_boarding:
+        linked = (Appointment.query
+            .filter_by(pet_id=b.pet_id, status='confirmed')
+            .filter(Appointment.appointment_date == b.check_in_date)
+            .first())
+        if linked:
+            boarding_appt_map[b.id] = linked.id
+
     past_boarding = (Boarding.query
         .join(Pet, Boarding.pet_id == Pet.id)
         .filter(Pet.user_id == current_user.id, Boarding.status == 'completed')
@@ -258,6 +268,7 @@ def dashboard():
                            cancelled_upcoming=cancelled_upcoming,
                            past_appointments=past_appointments,
                            upcoming_boarding=upcoming_boarding,
+                           boarding_appt_map=boarding_appt_map,
                            past_boarding=past_boarding,
                            enrollments=enrollments,
                            report_cards=report_cards,

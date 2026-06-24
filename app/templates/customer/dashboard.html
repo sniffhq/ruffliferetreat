@@ -124,10 +124,24 @@
                                             {% else %}
                                             <span class="badge bg-success">Confirmed</span>
                                             {% endif %}
+                                            {% set appt_id = boarding_appt_map.get(b.id) %}
+                                            {% if appt_id and b.check_in_date > today %}
+                                            <a href="{{ url_for('customer.edit_appointment', appt_id=appt_id) }}"
+                                               class="btn btn-sm btn-outline-warning py-0 px-2" style="font-size:0.75rem;">
+                                                <i class="fas fa-edit me-1"></i>Edit
+                                            </a>
+                                            <form method="POST" action="{{ url_for('customer.cancel_appointment', appt_id=appt_id) }}"
+                                                  class="d-inline" onsubmit="return confirm('Cancel this boarding reservation? This cannot be undone.');">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2" style="font-size:0.75rem;">
+                                                    <i class="fas fa-times me-1"></i>Cancel
+                                                </button>
+                                            </form>
+                                            {% else %}
                                             <a href="{{ url_for('customer.dashboard') }}#pane-boarding"
-                                               class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size:0.75rem;">
+                                               class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
                                                 <i class="fas fa-info-circle me-1"></i>Details
                                             </a>
+                                            {% endif %}
                                         </div>
                                     </div>
                                 </li>
