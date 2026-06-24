@@ -2909,6 +2909,16 @@ def edit_customer(customer_id):
     customer.sms_opt_in              = request.form.get('sms_opt_in') == '1'
     customer.is_active               = request.form.get('is_active') == '1'
 
+    new_password     = request.form.get('new_password', '').strip()
+    confirm_password = request.form.get('confirm_password', '').strip()
+    if new_password:
+        if new_password != confirm_password:
+            flash('Passwords do not match — other changes were saved.', 'warning')
+        elif len(new_password) < 8:
+            flash('Password must be at least 8 characters — other changes were saved.', 'warning')
+        else:
+            customer.set_password(new_password)
+
     db.session.commit()
     try:
         from app.audit_service import audit
