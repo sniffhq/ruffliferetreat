@@ -888,12 +888,28 @@ function runVaccOcr() {
         }
         const records = data.records || [];
         if (records.length === 0) {
-            document.getElementById('vaccScanErrorMsg').textContent = 'No vaccination records could be extracted. Try adding them manually.';
+            const rawText = (data.raw_text || '').trim();
+            let msg = 'No vaccination records could be extracted.';
+            if (!rawText) {
+                msg += ' Tesseract returned no text — the image may be too low resolution or unclear.';
+            }
+            document.getElementById('vaccScanErrorMsg').textContent = msg;
+            // Show raw OCR text for debugging if available
+            let debugEl = document.getElementById('vaccRawTextDebug');
+            if (!debugEl) {
+                debugEl = document.createElement('pre');
+                debugEl.id = 'vaccRawTextDebug';
+                debugEl.style.cssText = 'font-size:0.7rem;max-height:200px;overflow:auto;text-align:left;background:#f8f9fa;border:1px solid #dee2e6;border-radius:4px;padding:8px;margin-top:10px;white-space:pre-wrap;';
+                document.getElementById('vaccScanError').appendChild(debugEl);
+            }
+            debugEl.textContent = rawText ? 'OCR extracted text:\n\n' + rawText : '(no text extracted)';
+            debugEl.style.display = rawText ? '' : 'none';
             document.getElementById('vaccScanError').classList.remove('d-none');
             return;
         }
         records.forEach(r => addVaccRow(r));
         document.getElementById('vaccScanResults').classList.remove('d-none');
+        document.getElementById('vaccScanResults').classList.add('d-flex');
     })
     .catch(err => {
         document.getElementById('vaccScanSpinner').classList.add('d-none');

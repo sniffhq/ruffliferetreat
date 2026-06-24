@@ -4832,6 +4832,14 @@ def ocr_scan_vaccination(pet_id):
         return _json.dumps({'error': 'Document file not found on server.'}), 404, {'Content-Type': 'application/json'}
 
     try:
+        from app.vacc_ocr import _ocr_image, _ocr_pdf
+        from pathlib import Path
+        suffix = Path(file_path).suffix.lower()
+        if suffix == '.pdf':
+            raw_text = _ocr_pdf(file_path)
+        else:
+            raw_text = _ocr_image(file_path)
+
         records = extract_vaccination_data(file_path)
         serialised = []
         for r in records:
@@ -4844,7 +4852,7 @@ def ocr_scan_vaccination(pet_id):
         from app.audit_service import audit
         audit('vaccination.ocr_scanned', 'pet', pet.id, pet.name,
               f'Staff scanned vaccination document for {pet.name} — {len(serialised)} record(s) extracted by {current_user.first_name} {current_user.last_name}')
-        return _json.dumps({'records': serialised}), 200, {'Content-Type': 'application/json'}
+        return _json.dumps({'records': serialised, 'raw_text': raw_text}), 200, {'Content-Type': 'application/json'}
     except Exception as e:
         import traceback, logging as _log
         _log.getLogger(__name__).error(f'Admin OCR error pet={pet_id}: {e}\n{traceback.format_exc()}')
