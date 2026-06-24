@@ -143,7 +143,10 @@ def _ocr_image(image_path):
         import pytesseract
         from PIL import Image
         pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
+        from PIL import ImageOps
         img = Image.open(image_path)
+        # Apply EXIF rotation (phone photos are often stored sideways)
+        img = ImageOps.exif_transpose(img)
         # Flatten any mode Tesseract can't handle — always target RGB
         if img.mode != 'RGB':
             img = img.convert('RGB')
