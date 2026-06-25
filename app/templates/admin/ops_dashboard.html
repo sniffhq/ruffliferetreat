@@ -8,17 +8,29 @@
         <div>
             <h2 class="mb-0 fs-4"><i class="fas fa-tachometer-alt me-2" style="color:#1a1a2e;"></i>Operations Dashboard</h2>
             <p class="text-muted mb-0 small">{{ today.strftime('%A, %B') }} {{ today.day }}, {{ today.year }}
-                <span class="ms-2 text-muted" style="font-size:0.75rem;" id="last-refresh"></span>
+                {% if is_today %}<span class="ms-2 text-muted" style="font-size:0.75rem;" id="last-refresh"></span>
+                {% else %}<span class="badge ms-2" style="background:#fef9c3;color:#92400e;font-size:0.7rem;">Future View</span>{% endif %}
             </p>
         </div>
-        <div class="d-flex gap-2 flex-wrap">
+        <div class="d-flex gap-2 flex-wrap align-items-center">
             <span class="badge px-2 py-1" style="background:#dbeafe;color:#1d4ed8;">
                 <i class="fas fa-sun me-1"></i>Daycare
             </span>
             <span class="badge px-2 py-1" style="background:#fef9c3;color:#92400e;">
                 <i class="fas fa-hotel me-1"></i>Boarding
             </span>
-            {% if today.weekday() < 4 %}
+            <!-- Date picker -->
+            <div class="d-flex align-items-center gap-1">
+                <input type="date" id="dash-date-picker" class="form-control form-control-sm"
+                       style="width:145px;"
+                       value="{{ today.strftime('%Y-%m-%d') }}"
+                       min="{{ real_today.strftime('%Y-%m-%d') }}"
+                       onchange="gotoDate(this.value)">
+                {% if not is_today %}
+                <a href="{{ url_for('admin.ops_dashboard') }}" class="btn btn-sm btn-outline-secondary">Today</a>
+                {% endif %}
+            </div>
+            {% if is_today and today.weekday() < 4 %}
             <button class="btn btn-sm btn-primary" onclick="openWalkinModal()">
                 <i class="fas fa-plus me-1"></i>Add Walk-in
             </button>
@@ -143,7 +155,9 @@
     <!-- ── Currently Checked In ───────────────────────────────────────────── -->
     <div id="section-checked-in" class="card shadow-sm mb-4">
         <div class="card-header d-flex align-items-center justify-content-between py-2" style="background:#1a1a2e;">
-            <h6 class="mb-0 text-white"><i class="fas fa-paw me-2" style="color:#B07A8E;"></i>Currently Checked In</h6>
+            <h6 class="mb-0 text-white"><i class="fas fa-paw me-2" style="color:#B07A8E;"></i>
+                {% if is_today %}Currently Checked In{% else %}Boarding on {{ today.strftime('%b %-d') }}{% endif %}
+            </h6>
             <span class="badge bg-light text-dark">{{ (daycare_checked_in|length) + (boarding_checked_in|length) }}</span>
         </div>
         <div class="p-2 border-bottom">
@@ -364,14 +378,14 @@
             <div class="card shadow-sm h-100">
                 <div class="card-header py-2" style="background:#dbeafe;">
                     <h6 class="mb-0 fw-bold" style="color:#1d4ed8;">
-                        <i class="fas fa-sun me-2"></i>Daycare Expected Today
+                        <i class="fas fa-sun me-2"></i>Daycare Expected{% if is_today %} Today{% else %} · {{ today.strftime('%b %-d') }}{% endif %}
                         <span class="badge ms-2" style="background:#1d4ed8;color:#fff;">{{ daycare_expected_today|length }}</span>
                     </h6>
                 </div>
                 <div class="card-body p-0">
                     {% if not daycare_expected_today %}
                     <div class="text-center py-4 text-muted small">
-                        {% if today.weekday() >= 4 %}No daycare today.{% else %}All expected pets have checked in.{% endif %}
+                        {% if today.weekday() >= 4 %}No daycare this day.{% elif is_today %}All expected pets have checked in.{% else %}No daycare enrollments for this day.{% endif %}
                     </div>
                     {% else %}
                     <div class="list-group list-group-flush">
@@ -381,11 +395,13 @@
                                 <strong>{{ e.pet.name }}</strong>
                                 {% if e.pet.owner %}<small class="text-muted ms-1">{{ e.pet.owner.first_name }} {{ e.pet.owner.last_name }}</small>{% endif %}
                             </div>
+                            {% if is_today %}
                             <form method="POST" action="{{ url_for('admin.daycare_checkin', enrollment_id=e.id) }}" class="flex-shrink-0">
                                 <button type="submit" class="btn btn-sm btn-success py-1">
                                     <i class="fas fa-sign-in-alt me-1"></i>Check In
                                 </button>
                             </form>
+                            {% endif %}
                         </div>
                         {% endfor %}
                     </div>
@@ -399,13 +415,13 @@
             <div class="card shadow-sm h-100">
                 <div class="card-header py-2" style="background:#fef9c3;">
                     <h6 class="mb-0 fw-bold" style="color:#92400e;">
-                        <i class="fas fa-hotel me-2"></i>Boarding Activity Today
+                        <i class="fas fa-hotel me-2"></i>Boarding Activity{% if is_today %} Today{% else %} · {{ today.strftime('%b %-d') }}{% endif %}
                         <span class="badge ms-2" style="background:#92400e;color:#fff;">{{ (boarding_arrivals_today|length) + (boarding_departures_today|length) }}</span>
                     </h6>
                 </div>
                 <div class="card-body p-0">
                     {% if not boarding_arrivals_today and not boarding_departures_today %}
-                    <div class="text-center py-4 text-muted small">No boarding activity today.</div>
+                    <div class="text-center py-4 text-muted small">No boarding activity{% if not is_today %} on this date{% endif %}.</div>
                     {% else %}
                     <div class="list-group list-group-flush">
                         {% for b in boarding_arrivals_today %}
@@ -415,11 +431,13 @@
                                 <strong>{{ b.pet.name }}</strong>
                                 {% if b.pet.owner %}<small class="text-muted ms-1">{{ b.pet.owner.first_name }} {{ b.pet.owner.last_name }}{% if b.check_in_time %} · {{ b.check_in_time|fmt_time }}{% endif %}</small>{% endif %}
                             </div>
+                            {% if is_today %}
                             <form method="POST" action="{{ url_for('admin.checkin_boarding', booking_id=b.id) }}" class="flex-shrink-0">
                                 <button type="submit" class="btn btn-sm btn-success py-1">
                                     <i class="fas fa-sign-in-alt me-1"></i>Check In
                                 </button>
                             </form>
+                            {% endif %}
                         </div>
                         {% endfor %}
                         {% for b in boarding_departures_today %}
@@ -429,15 +447,17 @@
                                 <strong>{{ b.pet.name }}</strong>
                                 {% if b.pet.owner %}<small class="text-muted ms-1">{{ b.pet.owner.first_name }} {{ b.pet.owner.last_name }}{% if b.check_out_time %} · {{ b.check_out_time|fmt_time }}{% endif %}</small>{% endif %}
                             </div>
-                            {% if b.checked_in %}
-                            <form method="POST" action="{{ url_for('admin.complete_boarding', booking_id=b.id) }}"
-                                  class="flex-shrink-0" onsubmit="return confirm('Complete boarding for {{ b.pet.name|e }}?');">
-                                <button type="submit" class="btn btn-sm btn-outline-success py-1">
-                                    <i class="fas fa-sign-out-alt me-1"></i>Check Out
-                                </button>
-                            </form>
-                            {% else %}
-                            <span class="badge bg-warning text-dark small flex-shrink-0">Not In Yet</span>
+                            {% if is_today %}
+                                {% if b.checked_in %}
+                                <form method="POST" action="{{ url_for('admin.complete_boarding', booking_id=b.id) }}"
+                                      class="flex-shrink-0" onsubmit="return confirm('Complete boarding for {{ b.pet.name|e }}?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-success py-1">
+                                        <i class="fas fa-sign-out-alt me-1"></i>Check Out
+                                    </button>
+                                </form>
+                                {% else %}
+                                <span class="badge bg-warning text-dark small flex-shrink-0">Not In Yet</span>
+                                {% endif %}
                             {% endif %}
                         </div>
                         {% endfor %}
@@ -649,6 +669,17 @@ function refreshDashboard() {
     if (el) el.textContent = '· updated ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
 })();
 setInterval(refreshDashboard, 10000);
+
+// ── Date navigation ───────────────────────────────────────────────────────────
+function gotoDate(val) {
+    if (!val) return;
+    var today = '{{ real_today.strftime("%Y-%m-%d") }}';
+    if (val === today) {
+        window.location.href = '{{ url_for("admin.ops_dashboard") }}';
+    } else {
+        window.location.href = '{{ url_for("admin.ops_dashboard") }}?date=' + val;
+    }
+}
 
 // ── Search ────────────────────────────────────────────────────────────────────
 function filterPets() {

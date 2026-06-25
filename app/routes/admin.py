@@ -1645,15 +1645,27 @@ def boarding_dashboard():
 def ops_dashboard():
     """Combined Operations Dashboard: all currently checked-in pets + today's schedule."""
     import json as _json
+    from flask import request as _req
 
-    today = datetime.now().date()
+    real_today = datetime.now().date()
 
-    # ── Daycare: currently checked in ─────────────────────────────────────────
-    _today_att = DaycareAttendance.query.filter(
-        DaycareAttendance.check_in_time >= datetime.combine(today, datetime.min.time()),
-        DaycareAttendance.check_in_time <= datetime.combine(today, datetime.max.time()),
-        DaycareAttendance.check_out_time == None,
-    ).all()
+    # Allow ?date= param to view future dates
+    _date_str = _req.args.get('date', '')
+    try:
+        today = datetime.strptime(_date_str, '%Y-%m-%d').date() if _date_str else real_today
+    except ValueError:
+        today = real_today
+    is_today = (today == real_today)
+
+    # ── Daycare: currently checked in (live — only meaningful for today) ───────
+    if is_today:
+        _today_att = DaycareAttendance.query.filter(
+            DaycareAttendance.check_in_time >= datetime.combine(today, datetime.min.time()),
+            DaycareAttendance.check_in_time <= datetime.combine(today, datetime.max.time()),
+            DaycareAttendance.check_out_time == None,
+        ).all()
+    else:
+        _today_att = []
 
     daycare_checked_in = []
     for a in _today_att:
@@ -1666,12 +1678,20 @@ def ops_dashboard():
                 'enrollment': enr,
             })
 
-    # ── Boarding: currently checked in ────────────────────────────────────────
-    boarding_checked_in = Boarding.query.filter_by(
-        status='active', checked_in=True
-    ).order_by(Boarding.check_in_date.asc()).all()
+    # ── Boarding: currently checked in (live — only meaningful for today) ──────
+    if is_today:
+        boarding_checked_in = Boarding.query.filter_by(
+            status='active', checked_in=True
+        ).order_by(Boarding.check_in_date.asc()).all()
+    else:
+        # For future dates show pets that will be boarding on that day
+        boarding_checked_in = Boarding.query.filter(
+            Boarding.status == 'active',
+            Boarding.check_in_date <= today,
+            Boarding.check_out_date >= today,
+        ).order_by(Boarding.check_in_date.asc()).all()
 
-    # ── Today's daycare expected (not yet checked in) ─────────────────────────
+    # ── Daycare expected (works for any date by day-of-week) ──────────────────
     _dc_fields = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday'}
     dow = today.weekday()
     daycare_expected_today = []
@@ -1691,7 +1711,7 @@ def ops_dashboard():
             if getattr(e, field) and e.id not in _checked_in_ids:
                 daycare_expected_today.append(e)
 
-    # ── Today's boarding arrivals / departures ────────────────────────────────
+    # ── Boarding arrivals / departures for selected date ──────────────────────
     boarding_arrivals_today = Boarding.query.filter(
         Boarding.status == 'active',
         Boarding.check_in_date == today,
@@ -1702,7 +1722,7 @@ def ops_dashboard():
         Boarding.check_out_date == today,
     ).all()
 
-    # ── Daycare capacity today ────────────────────────────────────────────────
+    # ── Daycare capacity for selected date ────────────────────────────────────
     if dow in _dc_fields:
         field = _dc_fields[dow]
         daycare_capacity_today = DaycareEnrollment.query.filter_by(active=True).filter(
@@ -1712,7 +1732,7 @@ def ops_dashboard():
         daycare_capacity_today = 0
     DC_MAX = 15
 
-    # ── Ops notes for today ───────────────────────────────────────────────────
+    # ── Ops notes for selected date ───────────────────────────────────────────
     today_notes = OpsNote.query.filter_by(note_date=today).all()
     pet_notes, day_notes = {}, []
     for n in today_notes:
@@ -1754,6 +1774,8 @@ def ops_dashboard():
                            pet_notes=pet_notes,
                            day_notes=day_notes,
                            today=today,
+                           real_today=real_today,
+                           is_today=is_today,
                            all_pets=all_pets,
                            pending_requests=pending_requests,
                            req_pets_json=req_pets_json,
