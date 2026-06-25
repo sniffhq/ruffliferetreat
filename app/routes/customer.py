@@ -1074,24 +1074,15 @@ def edit_appointment(appt_id):
 
             # Staff SMS
             try:
-                from app.sms_service import _normalize_phone
-                from app.models import SmsMessage
-                from twilio.rest import Client
-                from flask import current_app
-                staff_phone = current_app.config.get('SUPPORT_PHONE') or current_app.config.get('BUSINESS_PHONE')
-                if staff_phone:
-                    pet_names = [Pet.query.get(int(pid)).name for pid in pet_ids if Pet.query.get(int(pid))]
-                    to_e164   = _normalize_phone(staff_phone)
-                    from_num  = current_app.config.get('TWILIO_PHONE_NUMBER')
-                    body = (
-                        f"Booking updated by {current_user.first_name} {current_user.last_name}: "
-                        f"{', '.join(pet_names)} — {appointment_date.strftime('%b %d')}"
-                        f"{' to ' + end_datetime.strftime('%b %d') if end_datetime else ''}. "
-                        f"Reset to pending — please re-approve."
-                    )
-                    Client(current_app.config.get('TWILIO_ACCOUNT_SID'),
-                           current_app.config.get('TWILIO_AUTH_TOKEN')
-                    ).messages.create(body=body, from_=from_num, to=to_e164)
+                from app.sms_service import send_staff_alert
+                pet_names = [Pet.query.get(int(pid)).name for pid in pet_ids if Pet.query.get(int(pid))]
+                body = (
+                    f"✏️ Booking updated by {current_user.first_name} {current_user.last_name}: "
+                    f"{', '.join(pet_names)} — {appointment_date.strftime('%b %d')}"
+                    f"{' to ' + end_datetime.strftime('%b %d') if end_datetime else ''}. "
+                    f"Reset to pending — please re-approve."
+                )
+                send_staff_alert(body)
             except Exception as e:
                 current_app.logger.error(f'Edit appt staff SMS failed: {e}')
 
@@ -1166,21 +1157,14 @@ def cancel_appointment(appt_id):
 
     # Staff SMS notification
     try:
-        from app.sms_service import _normalize_phone
-        from twilio.rest import Client
-        staff_phone = current_app.config.get('SUPPORT_PHONE') or current_app.config.get('BUSINESS_PHONE')
-        if staff_phone:
-            to_e164  = _normalize_phone(staff_phone)
-            from_num = current_app.config.get('TWILIO_PHONE_NUMBER')
-            body = (
-                f"Booking CANCELLED by {current_user.first_name} {current_user.last_name}: "
-                f"{pet_name} — {checkin_str}"
-                f"{' to ' + checkout_str if checkout_str else ''}."
-                f" Was {old_status}."
-            )
-            Client(current_app.config.get('TWILIO_ACCOUNT_SID'),
-                   current_app.config.get('TWILIO_AUTH_TOKEN')
-            ).messages.create(body=body, from_=from_num, to=to_e164)
+        from app.sms_service import send_staff_alert
+        body = (
+            f"❌ Booking CANCELLED by {current_user.first_name} {current_user.last_name}: "
+            f"{pet_name} — {checkin_str}"
+            f"{' to ' + checkout_str if checkout_str else ''}."
+            f" Was {old_status}."
+        )
+        send_staff_alert(body)
     except Exception as e:
         current_app.logger.error(f'Cancel appt staff SMS failed: {e}')
 

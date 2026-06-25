@@ -105,6 +105,24 @@ def forward_to_staff(customer_name: str, customer_phone: str, message_body: str)
     return success
 
 
+def send_staff_alert(body: str) -> bool:
+    """Send an alert message to all configured staff phones (STAFF_ALERT_PHONES)."""
+    staff_phones = current_app.config.get('STAFF_ALERT_PHONES', [])
+    if not staff_phones:
+        # Fallback to single business/support phone
+        fallback = current_app.config.get('SUPPORT_PHONE') or current_app.config.get('BUSINESS_PHONE')
+        if fallback:
+            staff_phones = [fallback]
+    if not staff_phones:
+        logger.warning('No staff phones configured for alert.')
+        return False
+    success = False
+    for phone in staff_phones:
+        if _send(phone, body):
+            success = True
+    return success
+
+
 # ---------------------------------------------------------------------------
 # Notification Functions
 # ---------------------------------------------------------------------------
