@@ -385,7 +385,7 @@
                 <div class="card-body p-0">
                     {% if not daycare_expected_today %}
                     <div class="text-center py-4 text-muted small">
-                        {% if today.weekday() == 6 or today.weekday() == 5 %}No daycare on weekends.{% elif is_today %}All expected pets have checked in.{% else %}No daycare enrollments for this day.{% endif %}
+                        {% if today.weekday() == 6 %}No daycare on Sundays.{% elif is_today %}All expected pets have checked in.{% else %}No daycare enrollments for this day.{% endif %}
                     </div>
                     {% else %}
                     <div class="list-group list-group-flush">

@@ -68,7 +68,7 @@
                                 {% set pets_in = daycare_cal_dates.get(ds, []) %}
                                 {% set is_today = day_d == today %}
                                 <td style="padding:3px;">
-                                    {% if dow >= 5 %}
+                                    {% if dow >= 6 %}
                                     <span style="display:inline-block;width:28px;height:28px;line-height:28px;color:#ccc;">{{ day_d.day }}</span>
                                     {% elif pets_in and is_today %}
                                     <span onclick="showDaycareDay('{{ ds }}')"

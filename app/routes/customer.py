@@ -1144,6 +1144,17 @@ def cancel_appointment(appt_id):
     checkout_str = appt.end_time.strftime('%b %d') if appt.end_time else None
 
     appt.status = 'cancelled'
+
+    # Also cancel the linked Boarding record if it exists and hasn't been checked in
+    linked_boarding = Boarding.query.filter(
+        Boarding.pet_id == appt.pet_id,
+        Boarding.check_in_date == appt.appointment_date,
+        Boarding.status == 'active',
+        Boarding.checked_in == False,
+    ).first()
+    if linked_boarding:
+        linked_boarding.status = 'cancelled'
+
     db.session.commit()
 
     # Audit log

@@ -576,14 +576,14 @@ def daycare_dashboard():
                 bd += timedelta(days=1)
 
     _day_fields   = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday'}
-    _walkin_fields = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday', 4: 'friday'}
+    _walkin_fields = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday', 4: 'friday', 5: 'saturday'}
     daycare_cal_dates       = {}  # date_str -> [pet names]  (Jinja highlighting)
     daycare_cal_detail_data = {}  # date_str -> {pets, is_closed, count}  (JS modal)
 
     for _offset in range(14):
         d   = cal_start + timedelta(days=_offset)
         dow = d.weekday()
-        if dow >= 5:   # skip Saturday, Sunday — walk-ins allowed Mon–Fri
+        if dow >= 6:   # skip Sunday only — walk-ins allowed Mon–Sat
             continue
         ds        = d.isoformat()
         is_closed = d in closure_dates_set
@@ -1710,9 +1710,9 @@ def ops_dashboard():
         ).order_by(Boarding.check_in_date.asc()).all()
 
     # ── Daycare expected (works for any date by day-of-week) ──────────────────
-    # Recurring enrollments: Mon–Thu only. Walk-ins: Mon–Fri.
+    # Recurring enrollments: Mon–Thu only. Walk-ins: Mon–Sat.
     _enr_fields  = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday'}
-    _walkin_fields = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday', 4: 'friday'}
+    _walkin_fields = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday', 4: 'friday', 5: 'saturday'}
     dow = today.weekday()
     daycare_expected_today = []
     _checked_in_ids = {a.enrollment_id for a in _today_att}
@@ -1821,10 +1821,10 @@ def daycare_walkin():
         target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
     except ValueError:
         return jsonify({'ok': False, 'error': 'Invalid date.'})
-    _dc_fields = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday', 4: 'friday'}
+    _dc_fields = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday', 4: 'friday', 5: 'saturday'}
     dow = target_date.weekday()
     if dow not in _dc_fields:
-        return jsonify({'ok': False, 'error': 'Daycare walk-ins are only available Mon–Fri.'})
+        return jsonify({'ok': False, 'error': 'Daycare walk-ins are only available Mon–Sat.'})
     field = _dc_fields[dow]
     pet   = Pet.query.get(int(pet_id))
     if not pet:
