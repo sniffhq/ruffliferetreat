@@ -1705,6 +1705,7 @@ def ops_dashboard():
             if getattr(e, field) and e.id not in _checked_in_ids:
                 daycare_expected_today.append(e)
         walkins = (DaycareEnrollment.query.filter_by(active=False, is_walkin=True)
+                   .filter(DaycareEnrollment.enrollment_date == today)
                    .join(Pet, DaycareEnrollment.pet_id == Pet.id)
                    .order_by(Pet.name).all())
         for e in walkins:
@@ -1798,10 +1799,10 @@ def daycare_walkin():
         target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
     except ValueError:
         return jsonify({'ok': False, 'error': 'Invalid date.'})
-    _dc_fields = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday', 4: 'friday'}
+    _dc_fields = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday'}
     dow = target_date.weekday()
     if dow not in _dc_fields:
-        return jsonify({'ok': False, 'error': 'Daycare is only available Mon–Fri.'})
+        return jsonify({'ok': False, 'error': 'Daycare is only available Mon–Thu.'})
     field = _dc_fields[dow]
     pet   = Pet.query.get(int(pet_id))
     if not pet:

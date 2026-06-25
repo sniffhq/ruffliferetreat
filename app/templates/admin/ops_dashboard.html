@@ -646,7 +646,7 @@ var REFRESH_SECTIONS = [
 function refreshDashboard() {
     if (_refreshing) return;
     _refreshing = true;
-    fetch(window.location.pathname, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+    fetch(window.location.href, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
         .then(function(r) { return r.text(); })
         .then(function(html) {
             var doc = new DOMParser().parseFromString(html, 'text/html');
@@ -663,12 +663,12 @@ function refreshDashboard() {
         .finally(function() { _refreshing = false; });
 }
 
-// Update timestamp on load, then poll every 10s
+// Update timestamp on load, then poll every 10s (today only)
 (function() {
     var el = document.getElementById('last-refresh');
     if (el) el.textContent = '· updated ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
 })();
-setInterval(refreshDashboard, 10000);
+{% if is_today %}setInterval(refreshDashboard, 10000);{% endif %}
 
 // ── Date navigation ───────────────────────────────────────────────────────────
 function gotoDate(val) {
