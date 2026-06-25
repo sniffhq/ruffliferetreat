@@ -575,21 +575,38 @@ def daycare_dashboard():
                     closure_dates_set.add(bd)
                 bd += timedelta(days=1)
 
-    _day_fields = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday'}
+    _day_fields   = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday'}
+    _walkin_fields = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday', 4: 'friday'}
     daycare_cal_dates       = {}  # date_str -> [pet names]  (Jinja highlighting)
     daycare_cal_detail_data = {}  # date_str -> {pets, is_closed, count}  (JS modal)
 
     for _offset in range(14):
         d   = cal_start + timedelta(days=_offset)
         dow = d.weekday()
-        if dow >= 4:   # skip Friday, Saturday, Sunday — daycare is Mon-Thu only
+        if dow >= 5:   # skip Saturday, Sunday — walk-ins allowed Mon–Fri
             continue
-        field    = _day_fields[dow]
-        day_pets = [e for e in enrollments if getattr(e, field)]
-        ds       = d.isoformat()
+        ds        = d.isoformat()
         is_closed = d in closure_dates_set
-        if day_pets and not is_closed:
-            daycare_cal_dates[ds] = [e.pet.name for e in day_pets]
+
+        # Regular enrolled pets (Mon–Thu only)
+        day_pets = []
+        if dow in _day_fields:
+            field    = _day_fields[dow]
+            day_pets = [e for e in enrollments if getattr(e, field)]
+
+        # Walk-in enrollments for this specific date (Mon–Fri)
+        walkin_field = _walkin_fields[dow]
+        day_walkins = (DaycareEnrollment.query
+                       .filter_by(active=False, is_walkin=True)
+                       .filter(DaycareEnrollment.enrollment_date == d)
+                       .join(Pet, DaycareEnrollment.pet_id == Pet.id)
+                       .order_by(Pet.name).all())
+        day_walkins = [e for e in day_walkins if getattr(e, walkin_field)]
+
+        all_day_pets = day_pets + day_walkins
+
+        if all_day_pets and not is_closed:
+            daycare_cal_dates[ds] = [e.pet.name for e in all_day_pets]
         daycare_cal_detail_data[ds] = {
             'pets': [
                 {
@@ -599,11 +616,12 @@ def daycare_dashboard():
                     'special_rate':  float(e.special_rate) if e.special_rate else None,
                     'enrollment_id': e.id,
                     'is_checked_in': e.id in checked_in_by_enrollment,
+                    'is_walkin':     bool(e.is_walkin),
                 }
-                for e in day_pets
+                for e in all_day_pets
             ],
             'is_closed': is_closed,
-            'count':     len(day_pets),
+            'count':     len(all_day_pets),
         }
 
     dc_weeks = [
