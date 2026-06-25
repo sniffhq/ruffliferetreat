@@ -1727,9 +1727,9 @@ def ops_dashboard():
         Boarding.check_out_date == today,
     ).all()
 
-    # ── Daycare capacity for selected date ────────────────────────────────────
-    if dow in _dc_fields:
-        field = _dc_fields[dow]
+    # ── Daycare capacity for selected date (recurring enrollments, Mon–Thu only) ─
+    if dow in _enr_fields:
+        field = _enr_fields[dow]
         daycare_capacity_today = DaycareEnrollment.query.filter_by(active=True).filter(
             getattr(DaycareEnrollment, field) == True
         ).count()
