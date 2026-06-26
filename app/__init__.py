@@ -22,6 +22,19 @@ def create_app(config_class=Config):
     migrate.init_app(app, db)
     mail.init_app(app)
 
+    # ── SQLite WAL mode ───────────────────────────────────────────────────────
+    # WAL (Write-Ahead Logging) lets readers and writers run concurrently
+    # instead of blocking each other, eliminating "Loading…" hangs on kennel
+    # dropdowns and other AJAX calls when a write is in progress.
+    from sqlalchemy import event
+    @event.listens_for(db.engine, 'connect')
+    def _set_sqlite_wal(dbapi_conn, _rec):
+        try:
+            dbapi_conn.execute('PRAGMA journal_mode=WAL')
+            dbapi_conn.execute('PRAGMA synchronous=NORMAL')  # safe + faster with WAL
+        except Exception:
+            pass  # non-SQLite databases ignore this silently
+
     login_manager.login_view              = 'auth.login'
     login_manager.login_message           = 'Please log in to access this page.'
     login_manager.login_message_category  = 'info'
