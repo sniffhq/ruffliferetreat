@@ -3921,13 +3921,24 @@ def mark_invoice_paid(customer_id):
         flash('No unpaid services found.', 'info')
         return redirect(url_for('admin.customer_invoice', customer_id=customer_id, type=invoice_type))
 
+    # Add Zelle processing fee
+    ZELLE_FEE = 3.00
+    zelle_fee_applied = method.lower() == 'zelle'
+    if zelle_fee_applied:
+        total += ZELLE_FEE
+
+    records_count = len(boarding_ids) or len(attendance_ids)
+    notes_str = f'{invoice_type.capitalize()} invoice paid — {records_count} record(s)'
+    if zelle_fee_applied:
+        notes_str += f' + $3.00 Zelle fee'
+
     payment = Payment(
         customer_id    = customer_id,
         amount         = round(total, 2),
         payment_date   = today,
         payment_method = method,
         service_type   = invoice_type.capitalize(),
-        notes          = f'{invoice_type.capitalize()} invoice paid — {len(boarding_ids) or len(attendance_ids)} record(s)',
+        notes          = notes_str,
         status         = 'paid'
     )
     db.session.add(payment)

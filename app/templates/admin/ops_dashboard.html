@@ -745,7 +745,7 @@ function updateWalkinDateUI() {
 function filterWalkinPets() {
     var q = document.getElementById('walkin-search').value.toLowerCase();
     document.querySelectorAll('.walkin-pet-item').forEach(function(el) {
-        el.style.display = (el.dataset.search || '').includes(q) ? '' : 'none';
+        el.classList.toggle('d-none', !(el.dataset.search || '').includes(q));
     });
 }
 function selectWalkinPet(id, name, owner) {

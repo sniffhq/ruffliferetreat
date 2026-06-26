@@ -377,7 +377,7 @@
                     </p>
                     <div class="mb-3">
                         <label class="form-label fw-bold">Payment Method</label>
-                        <select name="payment_method" class="form-select">
+                        <select name="payment_method" class="form-select" id="payMethodSelect" onchange="updateZelleFeeNote()">
                             <option value="card">Credit / Debit Card</option>
                             <option value="cash">Cash</option>
                             <option value="check">Check</option>
@@ -385,6 +385,9 @@
                             <option value="zelle">Zelle</option>
                             <option value="other">Other</option>
                         </select>
+                    </div>
+                    <div id="zelle-fee-note" class="alert alert-warning py-2 small d-none">
+                        <i class="fas fa-info-circle me-1"></i>A <strong>$3.00 Zelle processing fee</strong> will be added to the total.
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -549,6 +552,11 @@
 </div>
 
 <script>
+function updateZelleFeeNote() {
+    var method = document.getElementById('payMethodSelect').value;
+    var note   = document.getElementById('zelle-fee-note');
+    if (note) note.classList.toggle('d-none', method !== 'zelle');
+}
 function openOverrideModal(lineKey, description, currentAmount, adjId) {
     document.getElementById('override_line_key').value  = lineKey;
     document.getElementById('override_desc').value      = description;
