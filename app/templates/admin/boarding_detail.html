@@ -68,7 +68,8 @@
                     </h4>
                     {% if booking.status == 'active' %}
                     <button class="btn btn-sm btn-light fw-bold"
-                            data-bs-toggle="modal" data-bs-target="#editBookingModal">
+                            data-bs-toggle="modal" data-bs-target="#editBookingModal"
+                            onclick="loadEditKennelSlots()">
                         <i class="fas fa-pencil-alt me-1"></i>Edit
                     </button>
                     {% endif %}
@@ -411,94 +412,88 @@
 </div>
 
 <script>
-(function () {
-    const modal      = document.getElementById('editBookingModal');
-    if (!modal) return;
+/* ── Edit Booking: kennel slot dropdown ──────────────────────────────────── */
+async function loadEditKennelSlots() {
+    const modal    = document.getElementById('editBookingModal');
+    const typeEl   = document.getElementById('editKennelType');
+    const selectEl = document.getElementById('editKennelSelect');
+    const hiddenEl = document.getElementById('editKennelNumber');
+    const hintEl   = document.getElementById('editKennelHint');
+    if (!modal || !typeEl || !selectEl || !hiddenEl) return;
 
-    const typeEl     = document.getElementById('editKennelType');
-    const selectEl   = document.getElementById('editKennelSelect');
-    const hiddenEl   = document.getElementById('editKennelNumber');
-    const hintEl     = document.getElementById('editKennelHint');
     const checkInEl  = modal.querySelector('[name=check_in_date]');
     const checkOutEl = modal.querySelector('[name=check_out_date]');
     const bookingId  = {{ booking.id }};
-    const initNumber = {{ ('"' + booking.kennel_number + '"') if booking.kennel_number else 'null' }};
 
-    async function reload() {
-        const type     = typeEl.value;
-        const checkIn  = checkInEl.value;
-        const checkOut = checkOutEl.value;
+    const type     = typeEl.value || 'kennel';
+    const checkIn  = checkInEl  ? checkInEl.value  : '';
+    const checkOut = checkOutEl ? checkOutEl.value : '';
 
-        selectEl.innerHTML = '<option value="">Loading…</option>';
-        selectEl.disabled  = true;
+    selectEl.innerHTML = '<option value="">Loading slots…</option>';
+    selectEl.disabled  = true;
 
-        const params = [`exclude=${bookingId}`];
-        if (checkIn && checkOut) {
-            params.push(`check_in=${checkIn}`, `check_out=${checkOut}`);
-        }
-
-        const ctrl    = new AbortController();
-        const timer   = setTimeout(() => ctrl.abort(), 8000);
-        try {
-            const resp = await fetch('/admin/boarding/kennel-slots?' + params.join('&'),
-                                     { signal: ctrl.signal });
-            clearTimeout(timer);
-            if (!resp.ok) throw new Error('HTTP ' + resp.status);
-            const data   = await resp.json();
-            const slots  = type === 'suite' ? (data.suites || []) : (data.kennels || []);
-            const prefix = type === 'suite' ? 'Suite' : 'Kennel';
-
-            selectEl.innerHTML = '';
-
-            // Blank "no assignment" option
-            const blank = document.createElement('option');
-            blank.value = '';
-            blank.textContent = '— No assignment —';
-            selectEl.appendChild(blank);
-
-            // If current kennel number isn't in the slot list, add it as a legacy option
-            const inList = slots.some(k => k.kennel_number === hiddenEl.value);
-            if (hiddenEl.value && !inList) {
-                const legacy = document.createElement('option');
-                legacy.value       = hiddenEl.value;
-                legacy.textContent = prefix + ' #' + hiddenEl.value + ' (current)';
-                legacy.selected    = true;
-                selectEl.appendChild(legacy);
-            }
-
-            slots.forEach(function (k) {
-                const opt = document.createElement('option');
-                opt.value = k.kennel_number;
-                let label = prefix + ' #' + k.kennel_number;
-                if (k.notes)       { label += ' (' + k.notes + ')'; }
-                if (!k.available)  { label += ' — ' + (k.occupants || []).join(' & ') + ' (occupied)'; }
-                opt.textContent = label;
-                if (!k.available)  { opt.style.color = '#856404'; }
-                if (k.kennel_number === hiddenEl.value) { opt.selected = true; }
-                selectEl.appendChild(opt);
-            });
-
-            if (hintEl) hintEl.textContent = 'Occupied slots can still be selected for bonded pairs.';
-        } catch (e) {
-            clearTimeout(timer);
-            const msg = (e && e.name === 'AbortError')
-                ? 'Timed out — click Save to retry or reload the page.'
-                : 'Error loading slots — try closing and reopening.';
-            selectEl.innerHTML = `<option value="">${msg}</option>`;
-        } finally {
-            selectEl.disabled = false;
-        }
-
-        selectEl.onchange = function () {
-            hiddenEl.value = this.value;
-        };
+    const params = [`exclude=${bookingId}`];
+    if (checkIn && checkOut) {
+        params.push(`check_in=${checkIn}`, `check_out=${checkOut}`);
     }
 
-    modal.addEventListener('show.bs.modal', reload);
-    typeEl.addEventListener('change',    reload);
-    checkInEl.addEventListener('change',  reload);
-    checkOutEl.addEventListener('change', reload);
-})();
+    const ctrl  = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    try {
+        const resp = await fetch('/admin/boarding/kennel-slots?' + params.join('&'),
+                                 { signal: ctrl.signal });
+        clearTimeout(timer);
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data   = await resp.json();
+        const slots  = type === 'suite' ? (data.suites || []) : (data.kennels || []);
+        const prefix = type === 'suite' ? 'Suite' : 'Kennel';
+
+        selectEl.innerHTML = '';
+        const blank = document.createElement('option');
+        blank.value = '';
+        blank.textContent = '— No assignment —';
+        selectEl.appendChild(blank);
+
+        // Keep current assignment visible even if it's not in the active slot list
+        const inList = slots.some(k => k.kennel_number === hiddenEl.value);
+        if (hiddenEl.value && !inList) {
+            const legacy = document.createElement('option');
+            legacy.value       = hiddenEl.value;
+            legacy.textContent = prefix + ' #' + hiddenEl.value + ' (current)';
+            legacy.selected    = true;
+            selectEl.appendChild(legacy);
+        }
+
+        slots.forEach(function (k) {
+            const opt = document.createElement('option');
+            opt.value = k.kennel_number;
+            let label = prefix + ' #' + k.kennel_number;
+            if (k.notes)      { label += ' (' + k.notes + ')'; }
+            if (!k.available) { label += ' — ' + (k.occupants || []).join(' & ') + ' (occupied)'; }
+            opt.textContent = label;
+            if (!k.available) { opt.style.color = '#856404'; }
+            if (k.kennel_number === hiddenEl.value) { opt.selected = true; }
+            selectEl.appendChild(opt);
+        });
+
+        if (hintEl) hintEl.textContent = 'Occupied slots can still be selected for bonded pairs.';
+    } catch (e) {
+        clearTimeout(timer);
+        selectEl.innerHTML = (e && e.name === 'AbortError')
+            ? '<option value="">Timed out — close and try again</option>'
+            : '<option value="">Error loading slots — try again</option>';
+    } finally {
+        selectEl.disabled = false;
+    }
+
+    // Sync hidden field when selection changes
+    selectEl.onchange = function () { hiddenEl.value = this.value; };
+
+    // Re-load when type or dates change
+    typeEl.onchange   = loadEditKennelSlots;
+    if (checkInEl)  checkInEl.onchange  = loadEditKennelSlots;
+    if (checkOutEl) checkOutEl.onchange = loadEditKennelSlots;
+}
 </script>
 {% endif %}
 {% if invoice_preview %}
