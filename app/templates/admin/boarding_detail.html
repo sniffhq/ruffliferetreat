@@ -437,8 +437,14 @@
             params.push(`check_in=${checkIn}`, `check_out=${checkOut}`);
         }
 
+        const ctrl    = new AbortController();
+        const timer   = setTimeout(() => ctrl.abort(), 8000);
         try {
-            const data   = await fetch('/admin/boarding/kennel-slots?' + params.join('&')).then(r => r.json());
+            const resp = await fetch('/admin/boarding/kennel-slots?' + params.join('&'),
+                                     { signal: ctrl.signal });
+            clearTimeout(timer);
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const data   = await resp.json();
             const slots  = type === 'suite' ? (data.suites || []) : (data.kennels || []);
             const prefix = type === 'suite' ? 'Suite' : 'Kennel';
 
@@ -465,7 +471,7 @@
                 opt.value = k.kennel_number;
                 let label = prefix + ' #' + k.kennel_number;
                 if (k.notes)       { label += ' (' + k.notes + ')'; }
-                if (!k.available)  { label += ' — ' + k.occupants.join(' & ') + ' (occupied)'; }
+                if (!k.available)  { label += ' — ' + (k.occupants || []).join(' & ') + ' (occupied)'; }
                 opt.textContent = label;
                 if (!k.available)  { opt.style.color = '#856404'; }
                 if (k.kennel_number === hiddenEl.value) { opt.selected = true; }
@@ -474,7 +480,11 @@
 
             if (hintEl) hintEl.textContent = 'Occupied slots can still be selected for bonded pairs.';
         } catch (e) {
-            selectEl.innerHTML = '<option value="">Error loading — try again</option>';
+            clearTimeout(timer);
+            const msg = (e && e.name === 'AbortError')
+                ? 'Timed out — click Save to retry or reload the page.'
+                : 'Error loading slots — try closing and reopening.';
+            selectEl.innerHTML = `<option value="">${msg}</option>`;
         } finally {
             selectEl.disabled = false;
         }

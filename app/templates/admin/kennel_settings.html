@@ -358,8 +358,11 @@
         const ci   = ds.checkIn,      co  = ds.checkOut;
         const cit  = ds.checkInTime  || '', cot = ds.checkOutTime || '';
         const excl = ds.bookingId;
-        fetch(`/admin/boarding/kennel-slots?check_in=${ci}&check_out=${co}&check_in_time=${encodeURIComponent(cit)}&check_out_time=${encodeURIComponent(cot)}&exclude=${excl}`)
-            .then(r => r.json())
+        const _ctrl  = new AbortController();
+        const _timer = setTimeout(() => _ctrl.abort(), 8000);
+        fetch(`/admin/boarding/kennel-slots?check_in=${ci}&check_out=${co}&check_in_time=${encodeURIComponent(cit)}&check_out_time=${encodeURIComponent(cot)}&exclude=${excl}`,
+              { signal: _ctrl.signal })
+            .then(r => { clearTimeout(_timer); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
             .then(data => {
                 select.innerHTML = '<option value="">— Select a slot —</option>';
 
@@ -420,8 +423,11 @@
                 select.addEventListener('change', syncHidden);
                 syncHidden();
             })
-            .catch(() => {
-                select.innerHTML = '<option value="">Failed to load slots</option>';
+            .catch((e) => {
+                clearTimeout(_timer);
+                select.innerHTML = (e && e.name === 'AbortError')
+                    ? '<option value="">Timed out — close and try again</option>'
+                    : '<option value="">Failed to load slots — try again</option>';
                 select.disabled  = false;
             });
     }

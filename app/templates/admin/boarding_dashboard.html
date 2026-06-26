@@ -636,8 +636,13 @@ async function loadKennelDropdown(checkIn, checkOut, excludeId, selectEl, hidden
     if (excludeId)            { params.push(`exclude=${excludeId}`); }
     if (params.length)        { url += '?' + params.join('&'); }
 
+    const ctrl  = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
     try {
-        const data = await fetch(url).then(r => r.json());
+        const resp = await fetch(url, { signal: ctrl.signal });
+        clearTimeout(timer);
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
         selectEl.innerHTML = '<option value="">— Select kennel/suite —</option>';
 
         function addGroup(label, items, typeKey) {
@@ -650,7 +655,7 @@ async function loadKennelDropdown(checkIn, checkOut, excludeId, selectEl, hidden
                 const prefix    = typeKey === 'suite' ? 'Suite' : 'Kennel';
                 let label = prefix + ' #' + k.kennel_number;
                 if (k.notes)       { label += ' (' + k.notes + ')'; }
-                if (!k.available)  { label += ' — ' + k.occupants.join(' & ') + ' (occupied)'; }
+                if (!k.available)  { label += ' — ' + (k.occupants || []).join(' & ') + ' (occupied)'; }
                 opt.textContent        = label;
                 opt.dataset.occupied   = k.available ? '0' : '1';
                 if (!k.available)  { opt.style.color = '#856404'; }
@@ -664,7 +669,11 @@ async function loadKennelDropdown(checkIn, checkOut, excludeId, selectEl, hidden
 
         if (hintEl) hintEl.textContent = 'Occupied kennels can still be selected for bonded pairs.';
     } catch (e) {
-        selectEl.innerHTML = '<option value="">Error loading kennels</option>';
+        clearTimeout(timer);
+        const msg = (e && e.name === 'AbortError')
+            ? 'Timed out — close and try again.'
+            : 'Error loading kennels — try again.';
+        selectEl.innerHTML = `<option value="">${msg}</option>`;
     }
 
     selectEl.disabled = false;
