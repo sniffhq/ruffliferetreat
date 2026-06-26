@@ -91,6 +91,43 @@
 
 </div>
 
+<!-- Rename Slot Modal -->
+<div class="modal fade" id="renameSlotModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#1a1a2e;">
+                <h5 class="modal-title text-white"><i class="fas fa-pencil-alt me-2"></i>Rename Slot</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">
+                    Renaming <strong id="renameSlotCurrentLabel"></strong>
+                </p>
+
+                <!-- Warning: active bookings -->
+                <div id="renameActiveWarning" class="alert alert-warning d-none py-2 mb-3" style="font-size:0.875rem;">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    <strong>Active bookings exist.</strong>
+                    The following pets are currently assigned to this slot:
+                    <span id="renameActivePets" class="fw-bold"></span>.
+                    <br>Their bookings will be updated automatically to the new name.
+                </div>
+
+                <label class="form-label fw-bold small mb-1">New name / number</label>
+                <input type="text" id="renameNewNumber" class="form-control"
+                       placeholder="e.g. Pink Kennel or 57" autocomplete="off">
+                <div id="renameError" class="text-danger small mt-1 d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" id="renameSubmitBtn" class="btn btn-warning fw-bold">
+                    <i class="fas fa-save me-1"></i>Rename
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Reassign Modal -->
 <div class="modal fade" id="reassignModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
@@ -405,7 +442,14 @@
                         <td>${s.type === 'suite' ? 'Suite' : 'Kennel'}</td>
                         <td class="fw-bold">#${escHtml(s.kennel_number)}</td>
                         <td class="text-muted small">${escHtml(s.notes || '—')}</td>
-                        <td>
+                        <td class="d-flex gap-1">
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-primary py-0 px-2 btn-rename-slot"
+                                    data-slot-id="${s.id}"
+                                    data-slot-type="${escHtml(s.type)}"
+                                    data-slot-number="${escHtml(s.kennel_number)}">
+                                <i class="fas fa-pencil-alt fa-xs me-1"></i>Rename
+                            </button>
                             <form method="POST"
                                   action="/admin/settings/kennels/${s.id}/toggle"
                                   class="d-inline">
@@ -428,6 +472,86 @@
                 slotTable.innerHTML = '<p class="text-danger small mb-0">Failed to load slots.</p>';
             });
     }
+
+    /* ── Rename modal ────────────────────────────────── */
+    let _renameSlotId = null;
+
+    // Event delegation — catches buttons rendered after page load
+    document.getElementById('slotTableContainer').addEventListener('click', function (e) {
+        const btn = e.target.closest('.btn-rename-slot');
+        if (!btn) return;
+        openRenameModal(btn.dataset.slotId, btn.dataset.slotType, btn.dataset.slotNumber);
+    });
+
+    function openRenameModal(slotId, slotType, slotNumber) {
+        _renameSlotId = slotId;
+        const label = slotType === 'suite' ? 'Suite' : 'Kennel';
+        document.getElementById('renameSlotCurrentLabel').textContent = `${label} #${slotNumber}`;
+        document.getElementById('renameNewNumber').value = slotNumber;
+        document.getElementById('renameError').classList.add('d-none');
+
+        const warningEl = document.getElementById('renameActiveWarning');
+        warningEl.classList.add('d-none');
+        document.getElementById('renameActivePets').textContent = '';
+
+        const modal = new bootstrap.Modal(document.getElementById('renameSlotModal'));
+        modal.show();
+
+        // Pre-flight: check for active bookings
+        fetch(`/admin/settings/kennels/${slotId}/rename-check`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.count > 0) {
+                    document.getElementById('renameActivePets').textContent =
+                        data.pets.length ? data.pets.join(', ') : `${data.count} booking(s)`;
+                    warningEl.classList.remove('d-none');
+                }
+            })
+            .catch(() => {}); // non-fatal
+    }
+
+    document.getElementById('renameSubmitBtn').addEventListener('click', function () {
+        if (!_renameSlotId) return;
+        const newNumber = document.getElementById('renameNewNumber').value.trim();
+        const errEl     = document.getElementById('renameError');
+        errEl.classList.add('d-none');
+
+        if (!newNumber) {
+            errEl.textContent = 'Please enter a new name.';
+            errEl.classList.remove('d-none');
+            return;
+        }
+
+        const btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving…';
+
+        fetch(`/admin/settings/kennels/${_renameSlotId}/rename`, {
+            method:  'POST',
+            headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+            body:    JSON.stringify({new_number: newNumber}),
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-save me-1"></i>Rename';
+            if (!data.ok) {
+                errEl.textContent = data.error || 'Rename failed.';
+                errEl.classList.remove('d-none');
+                return;
+            }
+            // Close modal, reload slot table and board
+            bootstrap.Modal.getInstance(document.getElementById('renameSlotModal')).hide();
+            loadSlotTable();
+            loadBoard();
+        })
+        .catch(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-save me-1"></i>Rename';
+            errEl.textContent = 'Network error. Please try again.';
+            errEl.classList.remove('d-none');
+        });
+    });
 
     /* ── Helpers ──────────────────────────────────────── */
     function escHtml(str) {

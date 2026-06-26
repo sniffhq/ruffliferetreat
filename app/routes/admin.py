@@ -6647,6 +6647,83 @@ def kennel_settings_toggle(slot_id):
     return redirect(url_for('admin.kennel_settings'))
 
 
+@bp.route('/settings/kennels/<int:slot_id>/rename', methods=['POST'])
+@login_required
+@admin_required
+def kennel_settings_rename(slot_id):
+    """
+    Rename a kennel/suite slot and update all active Boarding records that
+    reference the old name — keeps the board consistent without orphaned bookings.
+    Returns JSON {ok, message, affected}.
+    """
+    from app.models import KennelSlot, Boarding
+    slot = KennelSlot.query.get_or_404(slot_id)
+    new_number = (request.json or {}).get('new_number', '').strip() if request.is_json \
+        else request.form.get('new_number', '').strip()
+
+    if not new_number:
+        return jsonify({'ok': False, 'error': 'A new name is required.'})
+    if new_number == slot.kennel_number:
+        return jsonify({'ok': False, 'error': 'Name is unchanged.'})
+
+    # Duplicate check
+    duplicate = KennelSlot.query.filter_by(
+        kennel_type=slot.kennel_type, kennel_number=new_number
+    ).first()
+    if duplicate and duplicate.id != slot_id:
+        label = 'Suite' if slot.kennel_type == 'suite' else 'Kennel'
+        return jsonify({'ok': False, 'error': f'{label} #{new_number} already exists.'})
+
+    old_number   = slot.kennel_number
+    kennel_type  = slot.kennel_type
+
+    # Update all active boarding records that reference the old slot name
+    affected_boardings = Boarding.query.filter(
+        Boarding.status == 'active',
+        Boarding.kennel_type == kennel_type,
+        Boarding.kennel_number == old_number,
+    ).all()
+    for b in affected_boardings:
+        b.kennel_number = new_number
+
+    # Rename the slot itself
+    slot.kennel_number = new_number
+    try:
+        slot.sort_order = int(new_number)
+    except ValueError:
+        slot.sort_order = 9999
+
+    db.session.commit()
+
+    label = 'Suite' if kennel_type == 'suite' else 'Kennel'
+    n = len(affected_boardings)
+    booking_note = f' {n} active booking(s) updated automatically.' if n else ''
+    return jsonify({
+        'ok':      True,
+        'affected': n,
+        'message': f'{label} #{old_number} renamed to #{new_number}.{booking_note}',
+    })
+
+
+@bp.route('/settings/kennels/<int:slot_id>/rename-check')
+@login_required
+@admin_required
+def kennel_settings_rename_check(slot_id):
+    """
+    AJAX pre-flight: return the count and pet names of active bookings
+    currently assigned to this slot, so the UI can warn before renaming.
+    """
+    from app.models import KennelSlot, Boarding
+    slot = KennelSlot.query.get_or_404(slot_id)
+    active = Boarding.query.filter(
+        Boarding.status == 'active',
+        Boarding.kennel_type == slot.kennel_type,
+        Boarding.kennel_number == slot.kennel_number,
+    ).all()
+    pets = [b.pet.name for b in active if b.pet]
+    return jsonify({'count': len(active), 'pets': pets})
+
+
 @bp.route('/boarding/occupied-kennels')
 @login_required
 @admin_required
