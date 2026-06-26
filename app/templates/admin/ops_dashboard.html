@@ -30,7 +30,7 @@
                 <a href="{{ url_for('admin.ops_dashboard') }}" class="btn btn-sm btn-outline-secondary">Today</a>
                 {% endif %}
             </div>
-            {% if is_today and today.weekday() < 4 %}
+            {% if today.weekday() < 6 %}
             <button class="btn btn-sm btn-primary" onclick="openWalkinModal()">
                 <i class="fas fa-plus me-1"></i>Add Walk-in
             </button>
