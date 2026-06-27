@@ -3359,14 +3359,29 @@ def customer_invoice(customer_id):
                         enrollment_id=enr.id, payment_id=payment_id
                     ).order_by(DaycareAttendance.check_in_time.asc()).all()
                 else:
-                    # Daycare attendance — checked out, unpaid, and not written off
-                    attendances = DaycareAttendance.query.filter_by(
+                    # Daycare attendance — checked out, not written off, and either:
+                    # (a) unpaid (payment_id=None), or
+                    # (b) pre-stamped to an outstanding invoice sent via SMS
+                    _dc_outstanding = Payment.query.filter_by(
+                        customer_id  = customer_id,
+                        service_type = 'Daycare',
+                        status       = 'outstanding'
+                    ).first()
+                    _dc_out_id = _dc_outstanding.id if _dc_outstanding else None
+                    _att_q = DaycareAttendance.query.filter_by(
                         enrollment_id=enr.id
                     ).filter(
                         DaycareAttendance.check_out_time != None,
-                        DaycareAttendance.payment_id == None,
                         DaycareAttendance.waived != True,
-                    ).order_by(DaycareAttendance.check_in_time.asc()).all()
+                    )
+                    if _dc_out_id:
+                        _att_q = _att_q.filter(db.or_(
+                            DaycareAttendance.payment_id == None,
+                            DaycareAttendance.payment_id == _dc_out_id,
+                        ))
+                    else:
+                        _att_q = _att_q.filter(DaycareAttendance.payment_id == None)
+                    attendances = _att_q.order_by(DaycareAttendance.check_in_time.asc()).all()
 
                 for att in attendances:
                     rate = daycare_rate_for_attendance(att)
@@ -3755,6 +3770,7 @@ def send_invoice_sms(customer_id):
     rates = get_rates(customer)
     today = date.today()
     total = 0.0
+    _sms_attendance_ids = []   # daycare session IDs included in this invoice
 
     for pet in customer.pets:
         if invoice_type == 'boarding':
@@ -3796,6 +3812,7 @@ def send_invoice_sms(customer_id):
                         else float(current_app.config.get('DAYCARE_RATE_SINGLE', 25.0))
                     )
                     total += rate
+                    _sms_attendance_ids.append(att.id)
 
     # Apply custom line adjustments
     adjs = InvoiceAdjustment.query.filter_by(
@@ -3833,8 +3850,9 @@ def send_invoice_sms(customer_id):
             existing.amount       = total
             existing.payment_date = today
             existing.notes        = f'{invoice_type.capitalize()} invoice sent via SMS — updated'
+            sms_payment = existing
         else:
-            payment = Payment(
+            sms_payment = Payment(
                 customer_id    = customer_id,
                 amount         = total,
                 payment_date   = today,
@@ -3843,7 +3861,16 @@ def send_invoice_sms(customer_id):
                 status         = 'outstanding',
                 notes          = f'{invoice_type.capitalize()} invoice sent via SMS'
             )
-            db.session.add(payment)
+            db.session.add(sms_payment)
+
+        # Stamp daycare sessions so they don't reappear on future invoices.
+        # mark_invoice_paid will re-stamp them with the final paid payment ID.
+        if invoice_type == 'daycare' and _sms_attendance_ids:
+            db.session.flush()  # ensure sms_payment.id is assigned
+            for aid in _sms_attendance_ids:
+                att = DaycareAttendance.query.get(aid)
+                if att:
+                    att.payment_id = sms_payment.id
 
     db.session.commit()
 
@@ -3948,14 +3975,31 @@ def mark_invoice_paid(customer_id):
                 boarding_ids.append(b.id)
 
         elif invoice_type == 'daycare':
+            # Find any outstanding daycare payment that was pre-stamped by send_invoice_sms
+            outstanding_pay = Payment.query.filter_by(
+                customer_id  = customer_id,
+                service_type = 'Daycare',
+                status       = 'outstanding'
+            ).first()
+            outstanding_id = outstanding_pay.id if outstanding_pay else None
+
             for enr in DaycareEnrollment.query.filter_by(pet_id=pet.id).all():
-                attendances = DaycareAttendance.query.filter_by(
+                # Include sessions that are either unstamped (payment_id=None)
+                # or pre-stamped to the outstanding invoice (sent via SMS but not yet paid).
+                q = DaycareAttendance.query.filter_by(
                     enrollment_id=enr.id
                 ).filter(
                     DaycareAttendance.check_out_time != None,
-                    DaycareAttendance.payment_id == None,
                     DaycareAttendance.waived != True,
-                ).all()
+                )
+                if outstanding_id:
+                    q = q.filter(db.or_(
+                        DaycareAttendance.payment_id == None,
+                        DaycareAttendance.payment_id == outstanding_id,
+                    ))
+                else:
+                    q = q.filter(DaycareAttendance.payment_id == None)
+                attendances = q.all()
                 for att in attendances:
                     week_start = att.check_in_time.date() - timedelta(days=att.check_in_time.weekday())
                     week_end   = week_start + timedelta(days=6)
