@@ -178,6 +178,28 @@
     </div>
 </div>
 
+<!-- Kennel Conflict Confirmation Modal -->
+<div class="modal fade" id="kennelConflictModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title"><i class="fas fa-exclamation-triangle me-2"></i>Kennel Already Occupied</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2" id="conflictModalIntro"></p>
+                <ul id="conflictModalList" class="mb-0 ps-3"></ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Go Back</button>
+                <button type="button" class="btn btn-warning fw-bold" id="conflictProceedBtn">
+                    <i class="fas fa-check me-1"></i>Yes, Proceed
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 (function () {
     const dateInput  = document.getElementById('boardDate');
@@ -365,6 +387,8 @@
             .then(r => { clearTimeout(_timer); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
             .then(data => {
                 select.innerHTML = '<option value="">— Select a slot —</option>';
+                // Store slot detail data keyed by "type::number" for the conflict modal
+                window._reassignSlotData = {};
 
                 ['suite', 'kennel'].forEach(type => {
                     const list = type === 'suite' ? data.suites : data.kennels;
@@ -372,10 +396,12 @@
                     const grp = document.createElement('optgroup');
                     grp.label = type === 'suite' ? 'Suites' : 'Kennels';
                     list.forEach(s => {
+                        const key = `${type}::${s.kennel_number}`;
+                        window._reassignSlotData[key] = s;
                         const opt        = document.createElement('option');
                         opt.dataset.type = type;
                         opt.dataset.number = s.kennel_number;
-                        opt.value = `${type}::${s.kennel_number}`;
+                        opt.value = key;
                         const isCurrent  = (type === ds.kennelType && s.kennel_number === ds.kennelNumber);
                         const isOccupied = !s.available;
                         let txt = `${type === 'suite' ? 'Suite' : 'Kennel'} #${s.kennel_number}`;
@@ -383,7 +409,7 @@
                         if (isCurrent)  txt += ' [current]';
                         if (isOccupied) {
                             const names = (s.occupants && s.occupants.length) ? s.occupants.join(', ') : 'occupied';
-                            txt += ` [${names}]`;
+                            txt += ` — ${names}`;
                             opt.style.color = '#b8860b';
                         }
                         opt.textContent = txt;
@@ -431,6 +457,48 @@
                 select.disabled  = false;
             });
     }
+
+    /* ── Reassign conflict confirmation ─────────────────── */
+    (function () {
+        const form            = document.getElementById('reassignForm');
+        const conflictModal   = new bootstrap.Modal(document.getElementById('kennelConflictModal'));
+        const proceedBtn      = document.getElementById('conflictProceedBtn');
+        const conflictIntro   = document.getElementById('conflictModalIntro');
+        const conflictList    = document.getElementById('conflictModalList');
+        let _pendingSubmit    = false;
+
+        form.addEventListener('submit', function (e) {
+            if (_pendingSubmit) { _pendingSubmit = false; return; }  // already confirmed
+
+            const select   = document.getElementById('reassignSelect');
+            const slotKey  = select.value;
+            const slotData = (window._reassignSlotData || {})[slotKey];
+
+            if (!slotData || slotData.available) return;  // vacant — submit normally
+
+            e.preventDefault();
+
+            // Build occupant list with dates
+            const details = slotData.occupant_details || [];
+            const label   = slotKey.startsWith('suite') ? 'Suite' : 'Kennel';
+            const num     = slotData.kennel_number;
+            conflictIntro.textContent =
+                `${label} #${num} already has the following pet(s) assigned:`;
+            conflictList.innerHTML = details.map(o => {
+                const ci = o.check_in  ? o.check_in.slice(5).replace('-','/')  : '?';
+                const co = o.check_out ? o.check_out.slice(5).replace('-','/') : '?';
+                return `<li><strong>${o.name}</strong> &mdash; ${ci} &ndash; ${co}</li>`;
+            }).join('');
+
+            conflictModal.show();
+        });
+
+        proceedBtn.addEventListener('click', function () {
+            conflictModal.hide();
+            _pendingSubmit = true;
+            form.requestSubmit();
+        });
+    })();
 
     /* ── Manage Slots table ───────────────────────────── */
     document.getElementById('manageSlots').addEventListener('show.bs.collapse', function () {

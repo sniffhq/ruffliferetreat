@@ -6595,7 +6595,11 @@ def kennel_slots():
             if new_in < b_out and new_out > b_in:
                 key = (b.kennel_type or 'kennel', b.kennel_number)
                 pet_name = b.pet.name if b.pet else '—'
-                occupancy.setdefault(key, []).append(pet_name)
+                occupancy.setdefault(key, []).append({
+                    'name':      pet_name,
+                    'check_in':  b.check_in_date.isoformat(),
+                    'check_out': b.check_out_date.isoformat(),
+                })
 
     slots = KennelSlot.query.filter_by(active=True)\
                 .order_by(KennelSlot.kennel_type, KennelSlot.sort_order, KennelSlot.kennel_number)\
@@ -6607,11 +6611,12 @@ def kennel_slots():
         key = (s.kennel_type, s.kennel_number)
         occupants = occupancy.get(key, [])
         entry = {
-            'id':            s.id,
-            'kennel_number': s.kennel_number,
-            'notes':         s.notes or '',
-            'available':     len(occupants) == 0,
-            'occupants':     occupants,
+            'id':               s.id,
+            'kennel_number':    s.kennel_number,
+            'notes':            s.notes or '',
+            'available':        len(occupants) == 0,
+            'occupants':        [o['name'] for o in occupants],   # backward compat (name strings)
+            'occupant_details': occupants,                         # full objects with dates
         }
         if s.kennel_type == 'suite':
             suites.append(entry)
