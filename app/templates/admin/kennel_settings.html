@@ -460,41 +460,50 @@
 
     /* ── Reassign conflict confirmation ─────────────────── */
     (function () {
-        const form            = document.getElementById('reassignForm');
-        const conflictModal   = new bootstrap.Modal(document.getElementById('kennelConflictModal'));
-        const proceedBtn      = document.getElementById('conflictProceedBtn');
-        const conflictIntro   = document.getElementById('conflictModalIntro');
-        const conflictList    = document.getElementById('conflictModalList');
-        let _pendingSubmit    = false;
+        const form         = document.getElementById('reassignForm');
+        const proceedBtn   = document.getElementById('conflictProceedBtn');
+        const conflictIntro = document.getElementById('conflictModalIntro');
+        const conflictList  = document.getElementById('conflictModalList');
+        if (!form || !proceedBtn) return;   // guard: elements must exist
+
+        let _pendingSubmit = false;
+        let _conflictModal = null;  // lazy — Bootstrap must be ready first
+
+        function getConflictModal() {
+            if (!_conflictModal) {
+                _conflictModal = new bootstrap.Modal(
+                    document.getElementById('kennelConflictModal'));
+            }
+            return _conflictModal;
+        }
 
         form.addEventListener('submit', function (e) {
-            if (_pendingSubmit) { _pendingSubmit = false; return; }  // already confirmed
+            if (_pendingSubmit) { _pendingSubmit = false; return; }
 
             const select   = document.getElementById('reassignSelect');
-            const slotKey  = select.value;
+            const slotKey  = select ? select.value : '';
             const slotData = (window._reassignSlotData || {})[slotKey];
 
             if (!slotData || slotData.available) return;  // vacant — submit normally
 
             e.preventDefault();
 
-            // Build occupant list with dates
             const details = slotData.occupant_details || [];
             const label   = slotKey.startsWith('suite') ? 'Suite' : 'Kennel';
             const num     = slotData.kennel_number;
             conflictIntro.textContent =
                 `${label} #${num} already has the following pet(s) assigned:`;
             conflictList.innerHTML = details.map(o => {
-                const ci = o.check_in  ? o.check_in.slice(5).replace('-','/')  : '?';
-                const co = o.check_out ? o.check_out.slice(5).replace('-','/') : '?';
+                const ci = o.check_in  ? o.check_in.slice(5).replace('-', '/') : '?';
+                const co = o.check_out ? o.check_out.slice(5).replace('-', '/') : '?';
                 return `<li><strong>${o.name}</strong> &mdash; ${ci} &ndash; ${co}</li>`;
             }).join('');
 
-            conflictModal.show();
+            getConflictModal().show();
         });
 
         proceedBtn.addEventListener('click', function () {
-            conflictModal.hide();
+            getConflictModal().hide();
             _pendingSubmit = true;
             form.requestSubmit();
         });
