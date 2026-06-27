@@ -246,6 +246,9 @@ class DaycareAttendance(db.Model):
     notes         = db.Column(db.Text)
     play_group_id = db.Column(db.Integer, db.ForeignKey('play_group.id'), nullable=True)
     payment_id    = db.Column(db.Integer, db.ForeignKey('payment.id'), nullable=True)
+    waived        = db.Column(db.Boolean, default=False, nullable=False, server_default='0')
+    waived_by     = db.Column(db.String(100), nullable=True)   # staff name who waived it
+    waived_at     = db.Column(db.DateTime, nullable=True)
     created_at    = db.Column(db.DateTime, default=datetime.now)
     
     # Relationships

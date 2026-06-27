@@ -790,6 +790,38 @@ def daycare_checkout(attendance_id):
 
     return redirect(url_for('admin.daycare_dashboard'))
 
+
+@bp.route('/daycare/attendance/<int:attendance_id>/waive', methods=['POST'])
+@login_required
+@admin_required
+def daycare_waive_session(attendance_id):
+    """Write off a daycare session — removes it from invoices without marking it paid."""
+    from app.models import DaycareAttendance
+    from datetime import datetime as _dt
+    att = DaycareAttendance.query.get_or_404(attendance_id)
+    customer_id = att.enrollment.pet.owner.id if att.enrollment and att.enrollment.pet and att.enrollment.pet.owner else None
+
+    att.waived    = True
+    att.waived_by = f'{current_user.first_name} {current_user.last_name}'
+    att.waived_at = _dt.now()
+    db.session.commit()
+
+    try:
+        from app.audit_service import audit
+        audit('daycare.waive', 'daycare_attendance', attendance_id,
+              att.enrollment.pet.name if att.enrollment and att.enrollment.pet else '—',
+              f'Session {att.check_in_time.strftime("%b %d, %Y")} written off by {att.waived_by}')
+    except Exception:
+        pass
+
+    if request.is_json:
+        return jsonify({'ok': True})
+
+    if customer_id:
+        return redirect(url_for('admin.customer_invoice', customer_id=customer_id, type='daycare'))
+    return redirect(url_for('admin.daycare_dashboard'))
+
+
 @bp.route('/daycare/enrollment/<int:enrollment_id>/deactivate', methods=['POST'])
 @login_required
 @admin_required
@@ -1402,7 +1434,8 @@ def invoice_audit():
                     enrollment_id=enr.id
                 ).filter(
                     DaycareAttendance.check_out_time != None,
-                    DaycareAttendance.payment_id == None
+                    DaycareAttendance.payment_id == None,
+                    DaycareAttendance.waived != True,
                 ).all()
                 for att in atts:
                     week_start = att.check_in_time.date() - timedelta(days=att.check_in_time.weekday())
@@ -3326,12 +3359,13 @@ def customer_invoice(customer_id):
                         enrollment_id=enr.id, payment_id=payment_id
                     ).order_by(DaycareAttendance.check_in_time.asc()).all()
                 else:
-                    # Daycare attendance — checked out and unpaid
+                    # Daycare attendance — checked out, unpaid, and not written off
                     attendances = DaycareAttendance.query.filter_by(
                         enrollment_id=enr.id
                     ).filter(
                         DaycareAttendance.check_out_time != None,
-                        DaycareAttendance.payment_id == None
+                        DaycareAttendance.payment_id == None,
+                        DaycareAttendance.waived != True,
                     ).order_by(DaycareAttendance.check_in_time.asc()).all()
 
                 for att in attendances:
@@ -3746,7 +3780,8 @@ def send_invoice_sms(customer_id):
                     enrollment_id=enr.id
                 ).filter(
                     DaycareAttendance.check_out_time != None,
-                    DaycareAttendance.payment_id == None
+                    DaycareAttendance.payment_id == None,
+                    DaycareAttendance.waived != True,
                 ).all()
                 for att in atts:
                     week_start = att.check_in_time.date() - timedelta(days=att.check_in_time.weekday())
@@ -3918,7 +3953,8 @@ def mark_invoice_paid(customer_id):
                     enrollment_id=enr.id
                 ).filter(
                     DaycareAttendance.check_out_time != None,
-                    DaycareAttendance.payment_id == None
+                    DaycareAttendance.payment_id == None,
+                    DaycareAttendance.waived != True,
                 ).all()
                 for att in attendances:
                     week_start = att.check_in_time.date() - timedelta(days=att.check_in_time.weekday())

@@ -174,6 +174,19 @@
                                         title="Edit amount">
                                     <i class="fas fa-pencil-alt"></i>
                                 </button>
+                                {% if line.type == 'daycare' and line.attendance_id %}
+                                <form method="POST"
+                                      action="{{ url_for('admin.daycare_waive_session', attendance_id=line.attendance_id) }}"
+                                      class="d-inline ms-1"
+                                      onsubmit="return confirm('Write off this session? It will no longer appear on invoices.')">
+                                    <button type="submit"
+                                            class="btn btn-xs btn-outline-danger py-0 px-1"
+                                            style="font-size:0.7rem;"
+                                            title="Write off this session">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
                                 {% endif %}
                             </td>
                         </tr>
