@@ -1377,7 +1377,7 @@ def invoice_audit():
                 is_first = (not siblings) or siblings[0].pet_id == pet.id
                 from app.rate_resolver import get_pet_boarding_rate as _gpbr3
                 rate     = _gpbr3(pet, c, is_additional=not is_first)
-                _, addon_total = _parse_addons_from_notes(b.special_notes or '')
+                _, addon_total = _parse_addons_from_notes(b.special_notes or '', structured_only=True)
                 if addon_total == 0:
                     try:
                         from app.models import Appointment as _Ar, ServiceType as _STr
@@ -3286,9 +3286,14 @@ def customer_invoice(customer_id):
 
                 addons = []
                 try:
-                    addons, _at = _parse_addons_from_notes(b.special_notes or '')
+                    # structured_only=True prevents care notes ("please trim nails",
+                    # "give a bath") from being misread as billable add-ons.
+                    addons, _at = _parse_addons_from_notes(
+                        b.special_notes or '', structured_only=True
+                    )
                     if not addons:
-                        # Older bookings stored add-ons only in the appointment notes
+                        # Older bookings stored add-ons only in the appointment notes;
+                        # freetext fallback is acceptable there (legacy data).
                         from app.models import Appointment as _Appt, ServiceType as _ST
                         _svc = _ST.query.filter(_ST.name.ilike('%boarding%')).first()
                         if _svc:
@@ -3372,8 +3377,14 @@ def customer_invoice(customer_id):
                 line['display_amount'] = adj_by_key[key].amount
             else:
                 line['override']       = None
-                line['display_amount'] = line['amount'] + line['addon_total']
-        section['subtotal'] = sum(l['display_amount'] for l in section['lines'])
+                # display_amount = nightly cost only; add-ons are shown as
+                # separate sub-rows so the line detail and the amount agree.
+                line['display_amount'] = line['amount']
+        # subtotal = nightly charges + add-on totals (+ any overrides already absorbed)
+        section['subtotal'] = sum(
+            l['display_amount'] + (l['addon_total'] if not l['override'] else 0)
+            for l in section['lines']
+        )
 
     # ── Payment history ───────────────────────────────────────────────────
     if open_mode:
@@ -3408,18 +3419,20 @@ def customer_invoice(customer_id):
 
 
 
-def _parse_addons_from_notes(notes):
+def _parse_addons_from_notes(notes, structured_only=False):
     """
-    Parse add-ons from appointment notes.
-    Handles structured format (Add-ons: Spa Bath ($20))
-    and freetext fallback (bath, nails, wash, etc.)
+    Parse add-ons from notes.
+    structured_only=True  → only honour the 'Add-ons:' prefix (safe for
+                            special_notes which may contain care instructions).
+    structured_only=False → also applies a freetext keyword fallback, kept for
+                            legacy appointment notes from before the Add-ons prefix.
     """
     import re as _re
     if not notes:
         return [], 0.0
     addons = []
     total  = 0.0
-    # Structured
+    # Structured (always checked first)
     if 'Add-ons:' in notes:
         m = _re.search(r'Add-ons:\s*(.+)', notes)
         if m:
@@ -3432,7 +3445,9 @@ def _parse_addons_from_notes(notes):
                 if pm:
                     total += float(pm.group(1))
         return addons, total
-    # Freetext fallback
+    if structured_only:
+        return [], 0.0
+    # Freetext fallback — only for legacy appointment notes
     n = notes.lower()
     has_bath  = any(w in n for w in ['bath', 'bathe', 'wash', 'shampoo', 'spa'])
     has_nails = any(w in n for w in ['nail', 'nails', 'trim', 'clip'])
@@ -3516,7 +3531,7 @@ def send_estimate_sms(customer_id):
             amount = rate * days
             addon_names = []
             try:
-                _addons, addon_cost = _parse_addons_from_notes(b.special_notes or '')
+                _addons, addon_cost = _parse_addons_from_notes(b.special_notes or '', structured_only=True)
                 amount += addon_cost
                 addon_names = [a.split('(')[0].strip() for a in _addons]
             except Exception:
@@ -3723,7 +3738,7 @@ def send_invoice_sms(customer_id):
                 is_first = (not siblings) or siblings[0].pet_id == pet.id
                 from app.rate_resolver import get_pet_boarding_rate as _gpbr4
                 rate     = _gpbr4(pet, customer, is_additional=not is_first)
-                _, addon_cost = _parse_addons_from_notes(b.special_notes or '')
+                _, addon_cost = _parse_addons_from_notes(b.special_notes or '', structured_only=True)
                 total += rate * days + addon_cost
         else:
             for enr in DaycareEnrollment.query.filter_by(pet_id=pet.id).all():

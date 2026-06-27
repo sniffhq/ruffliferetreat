@@ -159,7 +159,7 @@
                             <td class="text-muted">{{ line.detail }}</td>
                             <td class="text-end">
                                 {% if line.override %}
-                                <span class="text-decoration-line-through text-muted small me-1">${{ "%.2f"|format(line.amount + line.addon_total) }}</span>
+                                <span class="text-decoration-line-through text-muted small me-1">${{ "%.2f"|format(line.amount) }}</span>
                                 <strong>${{ "%.2f"|format(line.display_amount) }}</strong>
                                 {% else %}
                                 ${{ "%.2f"|format(line.display_amount) }}
@@ -308,41 +308,6 @@
                 <i class="fas fa-check-circle fa-3x mb-3 d-block text-success opacity-50"></i>
                 <h5>No Outstanding Services</h5>
                 <p class="mb-0">All completed boardings and daycare sessions have been paid.</p>
-            </div>
-            {% endif %}
-
-            {% if payments %}
-            <!-- Payment History -->
-            <div class="mt-4 pt-3 border-top">
-                <div class="inv-label mb-2">Payment History</div>
-                <table class="table table-sm" style="font-size:0.85rem;">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Date</th>
-                            <th>Description</th>
-                            <th>Method</th>
-                            <th class="text-end">Amount</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    {% for p in payments %}
-                    <tr>
-                        <td>{{ p.payment_date.strftime('%m/%d/%Y') }}</td>
-                        <td class="text-muted">{{ p.service_type or p.notes or '—' }}</td>
-                        <td class="text-muted">{{ p.payment_method or '—' }}</td>
-                        <td class="text-end">${{ "%.2f"|format(p.amount) }}</td>
-                        <td>
-                            {% if p.status == 'paid' %}
-                            <span class="badge bg-success">Paid</span>
-                            {% else %}
-                            <span class="badge bg-danger">Outstanding</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                    </tbody>
-                </table>
             </div>
             {% endif %}
 
