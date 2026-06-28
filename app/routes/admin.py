@@ -3340,14 +3340,15 @@ def customer_invoice(customer_id):
                     pass
 
                 lines.append({
-                    'type':        'boarding',
-                    'boarding_id': b.id,
-                    'line_key':    f'boarding_{b.id}',
-                    'description': f'Boarding — {b.check_in_date.strftime("%b %d")} to {b.check_out_date.strftime("%b %d, %Y")}',
-                    'detail':      f'{days} night{"s" if days != 1 else ""} @ ${rate:.0f}/night{"  (additional pet)" if not is_first else ""}',
-                    'amount':      amount,
-                    'addons':      addons,
-                    'addon_total': sum(_parse_addon_price(a) for a in addons),
+                    'type':            'boarding',
+                    'boarding_id':     b.id,
+                    'paid_payment_id': b.payment_id,  # None = unpaid; set = already paid
+                    'line_key':        f'boarding_{b.id}',
+                    'description':     f'Boarding — {b.check_in_date.strftime("%b %d")} to {b.check_out_date.strftime("%b %d, %Y")}',
+                    'detail':          f'{days} night{"s" if days != 1 else ""} @ ${rate:.0f}/night{"  (additional pet)" if not is_first else ""}',
+                    'amount':          amount,
+                    'addons':          addons,
+                    'addon_total':     sum(_parse_addon_price(a) for a in addons),
                 })
 
         elif invoice_type == 'daycare':
@@ -3446,7 +3447,20 @@ def customer_invoice(customer_id):
             customer_id=customer_id,
             service_type=invoice_type.capitalize()
         ).order_by(Payment.payment_date.desc()).all()
-        total_paid = sum(p.amount for p in payments if p.status == 'paid')
+
+        # Only credit payments that are directly linked to the boardings shown on
+        # THIS invoice. Summing all historical paid payments would incorrectly
+        # apply prior-stay payments against the current unpaid invoice.
+        invoice_payment_ids = {
+            line['paid_payment_id']
+            for section in pet_sections
+            for line in section['lines']
+            if line.get('paid_payment_id') is not None
+        }
+        total_paid = sum(
+            p.amount for p in payments
+            if p.status == 'paid' and p.id in invoice_payment_ids
+        )
     adj_total         = sum(a.amount for a in custom_lines)
     total_outstanding = sum(s['subtotal'] for s in pet_sections) + adj_total
     grand_total       = total_outstanding
