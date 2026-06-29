@@ -6516,6 +6516,33 @@ def approve_boarding_request(appt_id):
             )
             return redirect(url_for('admin.boarding_dashboard'))
 
+    # Capacity override warning — check every date in the stay range
+    from app.models import Boarding as _BoardingModel
+    from datetime import timedelta as _td
+    _warn_dates = []
+    _d = check_in_date
+    while _d <= check_out_date:
+        _ov = _capacity_override_for_date(_d)
+        if _ov:
+            _booked_on_date = _BoardingModel.query.filter(
+                _BoardingModel.status == 'active',
+                _BoardingModel.check_in_date  <= _d,
+                _BoardingModel.check_out_date >= _d,
+            ).count()
+            if _booked_on_date >= _ov.max_capacity:
+                _warn_dates.append(
+                    f"{_d.strftime('%b %d')} (cap {_ov.max_capacity}, "
+                    f"currently {_booked_on_date})"
+                )
+        _d += _td(days=1)
+    if _warn_dates:
+        flash(
+            'Capacity warning: the following dates are at or over the set limit — '
+            + ', '.join(_warn_dates)
+            + '. Reservation was approved anyway.',
+            'warning'
+        )
+
     # Create Boarding record
     booking = Boarding(
         pet_id          = appt.pet_id,
@@ -8073,13 +8100,28 @@ def boarding_occupancy_report():
 # BOARDING CAPACITY VIEW
 # ============================================================
 
+def _capacity_override_for_date(d):
+    """Return the CapacityOverride row whose range covers date d, or None."""
+    from app.models import CapacityOverride
+    return CapacityOverride.query.filter(
+        CapacityOverride.start_date <= d,
+        CapacityOverride.end_date   >= d,
+    ).order_by(CapacityOverride.created_at.desc()).first()
+
+
 @bp.route('/boarding/capacity')
 @login_required
 @admin_required
 def boarding_capacity():
-    """Boarding capacity page — pie chart + date picker."""
+    """Boarding capacity page — pie chart + date picker + overrides."""
     from datetime import date
-    return render_template('admin/boarding_capacity.html', today=date.today())
+    from app.models import CapacityOverride
+    overrides = CapacityOverride.query.order_by(
+        CapacityOverride.start_date.asc()
+    ).all()
+    return render_template('admin/boarding_capacity.html',
+                           today=date.today(),
+                           overrides=overrides)
 
 
 @bp.route('/boarding/capacity-data')
@@ -8096,7 +8138,8 @@ def boarding_capacity_data():
     except (ValueError, TypeError):
         d = _date.today()
 
-    capacity = get_kennel_capacity()
+    override = _capacity_override_for_date(d)
+    capacity = override.max_capacity if override else get_kennel_capacity()
 
     boardings = Boarding.query.filter(
         Boarding.status == 'active',
@@ -8134,6 +8177,16 @@ def boarding_capacity_data():
     total     = len(arriving) + len(staying) + len(departing)
     available = max(0, capacity - total)
 
+    override_info = None
+    if override:
+        override_info = {
+            'id':           override.id,
+            'start_date':   override.start_date.isoformat(),
+            'end_date':     override.end_date.isoformat(),
+            'max_capacity': override.max_capacity,
+            'note':         override.note or '',
+        }
+
     return {
         'date':      d.isoformat(),
         'capacity':  capacity,
@@ -8142,7 +8195,58 @@ def boarding_capacity_data():
         'arriving':  arriving,
         'staying':   staying,
         'departing': departing,
+        'override':  override_info,
     }
+
+
+@bp.route('/boarding/capacity-overrides', methods=['POST'])
+@login_required
+@admin_required
+def create_capacity_override():
+    """Create a new capacity override for a date range."""
+    from datetime import date as _date
+    from app.models import CapacityOverride
+    from flask_login import current_user
+    data = request.get_json(silent=True) or {}
+    try:
+        start = _date.fromisoformat(data['start_date'])
+        end   = _date.fromisoformat(data['end_date'])
+        cap   = int(data['max_capacity'])
+    except (KeyError, ValueError, TypeError):
+        return {'ok': False, 'error': 'Invalid input.'}, 400
+    if end < start:
+        return {'ok': False, 'error': 'End date must be on or after start date.'}, 400
+    if cap < 1:
+        return {'ok': False, 'error': 'Capacity must be at least 1.'}, 400
+    ov = CapacityOverride(
+        start_date   = start,
+        end_date     = end,
+        max_capacity = cap,
+        note         = (data.get('note') or '').strip()[:255] or None,
+        created_by   = current_user.email,
+    )
+    db.session.add(ov)
+    db.session.commit()
+    return {
+        'ok': True,
+        'id':           ov.id,
+        'start_date':   ov.start_date.isoformat(),
+        'end_date':     ov.end_date.isoformat(),
+        'max_capacity': ov.max_capacity,
+        'note':         ov.note or '',
+    }
+
+
+@bp.route('/boarding/capacity-overrides/<int:ov_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def delete_capacity_override(ov_id):
+    """Delete a capacity override."""
+    from app.models import CapacityOverride
+    ov = CapacityOverride.query.get_or_404(ov_id)
+    db.session.delete(ov)
+    db.session.commit()
+    return {'ok': True}
 
 
 # ============================================================

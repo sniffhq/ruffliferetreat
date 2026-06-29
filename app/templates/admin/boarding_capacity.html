@@ -83,6 +83,13 @@
             </div>
         </div>
 
+        <!-- Override banner (shown by JS when selected date has an override) -->
+        <div id="override-banner" class="alert d-flex align-items-center gap-2 mb-3 d-none"
+             style="background:#fff3cd;border-left:4px solid #e6a817;border-radius:6px;">
+            <i class="fas fa-sliders-h" style="color:#856404;"></i>
+            <span id="override-banner-text" style="color:#856404;font-size:0.9rem;"></span>
+        </div>
+
         <!-- Pie chart + legend side by side -->
         <div class="row g-4 mb-4">
 
@@ -188,7 +195,90 @@
         </div>
 
     </div><!-- /content-area -->
-</div>
+</div><!-- /container -->
+
+<div class="container pb-5">
+<!-- ═══════════════════════════════════════════════════════
+     CAPACITY OVERRIDES
+     ═══════════════════════════════════════════════════════ -->
+    <div class="card shadow-sm mt-4" id="overrides-section">
+        <div class="card-header d-flex align-items-center gap-2 py-2" style="background:#f8f9fa;">
+            <i class="fas fa-sliders-h" style="color:#1a1a2e;"></i>
+            <strong style="color:#1a1a2e;">Capacity Overrides by Date</strong>
+            <span class="text-muted ms-2" style="font-size:0.82rem;">
+                Set a max dog count for a date range (holidays, low-staff days, etc.)
+            </span>
+        </div>
+        <div class="card-body">
+
+            <!-- Add override form -->
+            <div class="row g-2 align-items-end mb-4" id="override-form-row">
+                <div class="col-12 col-sm-auto">
+                    <label class="form-label small mb-1 fw-bold">Start Date</label>
+                    <input type="date" id="ov-start" class="form-control form-control-sm" style="width:150px;">
+                </div>
+                <div class="col-12 col-sm-auto">
+                    <label class="form-label small mb-1 fw-bold">End Date</label>
+                    <input type="date" id="ov-end" class="form-control form-control-sm" style="width:150px;">
+                </div>
+                <div class="col-12 col-sm-auto">
+                    <label class="form-label small mb-1 fw-bold">Max Dogs</label>
+                    <input type="number" id="ov-cap" class="form-control form-control-sm" min="1" max="999"
+                           placeholder="e.g. 20" style="width:100px;">
+                </div>
+                <div class="col-12 col-sm">
+                    <label class="form-label small mb-1 fw-bold">Note <span class="text-muted fw-normal">(optional)</span></label>
+                    <input type="text" id="ov-note" class="form-control form-control-sm"
+                           placeholder="e.g. 4th of July weekend" maxlength="255">
+                </div>
+                <div class="col-12 col-sm-auto">
+                    <button class="btn btn-primary btn-sm w-100" id="btn-add-override">
+                        <i class="fas fa-plus me-1"></i>Add Override
+                    </button>
+                </div>
+            </div>
+            <div id="ov-form-error" class="text-danger small mb-3 d-none"></div>
+
+            <!-- Existing overrides table -->
+            <div id="overrides-list">
+                {% if overrides %}
+                <table class="table table-hover mb-0" style="font-size:0.86rem;" id="overrides-table">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Start</th>
+                            <th>End</th>
+                            <th>Max Dogs</th>
+                            <th>Note</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="overrides-tbody">
+                    {% for ov in overrides %}
+                    <tr id="ov-row-{{ ov.id }}">
+                        <td>{{ ov.start_date.strftime('%b %d, %Y') }}</td>
+                        <td>{{ ov.end_date.strftime('%b %d, %Y') }}</td>
+                        <td><span class="badge" style="background:#1a1a2e;">{{ ov.max_capacity }}</span></td>
+                        <td class="text-muted">{{ ov.note or '—' }}</td>
+                        <td>
+                            <button class="btn btn-outline-danger btn-sm py-0 px-2"
+                                    onclick="deleteOverride({{ ov.id }})">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div id="overrides-empty" class="text-center text-muted py-3 small">
+                    No overrides set. Use the form above to add one.
+                </div>
+                {% endif %}
+            </div>
+
+        </div>
+    </div>
+</div><!-- /second container (overrides) -->
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
@@ -275,6 +365,21 @@
 
         const { capacity, total, available, arriving, staying, departing } = data;
         const pct = capacity > 0 ? Math.round((total / capacity) * 100) : 0;
+
+        // Override banner
+        const banner = document.getElementById('override-banner');
+        const bannerText = document.getElementById('override-banner-text');
+        if (data.override) {
+            const ov = data.override;
+            const start = new Date(ov.start_date + 'T00:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric'});
+            const end   = new Date(ov.end_date   + 'T00:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+            let msg = `Capacity override active: max <strong>${ov.max_capacity} dogs</strong> (${start} – ${end})`;
+            if (ov.note) msg += ` &mdash; <em>${ov.note}</em>`;
+            bannerText.innerHTML = msg;
+            banner.classList.remove('d-none');
+        } else {
+            banner.classList.add('d-none');
+        }
 
         // Date label
         dateLabel.textContent = fmtDate(data.date);
@@ -369,5 +474,116 @@
     load(picker.value);
 
 })();
+
+// ── Capacity Override CRUD ────────────────────────────────
+function _ovFmtDate(iso) {
+    const [y, m, d] = iso.split('-').map(Number);
+    return new Date(y, m-1, d).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+}
+
+function _ovEnsureTable() {
+    if (document.getElementById('overrides-table')) return;
+    const empty = document.getElementById('overrides-empty');
+    if (empty) empty.remove();
+    const list = document.getElementById('overrides-list');
+    list.innerHTML = `<table class="table table-hover mb-0" style="font-size:0.86rem;" id="overrides-table">
+        <thead class="table-light">
+            <tr><th>Start</th><th>End</th><th>Max Dogs</th><th>Note</th><th></th></tr>
+        </thead>
+        <tbody id="overrides-tbody"></tbody>
+    </table>`;
+}
+
+function _ovAddRow(ov) {
+    _ovEnsureTable();
+    const tbody = document.getElementById('overrides-tbody');
+    const tr = document.createElement('tr');
+    tr.id = `ov-row-${ov.id}`;
+    tr.innerHTML = `
+        <td>${_ovFmtDate(ov.start_date)}</td>
+        <td>${_ovFmtDate(ov.end_date)}</td>
+        <td><span class="badge" style="background:#1a1a2e;">${ov.max_capacity}</span></td>
+        <td class="text-muted">${ov.note || '—'}</td>
+        <td><button class="btn btn-outline-danger btn-sm py-0 px-2"
+                    onclick="deleteOverride(${ov.id})">
+                <i class="fas fa-trash-alt"></i>
+            </button></td>`;
+    tbody.appendChild(tr);
+}
+
+function deleteOverride(id) {
+    if (!confirm('Remove this capacity override?')) return;
+    fetch(`/admin/boarding/capacity-overrides/${id}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(d => {
+            if (!d.ok) { alert(d.error || 'Error'); return; }
+            const row = document.getElementById(`ov-row-${id}`);
+            if (row) row.remove();
+            const tbody = document.getElementById('overrides-tbody');
+            if (tbody && !tbody.children.length) {
+                document.getElementById('overrides-list').innerHTML =
+                    '<div id="overrides-empty" class="text-center text-muted py-3 small">No overrides set. Use the form above to add one.</div>';
+            }
+            // Refresh banner if current date was covered by this override
+            const picker = document.getElementById('date-picker');
+            if (picker) {
+                fetch(`/admin/boarding/capacity-data?date=${picker.value}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        const banner = document.getElementById('override-banner');
+                        if (!data.override) banner.classList.add('d-none');
+                    });
+            }
+        });
+}
+window.deleteOverride = deleteOverride;
+
+document.getElementById('btn-add-override').addEventListener('click', function () {
+    const start  = document.getElementById('ov-start').value;
+    const end    = document.getElementById('ov-end').value;
+    const cap    = parseInt(document.getElementById('ov-cap').value, 10);
+    const note   = document.getElementById('ov-note').value.trim();
+    const errEl  = document.getElementById('ov-form-error');
+
+    errEl.classList.add('d-none');
+    if (!start || !end) { errEl.textContent = 'Start and end dates are required.'; errEl.classList.remove('d-none'); return; }
+    if (end < start)    { errEl.textContent = 'End date must be on or after start date.'; errEl.classList.remove('d-none'); return; }
+    if (!cap || cap < 1){ errEl.textContent = 'Max dogs must be at least 1.'; errEl.classList.remove('d-none'); return; }
+
+    this.disabled = true;
+    fetch('/admin/boarding/capacity-overrides', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ start_date: start, end_date: end, max_capacity: cap, note: note }),
+    })
+    .then(r => r.json())
+    .then(d => {
+        this.disabled = false;
+        if (!d.ok) { errEl.textContent = d.error || 'Error saving override.'; errEl.classList.remove('d-none'); return; }
+        _ovAddRow(d);
+        document.getElementById('ov-start').value = '';
+        document.getElementById('ov-end').value   = '';
+        document.getElementById('ov-cap').value   = '';
+        document.getElementById('ov-note').value  = '';
+        // Refresh banner for currently-viewed date
+        const picker = document.getElementById('date-picker');
+        if (picker) {
+            fetch(`/admin/boarding/capacity-data?date=${picker.value}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.override) {
+                        const ov = data.override;
+                        const s  = new Date(ov.start_date + 'T00:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric'});
+                        const e  = new Date(ov.end_date   + 'T00:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+                        let msg = `Capacity override active: max <strong>${ov.max_capacity} dogs</strong> (${s} – ${e})`;
+                        if (ov.note) msg += ` &mdash; <em>${ov.note}</em>`;
+                        document.getElementById('override-banner-text').innerHTML = msg;
+                        document.getElementById('override-banner').classList.remove('d-none');
+                    }
+                });
+        }
+    })
+    .catch(() => { this.disabled = false; errEl.textContent = 'Network error.'; errEl.classList.remove('d-none'); });
+});
 </script>
 {% endblock %}

@@ -1045,6 +1045,22 @@ class KennelSlot(db.Model):
         return f'<KennelSlot {self.display_label}>'
 
 
+class CapacityOverride(db.Model):
+    """Date-range boarding capacity cap. Overrides the default (total active slots)."""
+    __tablename__ = 'capacity_override'
+
+    id           = db.Column(db.Integer, primary_key=True)
+    start_date   = db.Column(db.Date, nullable=False)
+    end_date     = db.Column(db.Date, nullable=False)
+    max_capacity = db.Column(db.Integer, nullable=False)
+    note         = db.Column(db.String(255), nullable=True)
+    created_by   = db.Column(db.String(100), nullable=True)
+    created_at   = db.Column(db.DateTime, default=datetime.now)
+
+    def __repr__(self):
+        return f'<CapacityOverride {self.start_date}–{self.end_date} max={self.max_capacity}>'
+
+
 class FacilitySetting(db.Model):
     """Key/value store for facility-wide configuration."""
     __tablename__ = 'facility_setting'
