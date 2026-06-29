@@ -681,14 +681,20 @@ async function loadEditKennelSlots() {
 <script>
 (function () {
     const petId   = {{ booking.pet.id }};
-    const modal   = new bootstrap.Modal(document.getElementById('staffAlertModal'));
     const input   = document.getElementById('staffAlertInput');
     const counter = document.getElementById('staffAlertCount');
     const saveBtn = document.getElementById('staffAlertSaveBtn');
 
+    // Lazy-init: Bootstrap JS loads after this block, so don't instantiate at parse time
+    let _modal = null;
+    function getModal() {
+        if (!_modal) _modal = new bootstrap.Modal(document.getElementById('staffAlertModal'));
+        return _modal;
+    }
+
     function openStaffAlertEdit() {
         if (input && counter) counter.textContent = (input.value || '').length;
-        modal.show();
+        getModal().show();
     }
     window.openStaffAlertEdit = openStaffAlertEdit;
 
@@ -712,7 +718,7 @@ async function loadEditKennelSlots() {
             .then(r => r.json())
             .then(data => {
                 if (data.ok) {
-                    modal.hide();
+                    getModal().hide();
                     // Update banner without full page reload
                     const banner = document.getElementById('staffAlertBanner');
                     const textEl = document.getElementById('staffAlertText');
