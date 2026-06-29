@@ -1797,6 +1797,46 @@ def ops_dashboard():
         else:
             day_notes.append(n)
 
+    # ── Actionable alerts ─────────────────────────────────────────────────────
+
+    # 1. Pets checking out today with no invoice sent (payment_id is null)
+    uninvoiced_checkouts = Boarding.query.filter(
+        Boarding.check_out_date == real_today,
+        Boarding.status.in_(['active', 'completed']),
+        Boarding.payment_id == None,
+    ).order_by(Boarding.check_out_date.asc()).all()
+
+    # 2. Vaccine expirations within 30 days (not already expired)
+    from app.models import VaccinationRecord as _VR
+    from datetime import timedelta as _td
+    _thirty = real_today + _td(days=30)
+    vacc_expiring_soon = _VR.query.filter(
+        _VR.expiration_date >= real_today,
+        _VR.expiration_date <= _thirty,
+    ).order_by(_VR.expiration_date.asc()).all()
+
+    # 3. Daycare sessions floating 14+ days unpaid (checked out, not waived, not paid)
+    _cutoff = datetime.combine(real_today - _td(days=14), datetime.min.time())
+    floating_daycare = DaycareAttendance.query.filter(
+        DaycareAttendance.check_out_time != None,
+        DaycareAttendance.payment_id == None,
+        DaycareAttendance.waived != True,
+        DaycareAttendance.check_in_time <= _cutoff,
+    ).order_by(DaycareAttendance.check_in_time.asc()).all()
+
+    # 4. Pending boarding approval requests (new + needs re-approval)
+    from app.models import Appointment as _Appt, ServiceType as _ST
+    _boarding_svc = _ST.query.filter(_ST.name.ilike('%boarding%')).first()
+    pending_approvals = []
+    if _boarding_svc:
+        pending_approvals = _Appt.query.filter(
+            _Appt.service_type_id == _boarding_svc.id,
+            db.or_(
+                _Appt.status == 'pending',
+                db.and_(_Appt.status == 'confirmed', _Appt.needs_reapproval == True),
+            )
+        ).order_by(_Appt.appointment_date.asc()).all()
+
     # ── All pets (walk-in modal) ──────────────────────────────────────────────
     all_pets = (Pet.query.join(User, Pet.user_id == User.id)
                 .filter(User.is_active == True)
@@ -1835,7 +1875,11 @@ def ops_dashboard():
                            all_pets=all_pets,
                            pending_requests=pending_requests,
                            req_pets_json=req_pets_json,
-                           req_days_json=req_days_json)
+                           req_days_json=req_days_json,
+                           uninvoiced_checkouts=uninvoiced_checkouts,
+                           vacc_expiring_soon=vacc_expiring_soon,
+                           floating_daycare=floating_daycare,
+                           pending_approvals=pending_approvals)
 
 
 # ── Daycare walk-in ───────────────────────────────────────────────────────────
@@ -2218,8 +2262,9 @@ def complete_boarding(booking_id):
         audit('boarding.completed', 'boarding', booking.id, booking.pet.name,
               f'Boarding completed for {booking.pet.name} by {current_user.first_name} {current_user.last_name}')
     except Exception: pass
-    flash(f'{booking.pet.name}\'s boarding has been marked as completed.', 'success')
-    return redirect(url_for('admin.boarding_dashboard'))
+    flash(f'{booking.pet.name}\'s boarding is complete — invoice is ready to send.', 'success')
+    return redirect(url_for('admin.customer_invoice',
+                            customer_id=booking.user_id, type='boarding'))
 
 @bp.route('/boarding/<int:booking_id>/cancel', methods=['POST'])
 @login_required
@@ -4070,7 +4115,20 @@ def mark_invoice_paid(customer_id):
               f'Customer #{customer_id}',
               f'{invoice_type.capitalize()} invoice ${total:.2f} paid — recorded by {current_user.first_name} {current_user.last_name}')
     except Exception: pass
-    flash(f'{invoice_type.capitalize()} invoice marked as paid — ${total:.2f} recorded.', 'success')
+
+    # Send payment receipt SMS to customer
+    try:
+        from app.sms_service import _send as _sms
+        _receipt_body = (
+            f'Hi {customer.first_name}! Your {invoice_type} payment of ${total:.2f} '
+            f'has been received. Thank you for choosing Ruff Life Retreat! '
+            f'Questions? Call (912) 648-2295 or visit rufflife.app.'
+        )
+        _sms(customer.phone, _receipt_body, user_id=customer.id)
+    except Exception as _sms_err:
+        current_app.logger.error(f'Receipt SMS failed for customer {customer_id}: {_sms_err}')
+
+    flash(f'{invoice_type.capitalize()} invoice marked as paid — ${total:.2f} recorded. Receipt SMS sent.', 'success')
     return redirect(url_for('admin.customer_detail', customer_id=customer_id))
 
 
@@ -4754,6 +4812,21 @@ def sms_delete_unknown(msg_id):
 # ============================================================
 # PET DETAIL + VACCINATION MANAGEMENT
 # ============================================================
+
+@bp.route('/pet/<int:pet_id>/staff-alert', methods=['POST'])
+@login_required
+@admin_required
+def pet_staff_alert(pet_id):
+    """AJAX: save or clear a pet's staff_alert note."""
+    from app.models import Pet
+    from flask import request as _req
+    pet = Pet.query.get_or_404(pet_id)
+    data = _req.get_json(silent=True) or {}
+    note = (data.get('staff_alert') or '').strip()[:255]
+    pet.staff_alert = note if note else None
+    db.session.commit()
+    return {'ok': True, 'staff_alert': pet.staff_alert}
+
 
 @bp.route('/pets/<int:pet_id>/detail')
 @login_required
@@ -6689,6 +6762,7 @@ def kennel_board():
             'check_out':      b.check_out_date.isoformat(),
             'check_in_time':  b.check_in_time  or '—',
             'check_out_time': b.check_out_time or '—',
+            'staff_alert':    b.pet.staff_alert if b.pet else None,
         })
 
     suites  = []

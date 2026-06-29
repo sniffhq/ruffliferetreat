@@ -116,6 +116,10 @@ class Pet(db.Model):
     vacc_alert_ack_at       = db.Column(db.DateTime, nullable=True)
     vacc_alert_ack_by       = db.Column(db.String(100), nullable=True)
 
+    # Persistent staff alert — shown as a warning banner on boarding detail and kennel card.
+    # Internal only; not visible to customers.
+    staff_alert = db.Column(db.String(255), nullable=True)
+
     @property
     def tags_list(self):
         """Return tags as a sorted list, empty list if none."""

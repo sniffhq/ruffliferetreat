@@ -9,6 +9,29 @@
         </a>
     </div>
 
+    {% if booking.pet.staff_alert %}
+    <!-- Staff Alert Banner -->
+    <div class="alert alert-danger d-flex align-items-start gap-3 mb-4 py-3" role="alert"
+         id="staffAlertBanner" style="border-left: 5px solid #dc3545;">
+        <i class="fas fa-exclamation-triangle fa-lg mt-1 flex-shrink-0"></i>
+        <div class="flex-grow-1">
+            <strong class="d-block mb-1">Staff Alert — {{ booking.pet.name }}</strong>
+            <span id="staffAlertText">{{ booking.pet.staff_alert }}</span>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-danger ms-2 flex-shrink-0"
+                onclick="openStaffAlertEdit()" title="Edit alert">
+            <i class="fas fa-pencil-alt"></i>
+        </button>
+    </div>
+    {% else %}
+    <div class="mb-3">
+        <button type="button" class="btn btn-sm btn-outline-secondary"
+                onclick="openStaffAlertEdit()">
+            <i class="fas fa-plus me-1"></i>Add Staff Alert for {{ booking.pet.name }}
+        </button>
+    </div>
+    {% endif %}
+
     <!-- Pet Information Card -->
     <div class="row mb-4">
         <div class="col-md-8">
@@ -315,8 +338,9 @@
                 <div class="card-body">
                     {% if booking.status == 'active' %}
                     <form method="POST" action="{{ url_for('admin.complete_boarding', booking_id=booking.id) }}" class="mb-2">
-                        <button type="submit" class="btn btn-success w-100" onclick="return confirm('Mark this booking as completed?');">
-                            <i class="fas fa-check-circle"></i> Complete Booking
+                        <button type="submit" class="btn btn-success w-100"
+                                onclick="return confirm('Check out {{ booking.pet.name }}? You\'ll be taken to the invoice page to send the bill.');">
+                            <i class="fas fa-sign-out-alt me-1"></i>Check Out &amp; Go to Invoice
                         </button>
                     </form>
                     
@@ -624,5 +648,95 @@ async function loadEditKennelSlots() {
     </div>
 </div>
 {% endif %}
+
+<!-- Staff Alert Edit Modal -->
+<div class="modal fade" id="staffAlertModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Staff Alert — {{ booking.pet.name }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-2">
+                    This note is internal only and will appear as a red banner on every boarding detail page and on the kennel board card for {{ booking.pet.name }}.
+                </p>
+                <textarea id="staffAlertInput" class="form-control" rows="3"
+                          placeholder="e.g. Requires anxiety medication at noon. Cage aggressive — do not house near small dogs."
+                          maxlength="255">{{ booking.pet.staff_alert or '' }}</textarea>
+                <div class="form-text text-end"><span id="staffAlertCount">0</span>/255</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="staffAlertSaveBtn">
+                    <i class="fas fa-save me-1"></i>Save Alert
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const petId   = {{ booking.pet.id }};
+    const modal   = new bootstrap.Modal(document.getElementById('staffAlertModal'));
+    const input   = document.getElementById('staffAlertInput');
+    const counter = document.getElementById('staffAlertCount');
+    const saveBtn = document.getElementById('staffAlertSaveBtn');
+
+    function openStaffAlertEdit() {
+        if (input && counter) counter.textContent = (input.value || '').length;
+        modal.show();
+    }
+    window.openStaffAlertEdit = openStaffAlertEdit;
+
+    if (input) {
+        input.addEventListener('input', () => {
+            counter.textContent = input.value.length;
+        });
+    }
+
+    if (saveBtn) {
+        saveBtn.addEventListener('click', function () {
+            const note = input ? input.value.trim() : '';
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving…';
+
+            fetch(`/admin/pet/${petId}/staff-alert`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ staff_alert: note })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok) {
+                    modal.hide();
+                    // Update banner without full page reload
+                    const banner = document.getElementById('staffAlertBanner');
+                    const textEl = document.getElementById('staffAlertText');
+                    if (note) {
+                        if (banner && textEl) {
+                            textEl.textContent = note;
+                        } else {
+                            location.reload();
+                        }
+                    } else {
+                        location.reload();
+                    }
+                } else {
+                    alert('Failed to save: ' + (data.error || 'unknown error'));
+                }
+            })
+            .catch(() => alert('Network error — please try again.'))
+            .finally(() => {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i class="fas fa-save me-1"></i>Save Alert';
+            });
+        });
+    }
+})();
+</script>
 
 {% endblock %}

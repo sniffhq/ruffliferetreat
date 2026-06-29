@@ -233,6 +233,9 @@
             });
     }
 
+    /* ── Drag state ───────────────────────────────────── */
+    let _draggedBooking = null;
+
     /* ── Render board ─────────────────────────────────── */
     function renderBoard(data) {
         let html = '';
@@ -242,10 +245,93 @@
 
         boardEl.innerHTML = html;
 
-        // Attach reassign button events
+        // Reassign button events
         boardEl.querySelectorAll('.btn-reassign').forEach(btn => {
             btn.addEventListener('click', () => openReassign(btn.dataset));
         });
+
+        // ── Drag-and-drop ───────────────────────────────
+        boardEl.querySelectorAll('.draggable-booking').forEach(el => {
+            el.addEventListener('dragstart', e => {
+                _draggedBooking = el.dataset;
+                e.dataTransfer.effectAllowed = 'move';
+                el.style.opacity = '0.45';
+            });
+            el.addEventListener('dragend', () => {
+                _draggedBooking = null;
+                el.style.opacity = '';
+                boardEl.querySelectorAll('.kennel-drop-zone').forEach(z => {
+                    z.style.outline = '';
+                    z.style.background = '';
+                });
+            });
+        });
+
+        boardEl.querySelectorAll('.kennel-drop-zone').forEach(zone => {
+            zone.addEventListener('dragover', e => {
+                if (!_draggedBooking) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                zone.style.outline = '2px dashed #ffc107';
+                zone.style.background = '#fffbeb';
+            });
+            zone.addEventListener('dragleave', () => {
+                zone.style.outline = '';
+                zone.style.background = '';
+            });
+            zone.addEventListener('drop', e => {
+                e.preventDefault();
+                zone.style.outline = '';
+                zone.style.background = '';
+                if (!_draggedBooking) return;
+
+                const destType   = zone.dataset.kennelType;
+                const destNumber = zone.dataset.kennelNumber;
+
+                // Same slot — no-op
+                if (_draggedBooking.kennelType === destType &&
+                    _draggedBooking.kennelNumber === destNumber) return;
+
+                const bid = _draggedBooking.bookingId;
+                let destBookings = [];
+                try { destBookings = JSON.parse(zone.dataset.bookings || '[]'); } catch (_) {}
+
+                if (destBookings.length > 0) {
+                    // Show conflict modal
+                    const label = destType === 'suite' ? 'Suite' : 'Kennel';
+                    document.getElementById('conflictModalIntro').textContent =
+                        `${label} #${destNumber} already has the following pet(s) assigned:`;
+                    document.getElementById('conflictModalList').innerHTML =
+                        destBookings.map(o => {
+                            const ci = o.check_in  ? o.check_in.slice(5).replace('-','/')  : '?';
+                            const co = o.check_out ? o.check_out.slice(5).replace('-','/') : '?';
+                            return `<li><strong>${escHtml(o.pet_name)}</strong> &mdash; ${ci} &ndash; ${co}</li>`;
+                        }).join('');
+                    const conflMod = new bootstrap.Modal(document.getElementById('kennelConflictModal'));
+                    const proceedBtn = document.getElementById('conflictProceedBtn');
+                    const _onProceed = function () {
+                        conflMod.hide();
+                        proceedBtn.removeEventListener('click', _onProceed);
+                        _submitReassignDirect(bid, destType, destNumber);
+                    };
+                    proceedBtn.addEventListener('click', _onProceed);
+                    conflMod.show();
+                } else {
+                    _submitReassignDirect(bid, destType, destNumber);
+                }
+            });
+        });
+    }
+
+    /* Submit a reassign by posting the reassign form directly (bypasses submit-event conflict check) */
+    function _submitReassignDirect(bookingId, destType, destNumber) {
+        const form = document.getElementById('reassignForm');
+        form.action = `/admin/boarding/${bookingId}/assign-kennel`;
+        document.getElementById('reassignKennelType').value   = destType;
+        document.getElementById('reassignKennelNumber').value = destNumber;
+        document.getElementById('reassignReturnDate').value   = dateInput.value;
+        document.getElementById('confirmShareInput').value    = '0';
+        form.submit();   // native submit — bypasses the JS submit listener
     }
 
     function renderSection(title, slots, type, color, icon) {
@@ -296,18 +382,22 @@
             bodyHtml   = bookingRow(slot, slot.bookings[0]);
         }
 
-        const label = slot.kennel_type === 'suite' ? 'Suite' : 'Kennel';
+        const label        = slot.kennel_type === 'suite' ? 'Suite' : 'Kennel';
+        const bookingsJson = JSON.stringify(slot.bookings).replace(/'/g, '&#39;');
 
         return `
-        <div class="col-6 col-md-4 col-lg-3 col-xl-2">
-            <div class="card shadow-sm h-100" style="font-size:0.82rem; min-height:90px;">
+        <div class="col-6 col-sm-6 col-md-4 col-lg-3 col-xl-2">
+            <div class="card shadow-sm h-100" style="font-size:0.82rem; min-height:100px;">
                 <div class="card-header py-1 px-2 d-flex justify-content-between align-items-center"
                      style="background:${headerBg}; color:#fff;">
                     <span class="fw-bold">${label} #${escHtml(slot.kennel_number)}</span>
                     <span style="font-size:0.7rem;">${headerText}</span>
                 </div>
                 ${notesBadge ? `<div class="px-2 pt-1">${notesBadge}</div>` : ''}
-                <div class="card-body p-2">
+                <div class="card-body p-2 kennel-drop-zone"
+                     data-kennel-type="${escHtml(slot.kennel_type)}"
+                     data-kennel-number="${escHtml(slot.kennel_number)}"
+                     data-bookings='${bookingsJson}'>
                     ${bodyHtml}
                 </div>
             </div>
@@ -315,14 +405,30 @@
     }
 
     function bookingRow(slot, b) {
-        const dateLabel = `${formatDate(b.check_in)} – ${formatDate(b.check_out)}`;
+        const dateLabel   = `${formatDate(b.check_in)} – ${formatDate(b.check_out)}`;
+        const alertHtml   = b.staff_alert
+            ? `<div class="mt-1 px-1 py-1 rounded" style="background:#fff3cd;border-left:3px solid #dc3545;font-size:0.7rem;color:#721c24;">
+                   <i class="fas fa-exclamation-triangle me-1"></i>${escHtml(b.staff_alert)}
+               </div>`
+            : '';
         return `
-        <div>
+        <div class="draggable-booking" draggable="true" style="cursor:grab;"
+             data-booking-id="${b.booking_id}"
+             data-pet-name="${escHtml(b.pet_name)}"
+             data-owner-name="${escHtml(b.owner_name)}"
+             data-booking-number="${escHtml(b.booking_number)}"
+             data-check-in="${b.check_in}"
+             data-check-out="${b.check_out}"
+             data-check-in-time="${escHtml(b.check_in_time)}"
+             data-check-out-time="${escHtml(b.check_out_time)}"
+             data-kennel-type="${escHtml(slot.kennel_type)}"
+             data-kennel-number="${escHtml(slot.kennel_number)}">
             <div class="fw-bold text-truncate" title="${escHtml(b.pet_name)}">${escHtml(b.pet_name)}</div>
             <div class="text-muted text-truncate" title="${escHtml(b.owner_name)}">
                 <i class="fas fa-user fa-xs me-1"></i>${escHtml(b.owner_name)}
             </div>
             <div class="text-muted" style="font-size:0.75rem;">${dateLabel}</div>
+            ${alertHtml}
             <div class="d-flex align-items-center gap-1 mt-1">
                 <span class="badge bg-secondary" style="font-size:0.65rem;">${escHtml(b.booking_number)}</span>
                 <button class="btn btn-xs btn-outline-warning btn-reassign py-0 px-1 ms-auto"
@@ -653,4 +759,36 @@
     loadBoard();
 })();
 </script>
+
+<style>
+/* ── Drag affordance ───────────────────────────────────── */
+.draggable-booking:active { cursor: grabbing; }
+.kennel-drop-zone { transition: background 0.15s, outline 0.15s; border-radius: 4px; }
+
+/* ── Mobile touch targets ──────────────────────────────── */
+@media (max-width: 575.98px) {
+    .btn-reassign {
+        font-size: 0.78rem !important;
+        padding: 3px 8px !important;
+        min-height: 30px;
+    }
+    #boardDate { max-width: 140px !important; }
+    #boardContainer .card-header { font-size: 0.8rem; }
+    #boardContainer .card-body   { font-size: 0.78rem; }
+    /* Stack the date nav legend on very small screens */
+    #boardContainer .card { min-height: 110px; }
+}
+
+/* ── Drag hint tooltip on cards (desktop only) ─────────── */
+@media (hover: hover) {
+    .draggable-booking::before {
+        content: '⠿';
+        color: #adb5bd;
+        font-size: 0.75rem;
+        float: right;
+        margin-left: 4px;
+        cursor: grab;
+    }
+}
+</style>
 {% endblock %}

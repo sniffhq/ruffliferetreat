@@ -101,6 +101,116 @@
         </div>
     </div>
 
+    <!-- ── Action Items ───────────────────────────────────────────────────── -->
+    {% set total_actions = (uninvoiced_checkouts|length) + (vacc_expiring_soon|length) + (floating_daycare|length) + (pending_approvals|length) %}
+    {% if total_actions > 0 %}
+    <div class="card shadow-sm mb-4 border-danger">
+        <div class="card-header d-flex align-items-center justify-content-between py-2" style="background:#fef2f2;">
+            <h6 class="mb-0 fw-bold text-danger">
+                <i class="fas fa-bell me-2"></i>Action Required
+            </h6>
+            <span class="badge bg-danger">{{ total_actions }}</span>
+        </div>
+        <div class="card-body p-0">
+
+            {% if uninvoiced_checkouts %}
+            <div class="border-bottom px-3 py-2">
+                <div class="fw-semibold small text-danger mb-1">
+                    <i class="fas fa-file-invoice-dollar me-1"></i>
+                    {{ uninvoiced_checkouts|length }} pet{{ 's' if uninvoiced_checkouts|length != 1 }} checking out today with no invoice sent
+                </div>
+                {% for b in uninvoiced_checkouts %}
+                <div class="d-flex justify-content-between align-items-center py-1 border-bottom border-light">
+                    <span class="small">
+                        <strong>{{ b.pet.name }}</strong>
+                        <span class="text-muted ms-1">— {{ b.pet.owner.first_name }} {{ b.pet.owner.last_name }}</span>
+                    </span>
+                    <a href="{{ url_for('admin.customer_invoice', customer_id=b.user_id, type='boarding') }}"
+                       class="btn btn-xs btn-danger py-0 px-2" style="font-size:0.72rem;">
+                        Send Invoice
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if pending_approvals %}
+            <div class="border-bottom px-3 py-2">
+                <div class="fw-semibold small text-danger mb-1">
+                    <i class="fas fa-clock me-1"></i>
+                    {{ pending_approvals|length }} boarding reservation{{ 's' if pending_approvals|length != 1 }} awaiting approval
+                </div>
+                {% for appt in pending_approvals %}
+                <div class="d-flex justify-content-between align-items-center py-1 border-bottom border-light">
+                    <span class="small">
+                        <strong>{{ appt.pet.name if appt.pet else '—' }}</strong>
+                        <span class="text-muted ms-1">{{ appt.appointment_date.strftime('%b %d') }}
+                        {% if appt.needs_reapproval %}<span class="badge ms-1" style="background:#fef3c7;color:#92400e;font-size:0.65rem;">Modified</span>{% endif %}
+                        </span>
+                    </span>
+                    <a href="{{ url_for('admin.boarding_dashboard') }}"
+                       class="btn btn-xs btn-warning text-dark py-0 px-2" style="font-size:0.72rem;">
+                        Review
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if floating_daycare %}
+            <div class="border-bottom px-3 py-2">
+                <div class="fw-semibold small text-danger mb-1">
+                    <i class="fas fa-sun me-1"></i>
+                    {{ floating_daycare|length }} daycare session{{ 's' if floating_daycare|length != 1 }} unpaid for 14+ days
+                </div>
+                {% set seen_customers = [] %}
+                {% for att in floating_daycare %}
+                    {% set pet = att.enrollment.pet if att.enrollment else None %}
+                    {% set owner = pet.owner if pet else None %}
+                    {% if owner and owner.id not in seen_customers %}
+                        {% set _ = seen_customers.append(owner.id) %}
+                        <div class="d-flex justify-content-between align-items-center py-1 border-bottom border-light">
+                            <span class="small">
+                                <strong>{{ owner.first_name }} {{ owner.last_name }}</strong>
+                                <span class="text-muted ms-1">— {{ pet.name }}</span>
+                            </span>
+                            <a href="{{ url_for('admin.customer_invoice', customer_id=owner.id, type='daycare') }}"
+                               class="btn btn-xs btn-outline-danger py-0 px-2" style="font-size:0.72rem;">
+                                Invoice
+                            </a>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if vacc_expiring_soon %}
+            <div class="px-3 py-2">
+                <div class="fw-semibold small text-danger mb-1">
+                    <i class="fas fa-syringe me-1"></i>
+                    {{ vacc_expiring_soon|length }} vaccine{{ 's' if vacc_expiring_soon|length != 1 }} expiring within 30 days
+                </div>
+                {% for rec in vacc_expiring_soon %}
+                <div class="d-flex justify-content-between align-items-center py-1 border-bottom border-light">
+                    <span class="small">
+                        <strong>{{ rec.pet.name if rec.pet else '—' }}</strong>
+                        <span class="text-muted ms-1">{{ rec.vaccine_name }} — expires {{ rec.expiration_date.strftime('%b %d') }}</span>
+                    </span>
+                    {% if rec.pet %}
+                    <a href="{{ url_for('admin.pet_detail', pet_id=rec.pet.id) }}"
+                       class="btn btn-xs btn-outline-secondary py-0 px-2" style="font-size:0.72rem;">
+                        View Pet
+                    </a>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Pin day note -->
     <div class="mb-3 d-flex justify-content-end">
         <button class="btn btn-sm btn-outline-secondary" onclick="openDayNoteModal()">

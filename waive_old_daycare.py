@@ -13,7 +13,7 @@ will be marked as waived so they no longer show on invoices.
 from datetime import datetime, date
 
 # ── EDIT THIS ─────────────────────────────────────────────────────────────────
-CUTOFF_DATE = date(2026, 1, 1)   # sessions before this date will be waived
+CUTOFF_DATE = date(2026, 5, 1)   # sessions before this date will be waived
 STAFF_NAME  = 'System (historical write-off)'
 # ─────────────────────────────────────────────────────────────────────────────
 
