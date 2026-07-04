@@ -175,9 +175,6 @@
                                 </label>
                             </div>
                         </div>
-                        <div id="free-bath-notice" class="alert alert-success py-2 mt-2 mb-0" style="display:none;font-size:0.85rem;">
-                            <i class="fas fa-gift me-2"></i><strong>7+ night stay bonus:</strong> A free Spa Bath is included!
-                        </div>
                     </div>
 
                     <!-- Notes -->
@@ -286,12 +283,9 @@ function updatePricing() {
     var petCount  = getSelectedPetCount();
     var nights    = getNights();
     var days      = getBillableDays();
-    var freeBath  = nights >= 7;
     var summary   = document.getElementById('pricing-summary');
     var breakdown = document.getElementById('pricing-breakdown');
     var totalEl   = document.getElementById('pricing-total');
-    var freeNotice = document.getElementById('free-bath-notice');
-    if (freeNotice) freeNotice.style.display = freeBath ? 'block' : 'none';
     if (petCount === 0 || days === 0) { summary.style.display = 'none'; return; }
 
     var baseTotal = (40 + Math.max(0, petCount - 1) * 25) * days;
@@ -299,16 +293,6 @@ function updatePricing() {
 
     document.querySelectorAll('.addon-checkbox:checked').forEach(function(cb) {
         var price = ADDON_PRICES[cb.value] || 0;
-        if (freeBath && cb.value === 'spa_bath') {
-            addonLines.push('Spa Bath x' + petCount + ' — <span class="text-success fw-bold">FREE</span>');
-            return;
-        }
-        if (freeBath && cb.value === 'spa_bath_nails') {
-            var cost = 5 * petCount;
-            addonTotal += cost;
-            addonLines.push('Spa Bath + Nail Trim x' + petCount + ' — $' + cost + ' <span class="text-success small">(bath included free)</span>');
-            return;
-        }
         var cost = price * petCount;
         addonTotal += cost;
         addonLines.push(ADDON_LABELS[cb.value] + ' x' + petCount + ' — $' + cost);
