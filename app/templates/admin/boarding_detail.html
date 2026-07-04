@@ -307,28 +307,58 @@
             </div>
             {% endif %}
 
-            <!-- Add-Ons -->
-            {% if addons %}
-            <div class="card mb-4 border-warning">
-                <div class="card-header text-dark" style="background:#FFC107;">
+            <!-- Add-Ons (editable) -->
+            <div class="card mb-4 border-warning" id="addons-card">
+                <div class="card-header text-dark d-flex align-items-center justify-content-between"
+                     style="background:#FFC107;">
                     <h5 class="mb-0">
                         <i class="fas fa-bath me-2"></i>Grooming Add-Ons
                     </h5>
+                    <span id="addon-saved-badge" class="badge bg-success d-none">Saved</span>
                 </div>
                 <div class="card-body">
-                    {% for addon in addons %}
-                    <div class="d-flex align-items-center gap-2 {% if not loop.last %}mb-2{% endif %}">
-                        <i class="fas fa-check-circle text-warning"></i>
-                        <span class="fw-bold">{{ addon }}</span>
+                    {% set has_sbn = 'Spa Bath + Nail Trim' in (addons | join(' ')) %}
+                    {% set has_sb  = (not has_sbn) and 'Spa Bath' in (addons | join(' ')) %}
+                    {% set has_nt  = (not has_sbn) and 'Nail Trim' in (addons | join(' ')) %}
+
+                    <div class="d-flex flex-column gap-2 mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input addon-cb" type="checkbox"
+                                   id="addon_spa_bath_nails" value="spa_bath_nails"
+                                   {% if has_sbn %}checked{% endif %}>
+                            <label class="form-check-label fw-semibold" for="addon_spa_bath_nails">
+                                Spa Bath + Nail Trim
+                                <span class="text-muted fw-normal">&mdash; ${{ '%.0f'|format(rates.addon_spa_bath_nails) }}</span>
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input addon-cb" type="checkbox"
+                                   id="addon_spa_bath" value="spa_bath"
+                                   {% if has_sb %}checked{% endif %}>
+                            <label class="form-check-label fw-semibold" for="addon_spa_bath">
+                                Spa Bath
+                                <span class="text-muted fw-normal">&mdash; ${{ '%.0f'|format(rates.addon_spa_bath) }}</span>
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input addon-cb" type="checkbox"
+                                   id="addon_nail_trim" value="nail_trim"
+                                   {% if has_nt %}checked{% endif %}>
+                            <label class="form-check-label fw-semibold" for="addon_nail_trim">
+                                Nail Trim
+                                <span class="text-muted fw-normal">&mdash; ${{ '%.0f'|format(rates.addon_nail_trim) }}</span>
+                            </label>
+                        </div>
                     </div>
-                    {% endfor %}
-                    <div class="text-muted small mt-2">
+
+                    <div class="text-muted small mb-3">
                         <i class="fas fa-info-circle me-1"></i>
-                        Perform on the last day of stay before checkout.
+                        Perform on the last day of stay before checkout. Changes save automatically and appear on the invoice.
                     </div>
+
+                    <div id="addon-error" class="text-danger small d-none"></div>
                 </div>
             </div>
-            {% endif %}
 
             <!-- Actions -->
             <div class="card">
@@ -742,6 +772,61 @@ async function loadEditKennelSlots() {
             });
         });
     }
+})();
+
+// ── Grooming Add-Ons ─────────────────────────────────────
+(function () {
+    const bookingId = {{ booking.id }};
+    const checkboxes = document.querySelectorAll('.addon-cb');
+    const savedBadge = document.getElementById('addon-saved-badge');
+    const errEl      = document.getElementById('addon-error');
+    let _debounce    = null;
+
+    function saveAddons() {
+        const selected = Array.from(checkboxes)
+            .filter(cb => cb.checked)
+            .map(cb => cb.value);
+
+        // Mutual exclusivity: if spa_bath_nails is checked, uncheck the others
+        if (selected.includes('spa_bath_nails')) {
+            checkboxes.forEach(cb => {
+                if (cb.value !== 'spa_bath_nails') cb.checked = false;
+            });
+        }
+        // Re-read after adjustment
+        const final = Array.from(checkboxes)
+            .filter(cb => cb.checked)
+            .map(cb => cb.value);
+
+        if (errEl) errEl.classList.add('d-none');
+
+        fetch(`/admin/boarding/${bookingId}/addons`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ addons: final }),
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                if (savedBadge) {
+                    savedBadge.classList.remove('d-none');
+                    setTimeout(() => savedBadge.classList.add('d-none'), 2000);
+                }
+            } else {
+                if (errEl) { errEl.textContent = data.error || 'Error saving.'; errEl.classList.remove('d-none'); }
+            }
+        })
+        .catch(() => {
+            if (errEl) { errEl.textContent = 'Network error — please try again.'; errEl.classList.remove('d-none'); }
+        });
+    }
+
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', () => {
+            clearTimeout(_debounce);
+            _debounce = setTimeout(saveAddons, 300);
+        });
+    });
 })();
 </script>
 

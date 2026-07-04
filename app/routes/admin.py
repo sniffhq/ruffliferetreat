@@ -2370,23 +2370,24 @@ def boarding_detail(booking_id):
         flash('Booking details updated.', 'success')
         return redirect(url_for('admin.boarding_dashboard'))
 
-    # Parse add-ons from linked appointment notes
-    addons = []
-    try:
-        boarding_svc = ServiceType.query.filter(ServiceType.name.ilike('%boarding%')).first()
-        if boarding_svc:
-            from app.models import Appointment
-            appt = (Appointment.query
-                .filter_by(pet_id=booking.pet_id,
-                           user_id=booking.user_id,
-                           service_type_id=boarding_svc.id)
-                .order_by(Appointment.id.desc()).first())
-            if appt and appt.notes and 'Add-ons:' in appt.notes:
-                m = re.search(r'Add-ons:\s*(.+)', appt.notes)
-                if m:
-                    addons = [a.strip() for a in m.group(1).split(',')]
-    except Exception:
-        pass
+    # Parse add-ons — check special_notes first (staff-added), fall back to appointment notes (legacy)
+    addons, _ = _parse_addons_from_notes(booking.special_notes or '', structured_only=True)
+    if not addons:
+        try:
+            boarding_svc = ServiceType.query.filter(ServiceType.name.ilike('%boarding%')).first()
+            if boarding_svc:
+                from app.models import Appointment
+                appt = (Appointment.query
+                    .filter_by(pet_id=booking.pet_id,
+                               user_id=booking.user_id,
+                               service_type_id=boarding_svc.id)
+                    .order_by(Appointment.id.desc()).first())
+                if appt and appt.notes and 'Add-ons:' in appt.notes:
+                    m = re.search(r'Add-ons:\s*(.+)', appt.notes)
+                    if m:
+                        addons = [a.strip() for a in m.group(1).split(',')]
+        except Exception:
+            pass
 
     from datetime import date
     from app.rate_resolver import get_rates, get_pet_boarding_rate
@@ -2465,6 +2466,37 @@ def boarding_detail(booking_id):
     return render_template('admin/boarding_detail.html',
         booking=booking, addons=addons, today=today_d,
         invoice_preview=invoice_preview, rates=rates, customer=customer)
+
+
+@bp.route('/boarding/<int:booking_id>/addons', methods=['POST'])
+@login_required
+@admin_required
+def update_boarding_addons(booking_id):
+    """AJAX: update the add-ons line in Boarding.special_notes."""
+    import re as _re
+    booking = Boarding.query.get_or_404(booking_id)
+    data = request.get_json(silent=True) or {}
+    selected = data.get('addons', [])   # list of keys: 'spa_bath_nails', 'spa_bath', 'nail_trim'
+
+    ADDON_MAP = {
+        'spa_bath_nails': 'Spa Bath + Nail Trim ($30)',
+        'spa_bath':       'Spa Bath ($20)',
+        'nail_trim':      'Nail Trim ($15)',
+    }
+    # Only accept known keys; build label list
+    labels = [ADDON_MAP[k] for k in selected if k in ADDON_MAP]
+
+    # Strip any existing "Add-ons:" line from special_notes, preserving everything else
+    notes = booking.special_notes or ''
+    notes = _re.sub(r'\n?Add-ons:.*', '', notes).rstrip()
+
+    if labels:
+        addon_str = 'Add-ons: ' + ', '.join(labels)
+        notes = (notes + '\n' + addon_str).lstrip('\n')
+
+    booking.special_notes = notes or None
+    db.session.commit()
+    return {'ok': True, 'addons': labels}
 
 
 @bp.route('/boarding/<int:booking_id>/update-details', methods=['POST'])
