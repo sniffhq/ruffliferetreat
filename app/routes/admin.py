@@ -3402,14 +3402,17 @@ def customer_invoice(customer_id):
                         b.special_notes or '', structured_only=True
                     )
                     if not addons:
-                        # Older bookings stored add-ons only in the appointment notes;
-                        # freetext fallback is acceptable there (legacy data).
+                        # Older bookings stored add-ons only in the appointment notes.
+                        # Date-gate: only read notes from an appointment whose date
+                        # matches THIS boarding's check-in date — prevents old add-ons
+                        # from a previous stay carrying over to a new invoice.
                         from app.models import Appointment as _Appt, ServiceType as _ST
                         _svc = _ST.query.filter(_ST.name.ilike('%boarding%')).first()
                         if _svc:
                             _a = _Appt.query.filter_by(
                                 pet_id=pet.id, user_id=customer.id,
-                                service_type_id=_svc.id
+                                service_type_id=_svc.id,
+                                appointment_date=b.check_in_date,
                             ).order_by(_Appt.id.desc()).first()
                             if _a and _a.notes:
                                 addons, _ = _parse_addons_from_notes(_a.notes)
@@ -6575,6 +6578,13 @@ def approve_boarding_request(appt_id):
             'warning'
         )
 
+    # Copy add-ons from the appointment's notes into special_notes so they
+    # live with THIS boarding record (prevents carry-over to future stays).
+    appt_addons, _ = _parse_addons_from_notes(appt.notes or '', structured_only=True)
+    if appt_addons and 'Add-ons:' not in (special_notes or ''):
+        addon_line = 'Add-ons: ' + ', '.join(appt_addons)
+        special_notes = ((special_notes or '').rstrip() + '\n' + addon_line).lstrip('\n')
+
     # Create Boarding record
     booking = Boarding(
         pet_id          = appt.pet_id,
@@ -6583,7 +6593,7 @@ def approve_boarding_request(appt_id):
         check_in_time   = check_in_time,
         check_out_date  = check_out_date,
         check_out_time  = check_out_time,
-        special_notes   = special_notes,
+        special_notes   = special_notes or None,
         kennel_number   = kennel_number,
         kennel_type     = kennel_type,
         status          = 'active',

@@ -696,6 +696,7 @@ def book_appointment():
             base_notes  = request.form.get('notes', '').strip()
             full_notes  = (base_notes + addon_note).strip() or None
 
+            created_appts = []
             for pet_id in pet_ids:
                 appointment = Appointment(
                     user_id          = current_user.id,
@@ -707,8 +708,27 @@ def book_appointment():
                     notes            = full_notes
                 )
                 db.session.add(appointment)
+                created_appts.append((pet_id, appointment))
 
             db.session.commit()
+
+            # Audit log — one entry per pet
+            try:
+                for _pid, _appt in created_appts:
+                    _pet = Pet.query.get(_pid)
+                    _pet_name = _pet.name if _pet else f'Pet #{_pid}'
+                    _cout_str = f' → {checkout_date_str}' if checkout_date_str else ''
+                    _addon_str = f' | Add-ons: {", ".join(selected_addons)}' if selected_addons else ''
+                    audit(
+                        'boarding.requested',
+                        'appointment',
+                        _appt.id,
+                        f'{_pet_name} — {date_str}{_cout_str}',
+                        f'{current_user.first_name} {current_user.last_name} submitted a boarding request for {_pet_name} '
+                        f'({date_str}{_cout_str}){_addon_str}',
+                    )
+            except Exception:
+                pass
 
             pet_names = [Pet.query.get(pid).name for pid in pet_ids if Pet.query.get(pid)]
             if len(pet_names) > 1:
