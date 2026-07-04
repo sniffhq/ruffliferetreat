@@ -2490,11 +2490,13 @@ def update_boarding_addons(booking_id):
     notes = booking.special_notes or ''
     notes = _re.sub(r'\n?Add-ons:.*', '', notes).rstrip()
 
-    if labels:
-        addon_str = 'Add-ons: ' + ', '.join(labels)
-        notes = (notes + '\n' + addon_str).lstrip('\n')
+    # Always write the "Add-ons:" line — even when empty.
+    # An empty marker ("Add-ons: ") tells the parser add-ons were explicitly cleared
+    # and prevents it from falling back to old appointment notes on the next load.
+    addon_str = ('Add-ons: ' + ', '.join(labels)) if labels else 'Add-ons: '
+    notes = (notes + '\n' + addon_str).lstrip('\n')
 
-    booking.special_notes = notes or None
+    booking.special_notes = notes
     db.session.commit()
     return {'ok': True, 'addons': labels}
 
