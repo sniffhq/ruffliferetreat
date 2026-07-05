@@ -26,7 +26,14 @@ from flask import current_app
 
 
 def _cfg(key, default):
-    """Read a numeric value from app config with fallback."""
+    """Read a numeric value: FacilitySetting DB first, then app config fallback."""
+    try:
+        from app.settings_service import get_setting
+        db_val = get_setting(key.lower())
+        if db_val is not None:
+            return float(db_val)
+    except Exception:
+        pass
     try:
         val = current_app.config.get(key)
         return float(val) if val is not None else default

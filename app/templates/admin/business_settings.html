@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+{% block title %}Business Settings{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4" style="max-width:900px;">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <div>
+            <h3 class="mb-1"><i class="fas fa-cog me-2" style="color:#B07A8E;"></i>Business Settings</h3>
+            <div class="text-muted small">Manage your facility info, default pricing, and SMS notifications.</div>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ 'success' if category == 'success' else 'danger' if category == 'danger' else 'warning' }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('admin.business_settings') }}">
+
+        <!-- ── Business Info ───────────────────────────────────────────── -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header py-2 px-3" style="background:#1a1a2e;">
+                <strong class="text-white"><i class="fas fa-building me-2"></i>Business Info</strong>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small mb-1">Business Name</label>
+                        <input type="text" name="business_name" class="form-control"
+                               value="{{ settings.business_name }}" placeholder="Ruff Life Retreat">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small mb-1">Phone Number</label>
+                        <input type="text" name="business_phone" class="form-control"
+                               value="{{ settings.business_phone }}" placeholder="(912) 648-2295">
+                        <div class="form-text">Shown in payment receipt SMS messages.</div>
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label fw-bold small mb-1">Address</label>
+                        <input type="text" name="business_address" class="form-control"
+                               value="{{ settings.business_address }}" placeholder="123 Main St, City, GA 31401">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold small mb-1">Website Domain</label>
+                        <input type="text" name="business_domain" class="form-control"
+                               value="{{ settings.business_domain }}" placeholder="rufflife.app">
+                        <div class="form-text">Used in invoice and estimate SMS links.</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small mb-1">Zelle Payment Info</label>
+                        <input type="text" name="business_zelle" class="form-control"
+                               value="{{ settings.business_zelle }}" placeholder="e.g. payments@rufflife.app">
+                        <div class="form-text">Shown on invoices as a payment option.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Default Rates ──────────────────────────────────────────── -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header py-2 px-3" style="background:#1a1a2e;">
+                <strong class="text-white"><i class="fas fa-dollar-sign me-2"></i>Default Rates</strong>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">
+                    These are the facility-wide defaults. Individual customers and pets can still have
+                    custom rates set on their profile, which take priority.
+                    Changes take effect immediately — no server restart needed.
+                </p>
+                <div class="row g-3">
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label fw-bold small mb-1">
+                            <i class="fas fa-moon text-muted me-1"></i>Boarding — 1st pet
+                        </label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <input type="number" name="boarding_rate_primary" class="form-control"
+                                   step="0.01" min="0"
+                                   value="{{ '%.2f'|format(settings.boarding_rate_primary|float) }}">
+                            <span class="input-group-text">/ night</span>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label fw-bold small mb-1">
+                            <i class="fas fa-moon text-muted me-1"></i>Boarding — each additional
+                        </label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <input type="number" name="boarding_rate_additional" class="form-control"
+                                   step="0.01" min="0"
+                                   value="{{ '%.2f'|format(settings.boarding_rate_additional|float) }}">
+                            <span class="input-group-text">/ night</span>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label fw-bold small mb-1">
+                            <i class="fas fa-sun text-muted me-1"></i>Daycare — single day
+                        </label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <input type="number" name="daycare_rate_single" class="form-control"
+                                   step="0.01" min="0"
+                                   value="{{ '%.2f'|format(settings.daycare_rate_single|float) }}">
+                            <span class="input-group-text">/ day</span>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label fw-bold small mb-1">
+                            <i class="fas fa-sun text-muted me-1"></i>Daycare — multi-day
+                        </label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <input type="number" name="daycare_rate_multi" class="form-control"
+                                   step="0.01" min="0"
+                                   value="{{ '%.2f'|format(settings.daycare_rate_multi|float) }}">
+                            <span class="input-group-text">/ day</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Add-on Rates ───────────────────────────────────────────── -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header py-2 px-3" style="background:#1a1a2e;">
+                <strong class="text-white"><i class="fas fa-cut me-2"></i>Add-on Rates</strong>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-sm-6 col-md-4">
+                        <label class="form-label fw-bold small mb-1">Spa Bath + Nail Trim</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <input type="number" name="addon_spa_bath_nails" class="form-control"
+                                   step="0.01" min="0"
+                                   value="{{ '%.2f'|format(settings.addon_spa_bath_nails|float) }}">
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-md-4">
+                        <label class="form-label fw-bold small mb-1">Spa Bath Only</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <input type="number" name="addon_spa_bath" class="form-control"
+                                   step="0.01" min="0"
+                                   value="{{ '%.2f'|format(settings.addon_spa_bath|float) }}">
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-md-4">
+                        <label class="form-label fw-bold small mb-1">Nail Trim Only</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <input type="number" name="addon_nail_trim" class="form-control"
+                                   step="0.01" min="0"
+                                   value="{{ '%.2f'|format(settings.addon_nail_trim|float) }}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Kennel Capacity ────────────────────────────────────────── -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header py-2 px-3" style="background:#1a1a2e;">
+                <strong class="text-white"><i class="fas fa-bed me-2"></i>Kennel Capacity</strong>
+            </div>
+            <div class="card-body">
+                <div class="row g-3 align-items-center">
+                    <div class="col-sm-4 col-md-3">
+                        <label class="form-label fw-bold small mb-1">Max Dogs (total capacity)</label>
+                        <input type="number" name="kennel_capacity" class="form-control"
+                               min="1" max="500"
+                               value="{{ settings.kennel_capacity }}">
+                        <div class="form-text">Used for occupancy charts and capacity warnings.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── SMS Notifications ──────────────────────────────────────── -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header py-2 px-3" style="background:#1a1a2e;">
+                <strong class="text-white"><i class="fas fa-sms me-2"></i>SMS Notifications</strong>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">
+                    Toggle each automated SMS. When disabled the message is silently skipped —
+                    no Twilio credits are used. Manual messages from the Inbox are never affected.
+                </p>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                   name="sms_boarding_approval" id="sms_boarding_approval"
+                                   {{ 'checked' if settings.sms_boarding_approval in ('1','true','on','yes') else '' }}>
+                            <label class="form-check-label fw-bold" for="sms_boarding_approval">
+                                Booking Confirmed
+                            </label>
+                            <div class="text-muted small">Sent when staff approves a boarding request.</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                   name="sms_boarding_cancellation" id="sms_boarding_cancellation"
+                                   {{ 'checked' if settings.sms_boarding_cancellation in ('1','true','on','yes') else '' }}>
+                            <label class="form-check-label fw-bold" for="sms_boarding_cancellation">
+                                Booking Cancelled
+                            </label>
+                            <div class="text-muted small">Sent when staff cancels a boarding reservation.</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                   name="sms_estimate" id="sms_estimate"
+                                   {{ 'checked' if settings.sms_estimate in ('1','true','on','yes') else '' }}>
+                            <label class="form-check-label fw-bold" for="sms_estimate">
+                                Estimate SMS
+                            </label>
+                            <div class="text-muted small">Sent when staff sends a checkout estimate.</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                   name="sms_invoice" id="sms_invoice"
+                                   {{ 'checked' if settings.sms_invoice in ('1','true','on','yes') else '' }}>
+                            <label class="form-check-label fw-bold" for="sms_invoice">
+                                Invoice SMS
+                            </label>
+                            <div class="text-muted small">Sent when staff sends a boarding or daycare invoice.</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                   name="sms_payment_receipt" id="sms_payment_receipt"
+                                   {{ 'checked' if settings.sms_payment_receipt in ('1','true','on','yes') else '' }}>
+                            <label class="form-check-label fw-bold" for="sms_payment_receipt">
+                                Payment Receipt
+                            </label>
+                            <div class="text-muted small">Sent automatically when an invoice is marked paid.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Save button -->
+        <div class="d-flex justify-content-end mb-5">
+            <button type="submit" class="btn btn-warning fw-bold px-4">
+                <i class="fas fa-save me-2"></i>Save Settings
+            </button>
+        </div>
+
+    </form>
+</div>
+{% endblock %}

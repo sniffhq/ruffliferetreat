@@ -327,8 +327,9 @@ def approve_appointment(appt_id):
                     from app.sms_service import _normalize_phone
                     from app.models import SmsMessage
                     from twilio.rest import Client
+                    from app.settings_service import sms_enabled
                     owner = appt.user
-                    if owner and owner.phone:
+                    if owner and owner.phone and sms_enabled('sms_boarding_approval'):
                         def _fmt_t(t):
                             try:
                                 from datetime import datetime as _dt
@@ -2303,8 +2304,9 @@ def cancel_boarding(booking_id):
         from app.sms_service import _normalize_phone
         from app.models import SmsMessage
         from twilio.rest import Client
+        from app.settings_service import sms_enabled
         owner = booking.pet.owner
-        if owner and owner.phone:
+        if owner and owner.phone and sms_enabled('sms_boarding_cancellation'):
             to_e164     = _normalize_phone(owner.phone)
             from_number = current_app.config.get('TWILIO_PHONE_NUMBER')
             body = (
@@ -3748,10 +3750,15 @@ def send_estimate_sms(customer_id):
 
     try:
         from twilio.rest import Client
+        from app.settings_service import sms_enabled, get_business_setting
+        if not sms_enabled('sms_estimate'):
+            flash(f'Estimate recorded — SMS is currently disabled.', 'info')
+            return redirect(url_for('admin.customer_invoice', customer_id=customer_id))
         to_e164     = _normalize_phone(customer.phone)
         from_number = current_app.config.get('TWILIO_PHONE_NUMBER')
-        business    = current_app.config.get('BUSINESS_NAME', 'Ruff Life Retreat')
-        link        = f'https://rufflife.app/estimate/{token_rec.token}'
+        business    = get_business_setting('business_name', 'Ruff Life Retreat')
+        domain      = get_business_setting('business_domain', 'rufflife.app')
+        link        = f'https://{domain}/estimate/{token_rec.token}'
 
         pet_summary = ', '.join(pet_lines)
         body = (
@@ -4023,10 +4030,14 @@ def send_invoice_sms(customer_id):
     # ── Send SMS ──────────────────────────────────────────────────────────
     try:
         from twilio.rest import Client
+        from app.settings_service import sms_enabled as _sms_ok, get_business_setting as _biz
+        if not _sms_ok('sms_invoice'):
+            flash(f'{invoice_type.capitalize()} invoice recorded — SMS is currently disabled.', 'info')
+            return redirect(url_for('admin.customer_detail', customer_id=customer_id))
         to_e164     = _normalize_phone(customer.phone)
         from_number = current_app.config.get('TWILIO_PHONE_NUMBER')
-        business    = current_app.config.get('BUSINESS_NAME', 'Ruff Life Retreat')
-        domain      = current_app.config.get('BUSINESS_DOMAIN', 'rufflife.app')
+        business    = _biz('business_name', 'Ruff Life Retreat')
+        domain      = _biz('business_domain', 'rufflife.app')
         link        = f'https://{domain}/invoice/{token_rec.token}'
 
         body = (
@@ -4206,12 +4217,17 @@ def mark_invoice_paid(customer_id):
     # Send payment receipt SMS to customer
     try:
         from app.sms_service import _send as _sms
-        _receipt_body = (
-            f'Hi {customer.first_name}! Your {invoice_type} payment of ${total:.2f} '
-            f'has been received. Thank you for choosing Ruff Life Retreat! '
-            f'Questions? Call (912) 648-2295 or visit rufflife.app.'
-        )
-        _sms(customer.phone, _receipt_body, user_id=customer.id)
+        from app.settings_service import sms_enabled as _sms_ok, get_business_setting as _biz
+        if _sms_ok('sms_payment_receipt'):
+            _biz_name  = _biz('business_name', 'Ruff Life Retreat')
+            _biz_phone = _biz('business_phone', '(912) 648-2295')
+            _biz_domain = _biz('business_domain', 'rufflife.app')
+            _receipt_body = (
+                f'Hi {customer.first_name}! Your {invoice_type} payment of ${total:.2f} '
+                f'has been received. Thank you for choosing {_biz_name}! '
+                f'Questions? Call {_biz_phone} or visit {_biz_domain}.'
+            )
+            _sms(customer.phone, _receipt_body, user_id=customer.id)
     except Exception as _sms_err:
         current_app.logger.error(f'Receipt SMS failed for customer {customer_id}: {_sms_err}')
 
@@ -8719,3 +8735,104 @@ def customer_waiver_accept(customer_id):
     db.session.commit()
     flash(f'Waiver marked as accepted for {customer.first_name} {customer.last_name}.', 'success')
     return redirect(url_for('admin.customer_detail', customer_id=customer_id))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Business Settings
+# ─────────────────────────────────────────────────────────────────────────────
+
+_BUSINESS_SETTING_KEYS = [
+    # business info
+    'business_name', 'business_address', 'business_phone',
+    'business_domain', 'business_zelle',
+    # default rates — keys match rate_resolver _cfg() lookup (lowercased config keys)
+    'boarding_rate_primary', 'boarding_rate_additional',
+    'daycare_rate_single', 'daycare_rate_multi',
+    # add-on rates
+    'addon_spa_bath_nails', 'addon_spa_bath', 'addon_nail_trim',
+    # kennel capacity
+    'kennel_capacity',
+    # SMS toggles
+    'sms_boarding_approval', 'sms_boarding_cancellation',
+    'sms_estimate', 'sms_invoice', 'sms_payment_receipt',
+]
+
+# App config fallback defaults for each key
+_BUSINESS_SETTING_DEFAULTS = {
+    'business_name':             'Ruff Life Retreat',
+    'business_address':          '',
+    'business_phone':            '',
+    'business_domain':           'rufflife.app',
+    'business_zelle':            '',
+    'boarding_rate_primary':     '40',
+    'boarding_rate_additional':  '25',
+    'daycare_rate_single':       '25',
+    'daycare_rate_multi':        '20',
+    'addon_spa_bath_nails':      '20',
+    'addon_spa_bath':            '15',
+    'addon_nail_trim':           '10',
+    'kennel_capacity':           '40',
+    'sms_boarding_approval':     '1',
+    'sms_boarding_cancellation': '1',
+    'sms_estimate':              '1',
+    'sms_invoice':               '1',
+    'sms_payment_receipt':       '1',
+}
+
+# Which config env var each key maps to (for the fallback)
+_CONFIG_KEY_MAP = {
+    'business_name':            'BUSINESS_NAME',
+    'business_domain':          'BUSINESS_DOMAIN',
+    'business_phone':           'BUSINESS_PHONE',
+    'boarding_rate_primary':    'BOARDING_RATE_PRIMARY',
+    'boarding_rate_additional': 'BOARDING_RATE_ADDITIONAL',
+    'daycare_rate_single':      'DAYCARE_RATE_SINGLE',
+    'daycare_rate_multi':       'DAYCARE_RATE_MULTI',
+    'addon_spa_bath_nails':     'ADDON_SPA_BATH_NAILS',
+    'addon_spa_bath':           'ADDON_SPA_BATH',
+    'addon_nail_trim':          'ADDON_NAIL_TRIM',
+}
+
+
+@bp.route('/settings/business', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def business_settings():
+    """View and update facility-wide business info, rates, and SMS toggles."""
+    from app.settings_service import get_setting, set_setting
+
+    if request.method == 'POST':
+        for key in _BUSINESS_SETTING_KEYS:
+            if key.startswith('sms_'):
+                # Checkbox — present = '1', absent = '0'
+                val = '1' if request.form.get(key) else '0'
+            else:
+                val = request.form.get(key, '').strip()
+                if val == '':
+                    continue  # don't overwrite with blank — keep existing / default
+            set_setting(key, val, user_id=current_user.id)
+
+        try:
+            from app.audit_service import audit
+            audit('settings.business.updated', 'settings', None, 'Business Settings',
+                  f'Business settings updated by {current_user.first_name} {current_user.last_name}')
+        except Exception:
+            pass
+
+        flash('Business settings saved.', 'success')
+        return redirect(url_for('admin.business_settings'))
+
+    # Build context: DB value → app.config fallback → hardcoded default
+    settings = {}
+    for key in _BUSINESS_SETTING_KEYS:
+        db_val = get_setting(key)
+        if db_val is not None:
+            settings[key] = db_val
+        else:
+            cfg_key = _CONFIG_KEY_MAP.get(key)
+            if cfg_key:
+                settings[key] = current_app.config.get(cfg_key, _BUSINESS_SETTING_DEFAULTS.get(key, ''))
+            else:
+                settings[key] = _BUSINESS_SETTING_DEFAULTS.get(key, '')
+
+    return render_template('admin/business_settings.html', settings=settings)
