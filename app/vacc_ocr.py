@@ -241,6 +241,15 @@ def _extract_all_dates(text):
     results = []
     seen_positions = set()
 
+    # ISO dates: YYYY-MM-DD (must come BEFORE the MM/DD/YYYY pattern to avoid partial matches)
+    for m in re.finditer(r'\b(20\d{2})[/\-](\d{1,2})[/\-](\d{1,2})\b', text):
+        if m.start() in seen_positions:
+            continue
+        d = _parse_date(m.group(0))
+        if d:
+            results.append((m.start(), d))
+            seen_positions.add(m.start())
+
     # Numeric dates: MM/DD/YYYY, M/D/YYYY, M/D/YY
     for m in re.finditer(r'\b(\d{1,2})[/\-](\d{1,2})[/\-](\d{2,4})\b', text):
         if m.start() in seen_positions:
@@ -333,6 +342,20 @@ def _is_two_column_format(text):
     """
     tl = text.lower()
     return bool(re.search(r'last\s*date\s*given|date\s*vaccinated', tl))
+
+
+def _is_vip_petcare_format(text):
+    """
+    Detect VIP Petcare / PetVet 'Official Summary of Visit' PDFs.
+    These have labeled rows: 'Name <vaccine>', 'Due Date YYYY-MM-DD' on separate lines.
+    """
+    tl = text.lower()
+    return bool(
+        re.search(r'vip.?petcare|petvet|official summary of visit|tractor supply', tl) or
+        (re.search(r'\bdue date\b', tl) and
+         re.search(r'20\d\d-\d\d-\d\d', tl) and
+         re.search(r'canine vaccines|vaccinations', tl, re.IGNORECASE))
+    )
 
 
 def _is_single_vaccine_cert(text):
@@ -548,6 +571,72 @@ def _parse_single_cert(text):
     return results
 
 
+def _parse_vip_petcare(text):
+    """
+    Parse VIP Petcare / PetVet 'Official Summary of Visit' PDFs.
+    Each vaccine block has labeled rows:
+        Name Bordetella Oral - NOBIVAC INTRA-TRAC Oral
+        Quantity 1
+        Due Date 2027-07-05
+        Category Vaccinations
+    Strategy: find 'Name <vaccine text>' lines, then look ahead up to 6 lines
+    for 'Due Date YYYY-MM-DD'. Visit date pulled from 'Date: YYYY-MM-DD' field.
+    Skip non-vaccine Name lines (Pet Name, Vitals Check, Rabies Tag, packages).
+    """
+    results = []
+
+    # Extract visit date from "Date: YYYY-MM-DD" near the top of the doc
+    visit_date = None
+    vm = re.search(r'\bDate:\s*(20\d{2}-\d{2}-\d{2})\b', text)
+    if vm:
+        visit_date = _parse_date(vm.group(1))
+
+    _SKIP_NAMES = re.compile(
+        r'pet\s*name|vitals\s*check|rabies\s*tag|total\s*health\s*package|'
+        r'generic\s*rabies|package\s*only|for\s*package',
+        re.IGNORECASE,
+    )
+
+    lines = text.split('\n')
+    seen_vaccines = set()
+
+    for i, line in enumerate(lines):
+        line = line.strip()
+        # Match lines like "Name Bordetella Oral - ..."
+        name_m = re.match(r'^Name\s+(.+)$', line, re.IGNORECASE)
+        if not name_m:
+            continue
+        vaccine_text = name_m.group(1).strip()
+        if _SKIP_NAMES.search(vaccine_text):
+            continue
+        vaccine = _match_vaccine_name(vaccine_text)
+        if not vaccine:
+            continue
+        if vaccine in seen_vaccines:
+            continue
+
+        # Look ahead up to 6 lines for "Due Date YYYY-MM-DD"
+        due_date = None
+        for j in range(i + 1, min(i + 7, len(lines))):
+            due_m = re.match(r'^Due\s*Date\s+(20\d{2}-\d{2}-\d{2})', lines[j].strip(), re.IGNORECASE)
+            if due_m:
+                due_date = _parse_date(due_m.group(1))
+                break
+            # Stop at next "Name" line
+            if re.match(r'^Name\s+', lines[j].strip(), re.IGNORECASE):
+                break
+
+        seen_vaccines.add(vaccine)
+        results.append({
+            'vaccine_name':     vaccine,
+            'vaccination_date': visit_date,
+            'expiration_date':  due_date,
+            'confidence':       'high' if due_date else 'low',
+        })
+
+    return results
+
+
 def _parse_invoice_format(text):
     """
     Parse vet invoices / receipts.
@@ -727,7 +816,11 @@ def extract_vaccination_data(file_path):
     logger.debug(f'OCR extracted text ({len(text)} chars):\n{text[:500]}')
 
     # ── Classify document type and route to appropriate parser ────────────────
-    if _is_single_vaccine_cert(text):
+    if _is_vip_petcare_format(text):
+        logger.info('Document classified as: VIP Petcare / PetVet summary')
+        results = _parse_vip_petcare(text)
+
+    elif _is_single_vaccine_cert(text):
         logger.info('Document classified as: single vaccine certificate')
         results = _parse_single_cert(text)
 
