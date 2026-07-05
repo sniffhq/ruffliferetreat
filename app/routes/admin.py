@@ -21,6 +21,7 @@ def _fmt_t(t):
         return str(t)
 
 def admin_required(f):
+    """Full admin access only."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_admin:
@@ -29,9 +30,20 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+
+def staff_required(f):
+    """Allows both full admins (is_admin=True) and read-only staff (role='staff')."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not (current_user.is_admin or getattr(current_user, 'role', '') == 'staff'):
+            flash('Access denied.', 'danger')
+            return redirect(url_for('public.index'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 @bp.route('/daily-log', methods=['GET'])
 @login_required
-@admin_required
+@staff_required
 def daily_log():
     """View daily log entries."""
     from app.models import DailyLog, DailyLogPetFlag, Boarding, DaycareAttendance
@@ -338,13 +350,17 @@ def approve_appointment(appt_id):
                                 return str(t)
                         to_e164     = _normalize_phone(owner.phone)
                         from_number = current_app.config.get('TWILIO_PHONE_NUMBER')
-                        body = (
-                            f"\u2705 Great news, {owner.first_name}! Your boarding request for "
-                            f"{appt.pet.name} has been approved. "
-                            f"Ref: {booking.booking_number}. "
-                            f"Check-in: {appt.appointment_date.strftime('%a, %b %d')} at {_fmt_t(check_in_time)}. "
-                            f"Check-out: {check_out_date.strftime('%a, %b %d')} at {_fmt_t(check_out_time)}. "
-                            f"Questions? Reply to this message. \u2014 Ruff Life Retreat"
+                        from app.settings_service import get_business_setting as _gbiz
+                        _tpl = _biz_setting('sms_tpl_booking_approved')
+                        body = _tpl.format(
+                            first_name     = owner.first_name,
+                            pet_name       = appt.pet.name,
+                            booking_number = booking.booking_number,
+                            check_in_date  = appt.appointment_date.strftime('%a, %b %d'),
+                            check_in_time  = _fmt_t(check_in_time),
+                            check_out_date = check_out_date.strftime('%a, %b %d'),
+                            check_out_time = _fmt_t(check_out_time),
+                            business_name  = _gbiz('business_name', 'Ruff Life Retreat'),
                         )
                         client  = Client(current_app.config.get('TWILIO_ACCOUNT_SID'),
                                          current_app.config.get('TWILIO_AUTH_TOKEN'))
@@ -496,7 +512,7 @@ def delete_block(block_id):
 
 @bp.route('/daycare/dashboard')
 @login_required
-@admin_required
+@staff_required
 def daycare_dashboard():
     """Daycare management dashboard"""
     # Get all daycare enrollments
@@ -1283,13 +1299,21 @@ def contact_waitlist_entry(entry_id):
 
     return redirect(url_for('admin.daycare_waitlist_admin'))
 
+def _parse_hour(time_str, fallback):
+    """Parse 'HH:MM' string to integer hour, with fallback."""
+    try:
+        return int(str(time_str).split(':')[0])
+    except (ValueError, TypeError, IndexError):
+        return fallback
+
+
 def get_available_time_slots(target_date, booking_type='check_in'):
     """
     Get available 30-minute time slots for a given date.
-    Enforces day-of-week drop/pickup schedule:
-        Mon-Fri  : 07:00 - 18:00
-        Saturday : 07:00 - 11:00  and  17:00 - 18:00
-        Sunday   : 15:00 - 18:00
+    Operating hours are read from FacilitySetting first, with hardcoded fallbacks:
+        Mon-Fri  : ops_weekday_open  – ops_weekday_close   (default 07:00–18:00)
+        Saturday : ops_saturday_open – ops_saturday_close  (default 07:00–11:00)
+        Sunday   : ops_sunday_open   – ops_sunday_close    (default 15:00–18:00)
 
     Args:
         target_date: Date object to check availability
@@ -1300,12 +1324,25 @@ def get_available_time_slots(target_date, booking_type='check_in'):
     """
     weekday = target_date.weekday()  # 0=Mon, 5=Sat, 6=Sun
 
+    try:
+        from app.settings_service import get_setting as _gs
+        wk_open  = _parse_hour(_gs('ops_weekday_open'),   7)
+        wk_close = _parse_hour(_gs('ops_weekday_close'),  18)
+        sa_open  = _parse_hour(_gs('ops_saturday_open'),  7)
+        sa_close = _parse_hour(_gs('ops_saturday_close'), 11)
+        su_open  = _parse_hour(_gs('ops_sunday_open'),    15)
+        su_close = _parse_hour(_gs('ops_sunday_close'),   18)
+    except Exception:
+        wk_open, wk_close = 7, 18
+        sa_open, sa_close = 7, 11
+        su_open, su_close = 15, 18
+
     if weekday == 6:        # Sunday
-        windows = [(15, 18)]
+        windows = [(su_open, su_close)]
     elif weekday == 5:      # Saturday
-        windows = [(7, 11), (17, 18)]
+        windows = [(sa_open, sa_close)]
     else:                   # Mon-Fri
-        windows = [(7, 18)]
+        windows = [(wk_open, wk_close)]
 
     all_slots = []
     for (start_h, end_h) in windows:
@@ -1551,7 +1588,7 @@ def run_checkout_estimates():
 
 @bp.route('/boarding/dashboard')
 @login_required
-@admin_required
+@staff_required
 def boarding_dashboard():
     """Boarding management dashboard with pending requests, active guests, and calendar."""
     from app.models import Appointment
@@ -2309,13 +2346,14 @@ def cancel_boarding(booking_id):
         if owner and owner.phone and sms_enabled('sms_boarding_cancellation'):
             to_e164     = _normalize_phone(owner.phone)
             from_number = current_app.config.get('TWILIO_PHONE_NUMBER')
-            body = (
-                f"Hi {owner.first_name}, your boarding reservation for "
-                f"{booking.pet.name} "
-                f"({booking.check_in_date.strftime('%b %d')} to "
-                f"{booking.check_out_date.strftime('%b %d')}) "
-                f"has been cancelled. Please contact us if you have questions. "
-                f"\u2014 Ruff Life Retreat"
+            from app.settings_service import get_business_setting as _gbiz2
+            _tpl = _biz_setting('sms_tpl_booking_cancelled')
+            body = _tpl.format(
+                first_name     = owner.first_name,
+                pet_name       = booking.pet.name,
+                check_in_date  = booking.check_in_date.strftime('%b %d'),
+                check_out_date = booking.check_out_date.strftime('%b %d'),
+                business_name  = _gbiz2('business_name', 'Ruff Life Retreat'),
             )
             client  = Client(current_app.config.get('TWILIO_ACCOUNT_SID'),
                              current_app.config.get('TWILIO_AUTH_TOKEN'))
@@ -2949,7 +2987,7 @@ def delete_pet(pet_id):
 
 @bp.route('/customers')
 @login_required
-@admin_required
+@staff_required
 def customers():
     show_archived = request.args.get('show_archived')
     search = request.args.get('q', '').strip()
@@ -3761,11 +3799,13 @@ def send_estimate_sms(customer_id):
         link        = f'https://{domain}/estimate/{token_rec.token}'
 
         pet_summary = ', '.join(pet_lines)
-        body = (
-            f"Hi {customer.first_name}! Here's your estimated balance with {business}: "
-            f"${total:.2f} ({pet_summary}). "
-            f"View the full breakdown: {link} "
-            f"Final amount confirmed at checkout."
+        _tpl = _biz_setting('sms_tpl_estimate')
+        body = _tpl.format(
+            first_name    = customer.first_name,
+            business_name = business,
+            total         = f'{total:.2f}',
+            pet_summary   = pet_summary,
+            link          = link,
         )
 
         client  = Client(current_app.config.get('TWILIO_ACCOUNT_SID'),
@@ -4040,9 +4080,13 @@ def send_invoice_sms(customer_id):
         domain      = _biz('business_domain', 'rufflife.app')
         link        = f'https://{domain}/invoice/{token_rec.token}'
 
-        body = (
-            f"Hi {customer.first_name}! Your {invoice_type} invoice from {business} "
-            f"is ready — ${total:.2f} due. View it here: {link}"
+        _tpl = _biz_setting('sms_tpl_invoice')
+        body = _tpl.format(
+            first_name    = customer.first_name,
+            invoice_type  = invoice_type,
+            business_name = business,
+            total         = f'{total:.2f}',
+            link          = link,
         )
 
         client  = Client(current_app.config.get('TWILIO_ACCOUNT_SID'),
@@ -4219,13 +4263,17 @@ def mark_invoice_paid(customer_id):
         from app.sms_service import _send as _sms
         from app.settings_service import sms_enabled as _sms_ok, get_business_setting as _biz
         if _sms_ok('sms_payment_receipt'):
-            _biz_name  = _biz('business_name', 'Ruff Life Retreat')
-            _biz_phone = _biz('business_phone', '(912) 648-2295')
+            _biz_name   = _biz('business_name', 'Ruff Life Retreat')
+            _biz_phone  = _biz('business_phone', '(912) 648-2295')
             _biz_domain = _biz('business_domain', 'rufflife.app')
-            _receipt_body = (
-                f'Hi {customer.first_name}! Your {invoice_type} payment of ${total:.2f} '
-                f'has been received. Thank you for choosing {_biz_name}! '
-                f'Questions? Call {_biz_phone} or visit {_biz_domain}.'
+            _tpl = _biz_setting('sms_tpl_payment_receipt')
+            _receipt_body = _tpl.format(
+                first_name     = customer.first_name,
+                invoice_type   = invoice_type,
+                total          = f'{total:.2f}',
+                business_name  = _biz_name,
+                business_phone = _biz_phone,
+                business_domain = _biz_domain,
             )
             _sms(customer.phone, _receipt_body, user_id=customer.id)
     except Exception as _sms_err:
@@ -5477,7 +5525,7 @@ def inbox_unread_count():
 
 @bp.route('/report-cards')
 @login_required
-@admin_required
+@staff_required
 def report_cards():
     """
     Daily roster — today's daycare attendees and current boarding guests.
@@ -5539,7 +5587,7 @@ def report_cards():
 
 @bp.route('/report-cards/create/<string:card_type>/<int:pet_id>', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@staff_required
 def create_report_card(card_type, pet_id):
     """Create or edit a report card for a pet."""
     from app.models import Pet, ReportCard
@@ -5642,16 +5690,18 @@ def create_report_card(card_type, pet_id):
 
         return redirect(url_for('admin.report_cards'))
 
+    default_notes = _biz_setting('report_card_default_notes')
     return render_template('admin/report_card_form.html',
                            pet=pet,
                            card_type=card_type,
                            existing=existing,
-                           today=today)
+                           today=today,
+                           default_notes=default_notes)
 
 
 @bp.route('/report-cards/history/<int:pet_id>')
 @login_required
-@admin_required
+@staff_required
 def report_card_history(pet_id):
     """View all report cards for a pet."""
     from app.models import Pet, ReportCard
@@ -8738,32 +8788,139 @@ def customer_waiver_accept(customer_id):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Staff Management
+# ─────────────────────────────────────────────────────────────────────────────
+
+@bp.route('/settings/staff')
+@login_required
+@admin_required
+def staff_management():
+    """List all staff and admin accounts."""
+    staff = User.query.filter(
+        db.or_(User.is_admin == True, User.role == 'staff')
+    ).order_by(User.first_name).all()
+    return render_template('admin/staff_management.html', staff=staff)
+
+
+@bp.route('/settings/staff/create', methods=['POST'])
+@login_required
+@admin_required
+def staff_create():
+    """Create a new staff or admin account."""
+    first_name = request.form.get('first_name', '').strip()
+    last_name  = request.form.get('last_name', '').strip()
+    email      = request.form.get('email', '').strip().lower()
+    password   = request.form.get('password', '').strip()
+    role       = request.form.get('role', 'staff')  # 'staff' or 'admin'
+
+    if not all([first_name, last_name, email, password]):
+        flash('All fields are required.', 'danger')
+        return redirect(url_for('admin.staff_management'))
+
+    if User.query.filter_by(email=email).first():
+        flash(f'An account with email {email} already exists.', 'danger')
+        return redirect(url_for('admin.staff_management'))
+
+    is_admin_flag = (role == 'admin')
+    new_user = User(
+        first_name          = first_name,
+        last_name           = last_name,
+        email               = email,
+        role                = role,
+        is_admin            = is_admin_flag,
+        is_active           = True,
+        onboarding_complete = True,
+        waiver_accepted     = True,
+    )
+    new_user.set_password(password)
+    db.session.add(new_user)
+    db.session.commit()
+
+    try:
+        from app.audit_service import audit
+        audit('staff.created', 'user', new_user.id,
+              f'{first_name} {last_name}',
+              f'Staff account created by {current_user.first_name} {current_user.last_name} — role: {role}')
+    except Exception:
+        pass
+
+    flash(f'Account created for {first_name} {last_name} ({role}).', 'success')
+    return redirect(url_for('admin.staff_management'))
+
+
+@bp.route('/settings/staff/<int:user_id>/toggle', methods=['POST'])
+@login_required
+@admin_required
+def staff_toggle(user_id):
+    """Activate or deactivate a staff account."""
+    if user_id == current_user.id:
+        return jsonify({'ok': False, 'error': 'Cannot deactivate your own account.'}), 400
+    user = User.query.get_or_404(user_id)
+    user.is_active = not user.is_active
+    db.session.commit()
+    state = 'activated' if user.is_active else 'deactivated'
+    try:
+        from app.audit_service import audit
+        audit(f'staff.{state}', 'user', user.id,
+              f'{user.first_name} {user.last_name}',
+              f'Account {state} by {current_user.first_name} {current_user.last_name}')
+    except Exception:
+        pass
+    return jsonify({'ok': True, 'active': user.is_active, 'state': state})
+
+
+@bp.route('/settings/staff/<int:user_id>/reset-password', methods=['POST'])
+@login_required
+@admin_required
+def staff_reset_password(user_id):
+    """Set a new password for a staff account."""
+    user     = User.query.get_or_404(user_id)
+    password = request.form.get('password', '').strip()
+    if len(password) < 6:
+        flash('Password must be at least 6 characters.', 'danger')
+        return redirect(url_for('admin.staff_management'))
+    user.set_password(password)
+    db.session.commit()
+    flash(f'Password updated for {user.first_name} {user.last_name}.', 'success')
+    return redirect(url_for('admin.staff_management'))
+
+
+@bp.route('/settings/staff/<int:user_id>/role', methods=['POST'])
+@login_required
+@admin_required
+def staff_change_role(user_id):
+    """Change a staff member's role between admin and read-only staff."""
+    if user_id == current_user.id:
+        return jsonify({'ok': False, 'error': 'Cannot change your own role.'}), 400
+    user     = User.query.get_or_404(user_id)
+    new_role = request.json.get('role', 'staff')
+    if new_role not in ('staff', 'admin'):
+        return jsonify({'ok': False, 'error': 'Invalid role.'}), 400
+    user.role     = new_role
+    user.is_admin = (new_role == 'admin')
+    db.session.commit()
+    try:
+        from app.audit_service import audit
+        audit('staff.role_changed', 'user', user.id,
+              f'{user.first_name} {user.last_name}',
+              f'Role changed to {new_role} by {current_user.first_name} {current_user.last_name}')
+    except Exception:
+        pass
+    return jsonify({'ok': True, 'role': new_role})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Business Settings
 # ─────────────────────────────────────────────────────────────────────────────
 
-_BUSINESS_SETTING_KEYS = [
-    # business info
-    'business_name', 'business_address', 'business_phone',
-    'business_domain', 'business_zelle',
-    # default rates — keys match rate_resolver _cfg() lookup (lowercased config keys)
-    'boarding_rate_primary', 'boarding_rate_additional',
-    'daycare_rate_single', 'daycare_rate_multi',
-    # add-on rates
-    'addon_spa_bath_nails', 'addon_spa_bath', 'addon_nail_trim',
-    # kennel capacity
-    'kennel_capacity',
-    # SMS toggles
-    'sms_boarding_approval', 'sms_boarding_cancellation',
-    'sms_estimate', 'sms_invoice', 'sms_payment_receipt',
-]
-
-# App config fallback defaults for each key
 _BUSINESS_SETTING_DEFAULTS = {
+    # business info
     'business_name':             'Ruff Life Retreat',
     'business_address':          '',
     'business_phone':            '',
     'business_domain':           'rufflife.app',
     'business_zelle':            '',
+    # rates
     'boarding_rate_primary':     '40',
     'boarding_rate_additional':  '25',
     'daycare_rate_single':       '25',
@@ -8772,14 +8929,74 @@ _BUSINESS_SETTING_DEFAULTS = {
     'addon_spa_bath':            '15',
     'addon_nail_trim':           '10',
     'kennel_capacity':           '40',
+    # SMS notification toggles
     'sms_boarding_approval':     '1',
     'sms_boarding_cancellation': '1',
     'sms_estimate':              '1',
     'sms_invoice':               '1',
     'sms_payment_receipt':       '1',
+    # booking & availability
+    'service_boarding_enabled':  '1',
+    'service_daycare_enabled':   '1',
+    'booking_min_advance_days':  '1',
+    'booking_max_advance_days':  '365',
+    'ops_weekday_open':          '07:00',
+    'ops_weekday_close':         '18:00',
+    'ops_saturday_open':         '07:00',
+    'ops_saturday_close':        '11:00',
+    'ops_sunday_open':           '15:00',
+    'ops_sunday_close':          '18:00',
+    # customer portal
+    'portal_booking_enabled':    '1',
+    'portal_show_faq':           '1',
+    'portal_show_gallery':       '1',
+    'portal_booking_closed_msg': 'Online booking is temporarily unavailable. Please call us to reserve.',
+    # SMS templates
+    'sms_tpl_booking_approved': (
+        "✅ Great news, {first_name}! Your boarding request for {pet_name} has been approved. "
+        "Ref: {booking_number}. Check-in: {check_in_date} at {check_in_time}. "
+        "Check-out: {check_out_date} at {check_out_time}. "
+        "Questions? Reply to this message. — {business_name}"
+    ),
+    'sms_tpl_booking_cancelled': (
+        "Hi {first_name}, your boarding reservation for {pet_name} "
+        "({check_in_date} to {check_out_date}) has been cancelled. "
+        "Please contact us if you have questions. — {business_name}"
+    ),
+    'sms_tpl_estimate': (
+        "Hi {first_name}! Here’s your estimated balance with {business_name}: "
+        "${total} ({pet_summary}). View the full breakdown: {link} "
+        "Final amount confirmed at checkout."
+    ),
+    'sms_tpl_invoice': (
+        "Hi {first_name}! Your {invoice_type} invoice from {business_name} "
+        "is ready — ${total} due. View it here: {link}"
+    ),
+    'sms_tpl_payment_receipt': (
+        "Hi {first_name}! Your {invoice_type} payment of ${total} has been received. "
+        "Thank you for choosing {business_name}! "
+        "Questions? Call {business_phone} or visit {business_domain}."
+    ),
+    # policy & fees
+    'deposit_required':          '0',
+    'deposit_type':              'flat',
+    'deposit_amount':            '0',
+    'cancellation_hours':        '24',
+    'late_fee_enabled':          '0',
+    'late_fee_amount':           '0',
+    # operations
+    'report_card_default_notes': '',
+    'checkout_estimate_hour':    '8',
 }
 
-# Which config env var each key maps to (for the fallback)
+_TOGGLE_KEYS = {
+    'sms_boarding_approval', 'sms_boarding_cancellation', 'sms_estimate',
+    'sms_invoice', 'sms_payment_receipt',
+    'service_boarding_enabled', 'service_daycare_enabled',
+    'portal_booking_enabled', 'portal_show_faq', 'portal_show_gallery',
+    'deposit_required', 'late_fee_enabled',
+}
+
 _CONFIG_KEY_MAP = {
     'business_name':            'BUSINESS_NAME',
     'business_domain':          'BUSINESS_DOMAIN',
@@ -8794,22 +9011,36 @@ _CONFIG_KEY_MAP = {
 }
 
 
+def _biz_setting(key):
+    """Read a business setting from DB with hardcoded fallback."""
+    from app.settings_service import get_setting
+    db_val = get_setting(key)
+    if db_val is not None:
+        return db_val
+    cfg_key = _CONFIG_KEY_MAP.get(key)
+    if cfg_key:
+        return current_app.config.get(cfg_key, _BUSINESS_SETTING_DEFAULTS.get(key, ''))
+    return _BUSINESS_SETTING_DEFAULTS.get(key, '')
+
+
 @bp.route('/settings/business', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def business_settings():
-    """View and update facility-wide business info, rates, and SMS toggles."""
+    """View and update facility-wide business info, rates, SMS, portal, and policy settings."""
     from app.settings_service import get_setting, set_setting
+    from app.models import BlackoutDate
 
     if request.method == 'POST':
-        for key in _BUSINESS_SETTING_KEYS:
-            if key.startswith('sms_'):
-                # Checkbox — present = '1', absent = '0'
+        for key in _BUSINESS_SETTING_DEFAULTS:
+            if key in _TOGGLE_KEYS:
                 val = '1' if request.form.get(key) else '0'
             else:
                 val = request.form.get(key, '').strip()
-                if val == '':
-                    continue  # don't overwrite with blank — keep existing / default
+                if val == '' and key not in ('report_card_default_notes', 'portal_booking_closed_msg',
+                                              'sms_tpl_booking_approved', 'sms_tpl_booking_cancelled',
+                                              'sms_tpl_estimate', 'sms_tpl_invoice', 'sms_tpl_payment_receipt'):
+                    continue  # don't overwrite numeric/text fields with blank
             set_setting(key, val, user_id=current_user.id)
 
         try:
@@ -8819,20 +9050,53 @@ def business_settings():
         except Exception:
             pass
 
-        flash('Business settings saved.', 'success')
-        return redirect(url_for('admin.business_settings'))
+        flash('Settings saved.', 'success')
+        return redirect(url_for('admin.business_settings') + '#' + request.form.get('_tab', 'info'))
 
-    # Build context: DB value → app.config fallback → hardcoded default
-    settings = {}
-    for key in _BUSINESS_SETTING_KEYS:
-        db_val = get_setting(key)
-        if db_val is not None:
-            settings[key] = db_val
-        else:
-            cfg_key = _CONFIG_KEY_MAP.get(key)
-            if cfg_key:
-                settings[key] = current_app.config.get(cfg_key, _BUSINESS_SETTING_DEFAULTS.get(key, ''))
-            else:
-                settings[key] = _BUSINESS_SETTING_DEFAULTS.get(key, '')
+    settings = {key: _biz_setting(key) for key in _BUSINESS_SETTING_DEFAULTS}
+    blackouts = BlackoutDate.query.order_by(BlackoutDate.start_date).all()
+    return render_template('admin/business_settings.html', settings=settings, blackouts=blackouts)
 
-    return render_template('admin/business_settings.html', settings=settings)
+
+@bp.route('/settings/blackouts', methods=['POST'])
+@login_required
+@admin_required
+def create_blackout():
+    """Create a new blackout date range."""
+    from app.models import BlackoutDate
+    from datetime import date as _date
+    data = request.get_json(silent=True) or {}
+    try:
+        start = _date.fromisoformat(data.get('start_date', ''))
+        end   = _date.fromisoformat(data.get('end_date', ''))
+    except (ValueError, TypeError):
+        return jsonify({'ok': False, 'error': 'Invalid dates.'}), 400
+    if end < start:
+        return jsonify({'ok': False, 'error': 'End date must be on or after start date.'}), 400
+    reason = (data.get('reason') or '').strip()[:255]
+    bo = BlackoutDate(
+        start_date = start,
+        end_date   = end,
+        reason     = reason or None,
+        created_by = f'{current_user.first_name} {current_user.last_name}',
+    )
+    db.session.add(bo)
+    db.session.commit()
+    return jsonify({
+        'ok': True, 'id': bo.id,
+        'start_date': bo.start_date.isoformat(),
+        'end_date':   bo.end_date.isoformat(),
+        'reason':     bo.reason or '',
+    })
+
+
+@bp.route('/settings/blackouts/<int:bo_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def delete_blackout(bo_id):
+    """Delete a blackout date range."""
+    from app.models import BlackoutDate
+    bo = BlackoutDate.query.get_or_404(bo_id)
+    db.session.delete(bo)
+    db.session.commit()
+    return jsonify({'ok': True})

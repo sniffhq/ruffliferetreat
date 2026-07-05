@@ -536,14 +536,42 @@ def edit_pet(pet_id):
 def book_appointment():
     if not current_user.onboarding_complete:
         return redirect(url_for('customer.onboarding'))
-        
+
+    from app.settings_service import get_setting as _gs, sms_enabled as _noop
+    from flask import current_app as _app
+
+    def _toggle(key, default='1'):
+        v = _gs(key)
+        return (v if v is not None else default) in ('1', 'true', 'on', 'yes')
+
+    # Portal-level booking gate
+    portal_open = _toggle('portal_booking_enabled')
+    if not portal_open:
+        closed_msg = _gs('portal_booking_closed_msg') or 'Online booking is temporarily unavailable. Please call us to reserve.'
+        flash(closed_msg, 'warning')
+        return redirect(url_for('customer.dashboard'))
+
+    # Service-specific enable/disable
+    boarding_enabled = _toggle('service_boarding_enabled')
+    daycare_enabled  = _toggle('service_daycare_enabled')
+
+    # Advance booking window
+    try:
+        booking_min = int(_gs('booking_min_advance_days') or 1)
+    except (ValueError, TypeError):
+        booking_min = 1
+    try:
+        booking_max = int(_gs('booking_max_advance_days') or 365)
+    except (ValueError, TypeError):
+        booking_max = 365
+
     pets = Pet.query.filter_by(user_id=current_user.id).all()
     services = ServiceType.query.filter(
         ServiceType.name.ilike('%boarding%')
     ).all()
 
-    # Build set of blocked dates — boarding service blocks only
-    from app.models import ServiceBlock, ServiceType as _ST
+    # Build set of blocked dates — boarding service blocks + blackout dates
+    from app.models import ServiceBlock, ServiceType as _ST, BlackoutDate
     from datetime import timedelta
     import json as _json
     today = datetime.now().date()
@@ -562,12 +590,30 @@ def book_appointment():
             blocked_dates.add(d.isoformat())
             d += timedelta(days=1)
 
-    blocked_dates_json = _json.dumps(sorted(blocked_dates))
+    # Blackout dates — warn only (don't hard-block), pass as JSON for JS warning
+    blackout_ranges = []
+    for bo in BlackoutDate.query.filter(BlackoutDate.end_date >= today).all():
+        blackout_ranges.append({
+            'start': bo.start_date.isoformat(),
+            'end':   bo.end_date.isoformat(),
+            'reason': bo.reason or 'Facility closed',
+        })
+
+    blocked_dates_json   = _json.dumps(sorted(blocked_dates))
+    blackout_ranges_json = _json.dumps(blackout_ranges)
 
     if request.method == 'POST':
         try:
             service_choice = request.form.get('service_choice', 'boarding')
             pet_ids        = request.form.getlist('pet_ids')
+
+            # Service-level toggle enforcement
+            if service_choice == 'boarding' and not boarding_enabled:
+                flash('Boarding is not currently available for online booking. Please call us.', 'warning')
+                return redirect(url_for('customer.book_appointment'))
+            if service_choice == 'daycare' and not daycare_enabled:
+                flash('Daycare waitlist is not currently open for online requests. Please call us.', 'warning')
+                return redirect(url_for('customer.book_appointment'))
 
             if not pet_ids:
                 flash('Please select at least one pet.', 'danger')
@@ -636,6 +682,15 @@ def book_appointment():
                 return redirect(url_for('customer.book_appointment'))
 
             appointment_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+
+            # Advance booking window enforcement
+            days_out = (appointment_date - today).days
+            if days_out < booking_min:
+                flash(f'Bookings require at least {booking_min} day{"s" if booking_min != 1 else ""} advance notice.', 'danger')
+                return redirect(url_for('customer.book_appointment'))
+            if days_out > booking_max:
+                flash(f'Bookings can only be made up to {booking_max} days in advance.', 'danger')
+                return redirect(url_for('customer.book_appointment'))
 
             # Server-side block validation — can't be bypassed by disabling JS
             if date_str in blocked_dates:
@@ -761,10 +816,15 @@ def book_appointment():
                            pets=pets,
                            services=services,
                            blocked_dates_json=blocked_dates_json,
+                           blackout_ranges_json=blackout_ranges_json,
                            future_blocks=future_blocks,
                            today=today,
                            enrolled_pet_ids=enrolled_pet_ids,
-                           daycare_capacity_json=daycare_capacity_json)
+                           daycare_capacity_json=daycare_capacity_json,
+                           boarding_enabled=boarding_enabled,
+                           daycare_enabled=daycare_enabled,
+                           booking_min=booking_min,
+                           booking_max=booking_max)
 
 @bp.route('/available-times')
 @login_required

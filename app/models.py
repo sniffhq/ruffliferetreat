@@ -1061,6 +1061,21 @@ class CapacityOverride(db.Model):
         return f'<CapacityOverride {self.start_date}–{self.end_date} max={self.max_capacity}>'
 
 
+class BlackoutDate(db.Model):
+    """Date ranges where the facility is closed or unavailable for new bookings."""
+    __tablename__ = 'blackout_date'
+
+    id         = db.Column(db.Integer, primary_key=True)
+    start_date = db.Column(db.Date, nullable=False)
+    end_date   = db.Column(db.Date, nullable=False)
+    reason     = db.Column(db.String(255), nullable=True)
+    created_by = db.Column(db.String(100), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    def __repr__(self):
+        return f'<BlackoutDate {self.start_date}–{self.end_date}>'
+
+
 class FacilitySetting(db.Model):
     """Key/value store for facility-wide configuration."""
     __tablename__ = 'facility_setting'
