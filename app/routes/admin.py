@@ -2497,6 +2497,44 @@ def update_boarding_addons(booking_id):
     notes = (notes + '\n' + addon_str).lstrip('\n')
 
     booking.special_notes = notes
+    db.session.flush()   # write notes before recalculating
+
+    # ── Sync outstanding payment amount ──────────────────────────────────────
+    # If the invoice has already been sent (outstanding Payment exists for this
+    # customer), recalculate the full boarding total and update the payment so
+    # the amount on record matches what the customer will actually owe.
+    try:
+        from app.models import Payment as _Payment
+        from app.rate_resolver import get_pet_boarding_rate as _gpbr2, get_rates as _gr2
+        outstanding = _Payment.query.filter_by(
+            customer_id  = booking.user_id,
+            service_type = 'Boarding',
+            status       = 'outstanding',
+        ).first()
+        if outstanding:
+            _customer = User.query.get(booking.user_id)
+            _rates    = _gr2(_customer)
+            _new_total = 0.0
+            for _pet in _customer.pets:
+                for _b in Boarding.query.filter_by(
+                    pet_id=_pet.id, status='completed'
+                ).filter(Boarding.payment_id == None).all():
+                    _days = _boarding_days(_b)
+                    _sibs = Boarding.query.filter_by(
+                        user_id        = _customer.id,
+                        check_in_date  = _b.check_in_date,
+                        check_out_date = _b.check_out_date,
+                        status         = 'completed',
+                    ).order_by(Boarding.pet_id.asc()).all()
+                    _is_first = (not _sibs) or _sibs[0].pet_id == _pet.id
+                    _rate     = _gpbr2(_pet, _customer, is_additional=not _is_first)
+                    _, _addon_cost = _parse_addons_from_notes(_b.special_notes or '', structured_only=True)
+                    _new_total += _rate * _days + _addon_cost
+            if _new_total > 0:
+                outstanding.amount = _new_total
+    except Exception as _e:
+        current_app.logger.warning(f'Could not sync outstanding payment for boarding {booking_id}: {_e}')
+
     db.session.commit()
     return {'ok': True, 'addons': labels}
 
@@ -3677,6 +3715,18 @@ def send_estimate_sms(customer_id):
             addon_names = []
             try:
                 _addons, addon_cost = _parse_addons_from_notes(b.special_notes or '', structured_only=True)
+                if not _addons:
+                    # Legacy fallback: add-ons stored only in appointment notes
+                    from app.models import Appointment as _ApptE, ServiceType as _STE
+                    _svc_e = _STE.query.filter(_STE.name.ilike('%boarding%')).first()
+                    if _svc_e:
+                        _appt_e = _ApptE.query.filter_by(
+                            pet_id=pet.id, user_id=customer.id,
+                            service_type_id=_svc_e.id,
+                            appointment_date=b.check_in_date,
+                        ).order_by(_ApptE.id.desc()).first()
+                        if _appt_e and _appt_e.notes:
+                            _addons, addon_cost = _parse_addons_from_notes(_appt_e.notes)
                 amount += addon_cost
                 addon_names = [a.split('(')[0].strip() for a in _addons]
             except Exception:
