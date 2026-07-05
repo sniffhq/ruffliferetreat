@@ -2576,6 +2576,22 @@ def update_boarding_addons(booking_id):
         current_app.logger.warning(f'Could not sync outstanding payment for boarding {booking_id}: {_e}')
 
     db.session.commit()
+
+    # ── Audit log ────────────────────────────────────────────────────────────
+    try:
+        from app.audit_service import audit as _audit
+        pet_name  = booking.pet.name if booking.pet else f'pet#{booking.pet_id}'
+        addon_str = ', '.join(labels) if labels else 'none'
+        _audit(
+            'boarding.addons_updated',
+            entity_type = 'boarding',
+            entity_id   = booking.id,
+            entity_name = f'{pet_name} (booking #{booking.id})',
+            description = f'Add-ons updated to: {addon_str}',
+        )
+    except Exception:
+        pass
+
     return {'ok': True, 'addons': labels}
 
 
