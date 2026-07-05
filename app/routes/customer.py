@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 from app import db
-from app.models import Pet, Appointment, ServiceType, VaccinationRecord
+from app.models import Pet, Appointment, ServiceType, VaccinationRecord, Boarding
 from werkzeug.utils import secure_filename
 from datetime import datetime
 import os
