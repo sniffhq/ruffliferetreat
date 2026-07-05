@@ -63,7 +63,11 @@ def index():
         .filter(SurveyResponse.overall_rating >= 4)
         .order_by(SurveyResponse.submitted_at.desc())
         .first())
-    return render_template('public/index.html', hero_url=hero_url, testimonial=testimonial)
+    from flask import make_response
+    resp = make_response(render_template('public/index.html', hero_url=hero_url, testimonial=testimonial))
+    resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    resp.headers['Pragma'] = 'no-cache'
+    return resp
 
 @bp.route('/boarding')
 def boarding():
