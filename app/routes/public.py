@@ -48,14 +48,8 @@ def is_bot_submission(request, form_loaded_at):
 
 @bp.route('/')
 def index():
-    from app.settings_service import get_setting
     from app.models import SurveyResponse
-    import time as _time
-    hero_filename = get_setting('homepage_hero_photo')
-    if hero_filename:
-        hero_url = url_for('static', filename=f'uploads/homepage/{hero_filename}') + f'?v={int(_time.time()) // 3600}'
-    else:
-        hero_url = url_for('static', filename='img/homepage.jpg') + f'?v={int(_time.time()) // 3600}'
+    hero_url = url_for('static', filename='img/homepage.jpg')
     # Most recent completed survey with a comment for the testimonial banner
     testimonial = (SurveyResponse.query
         .filter(SurveyResponse.submitted_at.isnot(None))

@@ -5450,26 +5450,23 @@ def gallery_delete(photo_id):
 @admin_required
 def homepage_photo_settings():
     """Show the homepage hero photo management page."""
-    from app.settings_service import get_setting
-    current_filename = get_setting('homepage_hero_photo')
-    if current_filename:
-        current_url = url_for('static', filename=f'uploads/homepage/{current_filename}')
-    else:
-        current_url = url_for('static', filename='img/homepage.jpg')
+    import os
+    img_dir   = os.path.join(current_app.root_path, 'static', 'img')
+    has_backup = os.path.exists(os.path.join(img_dir, 'homepage_default.jpg'))
+    current_url = url_for('static', filename='img/homepage.jpg')
     return render_template('admin/homepage_photo.html',
                            current_url=current_url,
-                           current_filename=current_filename)
+                           current_filename='homepage.jpg',
+                           has_backup=has_backup)
 
 
 @bp.route('/site/homepage-photo/upload', methods=['POST'])
 @login_required
 @admin_required
 def homepage_photo_upload():
-    """Replace the homepage hero photo — no server restart needed."""
-    import os
-    from werkzeug.utils import secure_filename
-    from app.settings_service import set_setting, get_setting
-    from datetime import datetime as _dt
+    """Replace static/img/homepage.jpg directly so the change is live regardless of caching."""
+    import os, shutil
+    from PIL import Image as _PILImage
 
     photo = request.files.get('photo')
     if not photo or not photo.filename:
@@ -5482,22 +5479,22 @@ def homepage_photo_upload():
         flash('Invalid file type. Please upload a JPG, PNG, GIF, or WebP image.', 'danger')
         return redirect(url_for('admin.homepage_photo_settings'))
 
-    upload_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'homepage')
-    os.makedirs(upload_dir, exist_ok=True)
+    img_dir      = os.path.join(current_app.root_path, 'static', 'img')
+    target       = os.path.join(img_dir, 'homepage.jpg')
+    backup       = os.path.join(img_dir, 'homepage_default.jpg')
 
-    # Remove old uploaded file if one exists (keep static/img/homepage.jpg untouched)
-    old_filename = get_setting('homepage_hero_photo')
-    if old_filename:
-        old_path = os.path.join(upload_dir, old_filename)
-        if os.path.exists(old_path):
-            try:
-                os.remove(old_path)
-            except OSError:
-                pass
+    # Back up original default the first time only
+    if not os.path.exists(backup) and os.path.exists(target):
+        shutil.copy2(target, backup)
 
-    filename = f'hero_{_dt.now().strftime("%Y%m%d%H%M%S")}.{ext}'
-    photo.save(os.path.join(upload_dir, filename))
-    set_setting('homepage_hero_photo', filename, user_id=current_user.id)
+    # Save upload, convert to JPEG so the filename stays homepage.jpg
+    try:
+        img = _PILImage.open(photo.stream).convert('RGB')
+        img.save(target, 'JPEG', quality=90)
+    except Exception as e:
+        current_app.logger.error(f'Homepage photo save error: {e}')
+        flash('Could not process image. Please try a different file.', 'danger')
+        return redirect(url_for('admin.homepage_photo_settings'))
 
     flash('Homepage photo updated! Changes are live immediately.', 'success')
     return redirect(url_for('admin.homepage_photo_settings'))
@@ -5507,21 +5504,16 @@ def homepage_photo_upload():
 @login_required
 @admin_required
 def homepage_photo_reset():
-    """Revert to the default homepage photo."""
-    import os
-    from app.settings_service import set_setting, get_setting
-
-    upload_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'homepage')
-    old_filename = get_setting('homepage_hero_photo')
-    if old_filename:
-        old_path = os.path.join(upload_dir, old_filename)
-        if os.path.exists(old_path):
-            try:
-                os.remove(old_path)
-            except OSError:
-                pass
-    set_setting('homepage_hero_photo', '', user_id=current_user.id)
-    flash('Homepage photo reset to default.', 'info')
+    """Restore the original default homepage photo."""
+    import os, shutil
+    img_dir = os.path.join(current_app.root_path, 'static', 'img')
+    backup  = os.path.join(img_dir, 'homepage_default.jpg')
+    target  = os.path.join(img_dir, 'homepage.jpg')
+    if os.path.exists(backup):
+        shutil.copy2(backup, target)
+        flash('Homepage photo reset to default.', 'info')
+    else:
+        flash('No backup found — original default was never changed.', 'warning')
     return redirect(url_for('admin.homepage_photo_settings'))
 
 
