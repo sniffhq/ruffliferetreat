@@ -343,43 +343,6 @@
                     </div>
                 </div>
             </div>
-            <div class="card shadow-sm mb-3">
-                <div class="card-header py-2 px-3" style="background:#1a1a2e;">
-                    <strong class="text-white"><i class="fas fa-plus-circle me-2"></i>Boarding Add-Ons</strong>
-                </div>
-                <div class="card-body">
-                    <p class="text-muted small mb-3">Control which add-on options are shown to customers during the booking flow.</p>
-                    <div class="row g-3">
-                        <div class="col-md-4">
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch"
-                                       name="portal_addon_spa_bath_nails" id="portal_addon_spa_bath_nails"
-                                       {{ 'checked' if settings.portal_addon_spa_bath_nails in ('1','true','on','yes') else '' }}>
-                                <label class="form-check-label fw-bold" for="portal_addon_spa_bath_nails">Spa Bath + Nail Trim</label>
-                                <div class="text-muted small">Show the Spa Bath + Nail Trim add-on ($30/pet).</div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch"
-                                       name="portal_addon_spa_bath" id="portal_addon_spa_bath"
-                                       {{ 'checked' if settings.portal_addon_spa_bath in ('1','true','on','yes') else '' }}>
-                                <label class="form-check-label fw-bold" for="portal_addon_spa_bath">Spa Bath Only</label>
-                                <div class="text-muted small">Show the Spa Bath add-on ($30/pet).</div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch"
-                                       name="portal_addon_nail_trim" id="portal_addon_nail_trim"
-                                       {{ 'checked' if settings.portal_addon_nail_trim in ('1','true','on','yes') else '' }}>
-                                <label class="form-check-label fw-bold" for="portal_addon_nail_trim">Nail Trim Only</label>
-                                <div class="text-muted small">Show the Nail Trim add-on ($20/pet).</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
             <div class="d-flex justify-content-end"><button type="submit" class="btn btn-warning fw-bold px-4"><i class="fas fa-save me-2"></i>Save</button></div>
         </div>
 
