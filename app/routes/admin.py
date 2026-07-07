@@ -8943,6 +8943,7 @@ _BUSINESS_SETTING_DEFAULTS = {
     'sms_estimate':              '1',
     'sms_invoice':               '1',
     'sms_payment_receipt':       '1',
+    'sms_satisfaction_survey':   '1',
     # booking & availability
     'service_boarding_enabled':  '1',
     'service_daycare_enabled':   '1',
@@ -9002,7 +9003,7 @@ _BUSINESS_SETTING_DEFAULTS = {
 
 _TOGGLE_KEYS = {
     'sms_boarding_approval', 'sms_boarding_cancellation', 'sms_estimate',
-    'sms_invoice', 'sms_payment_receipt',
+    'sms_invoice', 'sms_payment_receipt', 'sms_satisfaction_survey',
     'service_boarding_enabled', 'service_daycare_enabled',
     'portal_booking_enabled', 'portal_show_faq', 'portal_show_gallery',
     'portal_addon_spa_bath_nails', 'portal_addon_spa_bath', 'portal_addon_nail_trim',

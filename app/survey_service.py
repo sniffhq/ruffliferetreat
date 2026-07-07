@@ -23,6 +23,10 @@ def create_and_send_survey(user, service_type: str, trigger: str = 'manual') -> 
         from app import db
         from app.models import SurveyResponse
         from app.sms_service import _send, _normalize_phone
+        from app.settings_service import get_setting
+        if get_setting('sms_satisfaction_survey') == '0':
+            logger.info(f'Survey SMS suppressed — disabled in Business Settings.')
+            return False
 
         if not user.phone:
             logger.warning(f'Survey skipped for user {user.id} — no phone number.')
