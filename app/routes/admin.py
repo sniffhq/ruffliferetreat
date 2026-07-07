@@ -8955,10 +8955,13 @@ _BUSINESS_SETTING_DEFAULTS = {
     'ops_sunday_open':           '15:00',
     'ops_sunday_close':          '18:00',
     # customer portal
-    'portal_booking_enabled':    '1',
-    'portal_show_faq':           '1',
-    'portal_show_gallery':       '1',
-    'portal_booking_closed_msg': 'Online booking is temporarily unavailable. Please call us to reserve.',
+    'portal_booking_enabled':        '1',
+    'portal_show_faq':               '1',
+    'portal_show_gallery':           '1',
+    'portal_booking_closed_msg':     'Online booking is temporarily unavailable. Please call us to reserve.',
+    'portal_addon_spa_bath_nails':   '1',
+    'portal_addon_spa_bath':         '1',
+    'portal_addon_nail_trim':        '1',
     # SMS templates
     'sms_tpl_booking_approved': (
         "✅ Great news, {first_name}! Your boarding request for {pet_name} has been approved. "
@@ -9002,6 +9005,7 @@ _TOGGLE_KEYS = {
     'sms_invoice', 'sms_payment_receipt',
     'service_boarding_enabled', 'service_daycare_enabled',
     'portal_booking_enabled', 'portal_show_faq', 'portal_show_gallery',
+    'portal_addon_spa_bath_nails', 'portal_addon_spa_bath', 'portal_addon_nail_trim',
     'deposit_required', 'late_fee_enabled',
 }
 
