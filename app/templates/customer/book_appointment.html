@@ -190,9 +190,11 @@
                     {% endif %}
 
                     <!-- Add-Ons -->
+                    {% if addon_spa_bath_nails or addon_spa_bath or addon_nail_trim %}
                     <div class="col-12">
                         <label class="form-label fw-bold">Add-Ons <span class="text-muted small">(optional)</span></label>
                         <div class="border rounded p-3 bg-light">
+                            {% if addon_spa_bath_nails %}
                             <div class="form-check mb-2">
                                 <input class="form-check-input addon-checkbox" type="checkbox"
                                        name="addons" value="spa_bath_nails" id="addon_spa_bath_nails"
@@ -203,6 +205,8 @@
                                     <span class="text-muted small d-block">Full spa bath and nail trim on the last day of stay</span>
                                 </label>
                             </div>
+                            {% endif %}
+                            {% if addon_spa_bath %}
                             <div class="form-check">
                                 <input class="form-check-input addon-checkbox" type="checkbox"
                                        name="addons" value="spa_bath" id="addon_spa_bath"
@@ -213,6 +217,8 @@
                                     <span class="text-muted small d-block">Full spa bath on the last day of stay</span>
                                 </label>
                             </div>
+                            {% endif %}
+                            {% if addon_nail_trim %}
                             <div class="form-check mt-2">
                                 <input class="form-check-input addon-checkbox" type="checkbox"
                                        name="addons" value="nail_trim" id="addon_nail_trim"
@@ -223,9 +229,11 @@
                                     <span class="text-muted small d-block">Nail trim only on the last day of stay</span>
                                 </label>
                             </div>
+                            {% endif %}
                         </div>
                         <div class="form-text">Add-on services are performed on the last day of your pet's stay.</div>
                     </div>
+                    {% endif %}
 
                     <!-- Notes -->
                     <div class="col-12">
