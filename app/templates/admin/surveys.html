@@ -96,6 +96,42 @@
             </div>
             {% endif %}
 
+            <!-- Manual Survey Send -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-header py-2 px-3" style="background:#1a1a2e;">
+                    <strong class="text-white"><i class="fas fa-paper-plane me-2"></i>Send a Survey</strong>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <input type="text" id="surveySearchInput" class="form-control form-control-sm"
+                               placeholder="Search customer by name or phone…" autocomplete="off">
+                    </div>
+                    <div id="surveySearchResults"></div>
+                    <div id="surveySelectedCustomer" class="d-none mt-2">
+                        <div class="border rounded p-2 bg-light d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong id="surveySelName"></strong>
+                                <span class="text-muted small ms-2" id="surveySelPhone"></span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <select id="surveySelService" class="form-select form-select-sm" style="width:auto;">
+                                    <option value="Boarding">Boarding</option>
+                                    <option value="Daycare">Daycare</option>
+                                    <option value="General">General</option>
+                                </select>
+                                <button class="btn btn-sm btn-warning fw-bold px-3" onclick="sendManualSurvey()">
+                                    <i class="fas fa-sms me-1"></i>Send
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="clearSurveySearch()">✕</button>
+                            </div>
+                        </div>
+                    </div>
+                    <form id="surveyManualForm" method="POST" action="" class="d-none">
+                        <input type="hidden" name="service_type" id="surveyFormService">
+                    </form>
+                </div>
+            </div>
+
             <!-- Customers not surveyed recently -->
             {% if unsurveyed %}
             <div class="card shadow-sm">
@@ -219,5 +255,67 @@
         </div>
     </div>
 </div>
+
+<script>
+let surveySearchTimer = null;
+let surveySelectedId  = null;
+
+document.getElementById('surveySearchInput').addEventListener('input', function() {
+    clearTimeout(surveySearchTimer);
+    const q = this.value.trim();
+    if (q.length < 2) {
+        document.getElementById('surveySearchResults').innerHTML = '';
+        return;
+    }
+    surveySearchTimer = setTimeout(function() {
+        fetch('/admin/surveys/customer-search?q=' + encodeURIComponent(q))
+            .then(r => r.json())
+            .then(data => {
+                const el = document.getElementById('surveySearchResults');
+                if (!data.length) {
+                    el.innerHTML = '<div class="text-muted small p-2">No customers found.</div>';
+                    return;
+                }
+                el.innerHTML = data.map(u =>
+                    `<div class="list-group-item list-group-item-action py-2 px-3"
+                          style="cursor:pointer;font-size:0.85rem;"
+                          onclick="selectSurveyCustomer(${u.id}, '${u.name.replace(/'/g,"\\'")}', '${u.phone}', '${u.service_type}')">
+                        <strong>${u.name}</strong>
+                        <span class="text-muted ms-2">${u.phone}</span>
+                        <span class="badge bg-secondary ms-2" style="font-size:0.7rem;">${u.service_type}</span>
+                    </div>`
+                ).join('');
+                el.classList.add('list-group', 'border', 'rounded', 'mb-2');
+            });
+    }, 300);
+});
+
+function selectSurveyCustomer(id, name, phone, service_type) {
+    surveySelectedId = id;
+    document.getElementById('surveySearchResults').innerHTML = '';
+    document.getElementById('surveySearchInput').value = '';
+    document.getElementById('surveySelName').textContent  = name;
+    document.getElementById('surveySelPhone').textContent = phone;
+    document.getElementById('surveySelService').value     = service_type;
+    document.getElementById('surveySelectedCustomer').classList.remove('d-none');
+}
+
+function sendManualSurvey() {
+    if (!surveySelectedId) return;
+    const service = document.getElementById('surveySelService').value;
+    const form    = document.getElementById('surveyManualForm');
+    form.action   = '/admin/surveys/send/' + surveySelectedId;
+    document.getElementById('surveyFormService').value = service;
+    form.classList.remove('d-none');
+    form.submit();
+}
+
+function clearSurveySearch() {
+    surveySelectedId = null;
+    document.getElementById('surveySelectedCustomer').classList.add('d-none');
+    document.getElementById('surveySearchResults').innerHTML = '';
+    document.getElementById('surveySearchInput').value = '';
+}
+</script>
 {% endblock %}
 

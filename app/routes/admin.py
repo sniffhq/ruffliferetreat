@@ -7343,6 +7343,69 @@ def send_survey(user_id):
     return redirect(request.referrer or url_for('admin.surveys'))
 
 
+@bp.route('/surveys/customer-search')
+@login_required
+@admin_required
+def survey_customer_search():
+    """AJAX: search customers and return their most recent service type."""
+    q = request.args.get('q', '').strip()
+    if len(q) < 2:
+        return jsonify([])
+
+    from app.models import Boarding, DaycareAttendance
+    matches = User.query.filter(
+        User.role == 'customer',
+        User.is_active == True,
+        db.or_(
+            User.first_name.ilike(f'%{q}%'),
+            User.last_name.ilike(f'%{q}%'),
+            User.phone.ilike(f'%{q}%'),
+        )
+    ).order_by(User.last_name).limit(8).all()
+
+    results = []
+    for u in matches:
+        # Most recent boarding checkout
+        last_boarding = (Boarding.query
+            .filter_by(user_id=u.id)
+            .filter(Boarding.status.in_(['active', 'completed']))
+            .order_by(Boarding.check_out_date.desc())
+            .first())
+        last_b_date = last_boarding.check_out_date if last_boarding else None
+
+        # Most recent daycare attendance via pet ownership
+        pet_ids = [p.id for p in Pet.query.filter_by(user_id=u.id).all()]
+        last_dc = None
+        if pet_ids:
+            from app.models import DaycareEnrollment as _DE
+            enr_ids = [e.id for e in _DE.query.filter(
+                _DE.pet_id.in_(pet_ids)).all()]
+            if enr_ids:
+                last_dc = (DaycareAttendance.query
+                    .filter(DaycareAttendance.enrollment_id.in_(enr_ids))
+                    .order_by(DaycareAttendance.check_in_time.desc())
+                    .first())
+        last_dc_date = last_dc.check_in_time.date() if last_dc else None
+
+        if last_b_date and last_dc_date:
+            service_type = 'Boarding' if last_b_date >= last_dc_date else 'Daycare'
+        elif last_b_date:
+            service_type = 'Boarding'
+        elif last_dc_date:
+            service_type = 'Daycare'
+        else:
+            service_type = 'General'
+
+        results.append({
+            'id':           u.id,
+            'name':         f'{u.first_name} {u.last_name}',
+            'phone':        u.phone or '',
+            'service_type': service_type,
+        })
+
+    return jsonify(results)
+
+
 # ============================================================
 # PLAY GROUP MANAGEMENT
 # ============================================================
