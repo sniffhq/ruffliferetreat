@@ -97,6 +97,9 @@
                         <input type="hidden" name="daycare_tuesday"   id="h_dc_tuesday"   value="">
                         <input type="hidden" name="daycare_wednesday" id="h_dc_wednesday" value="">
                         <input type="hidden" name="daycare_thursday"  id="h_dc_thursday"  value="">
+                        <input type="hidden" name="daycare_friday"    id="h_dc_friday"    value="">
+                        <input type="hidden" name="daycare_saturday"  id="h_dc_saturday"  value="">
+                        <input type="hidden" name="daycare_sunday"    id="h_dc_sunday"    value="">
 
                         <!-- Calendar widget -->
                         <div class="mt-2">
@@ -621,8 +624,8 @@ document.querySelector('form').addEventListener('submit', function(e) {
 // Selects individual dates; weekday flags are derived on submit.
 const DC_CAPACITY    = {{ daycare_capacity_json|safe }};
 const DC_MAX         = 15;
-const DC_DOW_MAP     = {1:'monday', 2:'tuesday', 3:'wednesday', 4:'thursday'};
-const DC_DAY_LABELS  = {monday:'Monday', tuesday:'Tuesday', wednesday:'Wednesday', thursday:'Thursday'};
+const DC_DOW_MAP     = {0:'sunday', 1:'monday', 2:'tuesday', 3:'wednesday', 4:'thursday', 5:'friday', 6:'saturday'};
+const DC_DAY_LABELS  = {monday:'Monday', tuesday:'Tuesday', wednesday:'Wednesday', thursday:'Thursday', friday:'Friday', saturday:'Saturday', sunday:'Sunday'};
 const dcSelectedDates = new Set(); // stores ISO date strings e.g. '2026-06-03'
 
 let dcYear, dcMonth;
@@ -737,7 +740,7 @@ function dcSyncInputs() {
         const jsDow = new Date(y, m - 1, d).getDay();
         if (DC_DOW_MAP[jsDow]) coveredDays.add(DC_DOW_MAP[jsDow]);
     });
-    ['monday','tuesday','wednesday','thursday'].forEach(function(dn) {
+    ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'].forEach(function(dn) {
         document.getElementById('h_dc_' + dn).value = coveredDays.has(dn) ? '1' : '';
     });
 }

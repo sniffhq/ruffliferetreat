@@ -37,7 +37,7 @@
     <!-- ── WEEKLY GRID ─────────────────────────────────────────────────────── -->
     <div class="col-lg-9">
       <div class="row g-2" id="board-grid">
-        {% for day, label in [('monday','Mon'),('tuesday','Tue'),('wednesday','Wed'),('thursday','Thu'),('friday','Fri')] %}
+        {% for day, label in [('monday','Mon'),('tuesday','Tue'),('wednesday','Wed'),('thursday','Thu'),('friday','Fri'),('saturday','Sat'),('sunday','Sun')] %}
         <div class="col">
           <div class="card shadow-sm h-100">
             <div class="card-header text-center fw-bold py-2"
@@ -74,7 +74,7 @@
         <div class="mb-3">
           <div class="small fw-bold mb-1">Attendance days:</div>
           <div class="d-flex flex-wrap gap-2" id="ap-days">
-            {% for val, lbl in [('monday','Mon'),('tuesday','Tue'),('wednesday','Wed'),('thursday','Thu'),('friday','Fri')] %}
+            {% for val, lbl in [('monday','Mon'),('tuesday','Tue'),('wednesday','Wed'),('thursday','Thu'),('friday','Fri'),('saturday','Sat'),('sunday','Sun')] %}
             <div class="form-check form-check-inline m-0">
               <input class="form-check-input ap-day-cb" type="checkbox" id="ap_{{ val }}" name="{{ val }}" value="{{ val }}">
               <label class="form-check-label small" for="ap_{{ val }}">{{ lbl }}</label>
@@ -135,8 +135,8 @@
 <script>
 const PENDING = {{ pending_json|safe }};
 const BOARD   = {{ board_json|safe }};
-const DAYS    = ['monday','tuesday','wednesday','thursday','friday'];
-const DAY_LABEL = {monday:'Monday',tuesday:'Tuesday',wednesday:'Wednesday',thursday:'Thursday',friday:'Friday'};
+const DAYS    = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+const DAY_LABEL = {monday:'Monday',tuesday:'Tuesday',wednesday:'Wednesday',thursday:'Thursday',friday:'Friday',saturday:'Saturday',sunday:'Sunday'};
 
 // ── State ────────────────────────────────────────────────────────────────────
 let pendingEntries = [...PENDING];   // mutable copy

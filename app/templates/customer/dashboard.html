@@ -202,7 +202,7 @@
                                 <li class="list-group-item py-3">
                                     <div class="fw-bold mb-2">{{ enr.pet.name }}</div>
                                     <div class="d-flex gap-1 flex-wrap">
-                                        {% for day, label in [('monday','M'),('tuesday','T'),('wednesday','W'),('thursday','Th'),('friday','F')] %}
+                                        {% for day, label in [('monday','M'),('tuesday','T'),('wednesday','W'),('thursday','Th'),('friday','F'),('saturday','Sa'),('sunday','Su')] %}
                                         <span class="badge {% if enr[day] %}bg-success{% else %}bg-light text-muted border{% endif %}"
                                               style="min-width:26px; font-size:0.75rem;">{{ label }}</span>
                                         {% endfor %}

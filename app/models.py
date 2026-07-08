@@ -223,6 +223,7 @@ class DaycareEnrollment(db.Model):
     thursday = db.Column(db.Boolean, default=False)
     friday = db.Column(db.Boolean, default=False)
     saturday = db.Column(db.Boolean, default=False)
+    sunday = db.Column(db.Boolean, default=False)
 
     # Special discounted rate — if set, overrides the standard multi/single day rate
     special_rate = db.Column(db.Float, nullable=True)  # e.g. 20.0 for $20/day flat
@@ -285,6 +286,8 @@ class DaycareWaitlist(db.Model):
     wednesday = db.Column(db.Boolean, default=False)
     thursday = db.Column(db.Boolean, default=False)
     friday = db.Column(db.Boolean, default=False)
+    saturday = db.Column(db.Boolean, default=False)
+    sunday = db.Column(db.Boolean, default=False)
 
     additional_info = db.Column(db.Text)
     submitted_date = db.Column(db.DateTime, nullable=False, default=datetime.now)

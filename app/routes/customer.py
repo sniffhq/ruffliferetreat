@@ -555,6 +555,11 @@ def book_appointment():
     boarding_enabled = _toggle('service_boarding_enabled')
     daycare_enabled  = _toggle('service_daycare_enabled')
 
+    # Add-on visibility
+    addon_spa_bath_nails = _toggle('portal_addon_spa_bath_nails')
+    addon_spa_bath       = _toggle('portal_addon_spa_bath')
+    addon_nail_trim      = _toggle('portal_addon_nail_trim')
+
     # Advance booking window
     try:
         booking_min = int(_gs('booking_min_advance_days') or 1)
@@ -656,7 +661,9 @@ def book_appointment():
                         tuesday   = request.form.get('daycare_tuesday')   == '1',
                         wednesday = request.form.get('daycare_wednesday') == '1',
                         thursday  = request.form.get('daycare_thursday')  == '1',
-                        friday    = False,
+                        friday    = request.form.get('daycare_friday')    == '1',
+                        saturday  = request.form.get('daycare_saturday')  == '1',
+                        sunday    = request.form.get('daycare_sunday')    == '1',
                     )
                     db.session.add(entry)
                     added.append(pet.name)
@@ -803,8 +810,8 @@ def book_appointment():
         e.pet_id for e in _DE.query.filter_by(active=True).all()
     }
 
-    # Daycare capacity per weekday (Mon-Thu) for the customer calendar widget
-    _dc_days = ['monday', 'tuesday', 'wednesday', 'thursday']
+    # Daycare capacity per day for the customer calendar widget
+    _dc_days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
     daycare_capacity = {}
     for _dc_day in _dc_days:
         daycare_capacity[_dc_day] = _DE.query.filter_by(active=True).filter(
@@ -824,7 +831,10 @@ def book_appointment():
                            boarding_enabled=boarding_enabled,
                            daycare_enabled=daycare_enabled,
                            booking_min=booking_min,
-                           booking_max=booking_max)
+                           booking_max=booking_max,
+                           addon_spa_bath_nails=addon_spa_bath_nails,
+                           addon_spa_bath=addon_spa_bath,
+                           addon_nail_trim=addon_nail_trim)
 
 @bp.route('/available-times')
 @login_required

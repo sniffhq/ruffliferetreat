@@ -195,7 +195,7 @@ def dashboard():
         ]
 
     # Build daycare pets per day based on enrollment schedule flags
-    day_attr_map = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday'}
+    day_attr_map = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday', 4: 'friday', 5: 'saturday', 6: 'sunday'}
     active_enrollments = DaycareEnrollment.query.filter_by(active=True).all()
     daycare_by_day = {}
     for i in range(7):
@@ -592,16 +592,14 @@ def daycare_dashboard():
                     closure_dates_set.add(bd)
                 bd += timedelta(days=1)
 
-    _day_fields   = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday'}
-    _walkin_fields = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday', 4: 'friday', 5: 'saturday'}
+    _day_fields   = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday', 4: 'friday', 5: 'saturday', 6: 'sunday'}
+    _walkin_fields = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday', 4: 'friday', 5: 'saturday', 6: 'sunday'}
     daycare_cal_dates       = {}  # date_str -> [pet names]  (Jinja highlighting)
     daycare_cal_detail_data = {}  # date_str -> {pets, is_closed, count}  (JS modal)
 
     for _offset in range(14):
         d   = cal_start + timedelta(days=_offset)
         dow = d.weekday()
-        if dow >= 6:   # skip Sunday only — walk-ins allowed Mon–Sat
-            continue
         ds        = d.isoformat()
         is_closed = d in closure_dates_set
 
@@ -675,9 +673,11 @@ def daycare_enroll():
         wednesday = bool(request.form.get('wednesday'))
         thursday  = bool(request.form.get('thursday'))
         friday    = bool(request.form.get('friday'))
+        saturday  = bool(request.form.get('saturday'))
+        sunday    = bool(request.form.get('sunday'))
         notes     = request.form.get('notes', '')
 
-        if not pet_id or not (monday or tuesday or wednesday or thursday or friday):
+        if not pet_id or not any([monday, tuesday, wednesday, thursday, friday, saturday, sunday]):
             flash('Please select pet and at least one day.', 'danger')
             return redirect(url_for('admin.daycare_enroll'))
 
@@ -690,6 +690,8 @@ def daycare_enroll():
             wednesday=wednesday,
             thursday=thursday,
             friday=friday,
+            saturday=saturday,
+            sunday=sunday,
             notes=notes,
             active=True
         )
@@ -862,7 +864,7 @@ def toggle_daycare_day(enrollment_id, day):
     """Toggle a single daycare day on or off for an enrollment."""
     enrollment = DaycareEnrollment.query.get_or_404(enrollment_id)
 
-    valid_days = ('monday', 'tuesday', 'wednesday', 'thursday')
+    valid_days = ('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday')
     if day not in valid_days:
         flash('Invalid day.', 'danger')
         return redirect(url_for('admin.daycare_dashboard'))
@@ -938,11 +940,14 @@ def daycare_schedule():
                 'tuesday':   entry.tuesday,
                 'wednesday': entry.wednesday,
                 'thursday':  entry.thursday,
+                'friday':    entry.friday,
+                'saturday':  getattr(entry, 'saturday', False),
+                'sunday':    getattr(entry, 'sunday', False),
             },
         })
 
     # Enrolled pets per day for the board columns
-    days = ['monday', 'tuesday', 'wednesday', 'thursday']
+    days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
     board = {day: [] for day in days}
     for enr in enrollments:
         for day in days:
@@ -970,7 +975,7 @@ def schedule_enroll():
     data      = request.get_json(force=True)
     pet_id    = data.get('pet_id')
     day       = data.get('day')
-    days_list = ['monday', 'tuesday', 'wednesday', 'thursday']
+    days_list = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 
     if not pet_id or day not in days_list:
         return jsonify({'ok': False, 'error': 'Invalid pet or day'}), 400
@@ -1002,7 +1007,7 @@ def schedule_unenroll():
     data      = request.get_json(force=True)
     pet_id    = data.get('pet_id')
     day       = data.get('day')
-    days_list = ['monday', 'tuesday', 'wednesday', 'thursday']
+    days_list = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 
     if not pet_id or day not in days_list:
         return jsonify({'ok': False, 'error': 'Invalid pet or day'}), 400
@@ -1024,7 +1029,7 @@ def approve_waitlist_schedule(entry_id):
     data      = request.get_json(force=True)
     pet_id    = data.get('pet_id')
     day_flags = data.get('days', {})   # {monday: true, tuesday: false, …}
-    days_list = ['monday', 'tuesday', 'wednesday', 'thursday']
+    days_list = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 
     if not pet_id:
         return jsonify({'ok': False, 'error': 'No pet selected'}), 400
@@ -1173,6 +1178,9 @@ def daycare_waitlist_admin():
             'tuesday':   entry.tuesday,
             'wednesday': entry.wednesday,
             'thursday':  entry.thursday,
+            'friday':    entry.friday,
+            'saturday':  getattr(entry, 'saturday', False),
+            'sunday':    getattr(entry, 'sunday', False),
         }
     entry_days_json = _json.dumps(entry_days_map)
 
@@ -1207,9 +1215,11 @@ def approve_waitlist_entry(entry_id):
     wednesday = bool(request.form.get('wednesday'))
     thursday  = bool(request.form.get('thursday'))
     friday    = bool(request.form.get('friday'))
+    saturday  = bool(request.form.get('saturday'))
+    sunday    = bool(request.form.get('sunday'))
     notes     = request.form.get('notes', '')
 
-    if not pet_id or not any([monday, tuesday, wednesday, thursday, friday]):
+    if not pet_id or not any([monday, tuesday, wednesday, thursday, friday, saturday, sunday]):
         flash('Please select a pet and at least one day.', 'danger')
         return redirect(url_for('admin.daycare_waitlist_admin'))
 
@@ -1218,7 +1228,7 @@ def approve_waitlist_entry(entry_id):
         pet_id          = pet_id,
         enrollment_date = datetime.now().date(),
         monday=monday, tuesday=tuesday, wednesday=wednesday,
-        thursday=thursday, friday=friday,
+        thursday=thursday, friday=friday, saturday=saturday, sunday=sunday,
         notes=notes, active=True,
     )
     db.session.add(enrollment)
@@ -1782,8 +1792,8 @@ def ops_dashboard():
 
     # ── Daycare expected (works for any date by day-of-week) ──────────────────
     # Recurring enrollments: Mon–Thu only. Walk-ins: Mon–Sat.
-    _enr_fields  = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday'}
-    _walkin_fields = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday', 4: 'friday', 5: 'saturday'}
+    _enr_fields  = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday', 4: 'friday', 5: 'saturday', 6: 'sunday'}
+    _walkin_fields = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday', 4: 'friday', 5: 'saturday', 6: 'sunday'}
     dow = today.weekday()
     daycare_expected_today = []
     _checked_in_ids = {a.enrollment_id for a in _today_att}
@@ -1936,10 +1946,8 @@ def daycare_walkin():
         target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
     except ValueError:
         return jsonify({'ok': False, 'error': 'Invalid date.'})
-    _dc_fields = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday', 4: 'friday', 5: 'saturday'}
+    _dc_fields = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday', 4: 'friday', 5: 'saturday', 6: 'sunday'}
     dow = target_date.weekday()
-    if dow not in _dc_fields:
-        return jsonify({'ok': False, 'error': 'Daycare walk-ins are only available Mon–Sat.'})
     field = _dc_fields[dow]
     pet   = Pet.query.get(int(pet_id))
     if not pet:
@@ -1951,12 +1959,15 @@ def daycare_walkin():
         enr.wednesday = (field == 'wednesday')
         enr.thursday  = (field == 'thursday')
         enr.friday    = (field == 'friday')
+        enr.saturday  = (field == 'saturday')
+        enr.sunday    = (field == 'sunday')
         enr.active    = False
     else:
         enr = DaycareEnrollment(
             pet_id=pet.id, enrollment_date=target_date, active=False, is_walkin=True,
             monday=(field=='monday'), tuesday=(field=='tuesday'),
             wednesday=(field=='wednesday'), thursday=(field=='thursday'), friday=(field=='friday'),
+            saturday=(field=='saturday'), sunday=(field=='sunday'),
         )
         db.session.add(enr)
     db.session.flush()
@@ -4611,6 +4622,8 @@ def update_daycare_schedule(customer_id):
         enrollment.wednesday = bool(request.form.get(f'{prefix}wednesday'))
         enrollment.thursday  = bool(request.form.get(f'{prefix}thursday'))
         enrollment.friday    = bool(request.form.get(f'{prefix}friday'))
+        enrollment.saturday  = bool(request.form.get(f'{prefix}saturday'))
+        enrollment.sunday    = bool(request.form.get(f'{prefix}sunday'))
     db.session.commit()
     flash('Daycare schedule updated.', 'success')
     return redirect(url_for('admin.customer_detail', customer_id=customer_id))
