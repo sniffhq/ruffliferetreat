@@ -2284,14 +2284,17 @@ def complete_boarding(booking_id):
     except Exception as e:
         current_app.logger.error(f'Failed to update linked appointment on boarding complete: {e}')
 
-    # Auto-send satisfaction survey
-    try:
-        from app.survey_service import create_and_send_survey
-        owner = booking.pet.owner
-        if owner:
-            create_and_send_survey(owner, 'Boarding', trigger='boarding_complete')
-    except Exception as e:
-        current_app.logger.error(f'Survey send failed after boarding complete: {e}')
+    # Send satisfaction survey only if staff opted in via the checkout modal
+    if request.form.get('send_survey') == '1':
+        try:
+            from app.survey_service import create_and_send_survey
+            owner = booking.pet.owner
+            if owner:
+                sent = create_and_send_survey(owner, 'Boarding', trigger='boarding_complete')
+                if sent:
+                    flash(f'Survey sent to {owner.first_name} {owner.last_name}.', 'info')
+        except Exception as e:
+            current_app.logger.error(f'Survey send failed after boarding complete: {e}')
 
     # Punch card — only active if loyalty_service is deployed
     try:
