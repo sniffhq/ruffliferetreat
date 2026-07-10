@@ -86,21 +86,14 @@ def create_and_send_survey(user, service_type: str, trigger: str = 'manual') -> 
         return False
 
 
-def check_daycare_milestone(user_id: int) -> bool:
+def is_daycare_milestone(user_id: int) -> bool:
     """
-    Check if a customer has hit a 5-visit milestone today and send a survey if so.
-    Call this after every daycare checkout.
-    Returns True if a survey was sent.
+    Check if a customer has hit a 5-visit milestone after their most recent checkout.
+    Returns True if a survey prompt should be shown to staff — does NOT send automatically.
     """
     try:
-        from app.models import DaycareAttendance, DaycareEnrollment, Pet, User, SurveyResponse
-        from app import db
+        from app.models import DaycareAttendance, DaycareEnrollment, Pet, SurveyResponse
 
-        user = User.query.get(user_id)
-        if not user:
-            return False
-
-        # Count total completed daycare visits for this customer
         total_visits = (DaycareAttendance.query
             .join(DaycareEnrollment, DaycareAttendance.enrollment_id == DaycareEnrollment.id)
             .join(Pet, DaycareEnrollment.pet_id == Pet.id)
@@ -108,15 +101,12 @@ def check_daycare_milestone(user_id: int) -> bool:
             .filter(DaycareAttendance.check_out_time.isnot(None))
             .count())
 
-        # Fire survey on every 5th visit
         if total_visits > 0 and total_visits % 5 == 0:
-            # Don't double-send — check if survey already sent for this milestone
             existing = (SurveyResponse.query
                 .filter_by(user_id=user_id, service_type='Daycare', trigger='daycare_milestone')
                 .filter(SurveyResponse.sent_at.isnot(None))
                 .count())
-            if existing < (total_visits // 5):
-                return create_and_send_survey(user, 'Daycare', trigger='daycare_milestone')
+            return existing < (total_visits // 5)
 
         return False
 

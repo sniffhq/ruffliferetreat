@@ -176,13 +176,5 @@ def _do_checkout(enrollment, pet):
     attendance.check_out_time = check_out_time
     db.session.commit()
 
-    # Milestone survey check
-    try:
-        from app.survey_service import check_daycare_milestone
-        if pet.owner:
-            check_daycare_milestone(pet.owner.id)
-    except Exception as e:
-        logger.error(f'Survey milestone check failed for {pet.name}: {e}')
-
     duration = (check_out_time - attendance.check_in_time).total_seconds() / 3600
     return True, f'✓ {pet.name} checked out ({duration:.1f} hrs)'

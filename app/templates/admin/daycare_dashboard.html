@@ -469,5 +469,42 @@ function filterEnrollments(query) {
 .me-1 { margin-right: 0.25rem; }
 </style>
 
+{% if request.args.get('survey_prompt') %}
+<!-- Daycare milestone survey prompt modal -->
+<div class="modal fade" id="milestoneSurveyModal" tabindex="-1" aria-labelledby="milestoneSurveyModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#1a1a2e;">
+                <h5 class="modal-title text-white" id="milestoneSurveyModalLabel">
+                    <i class="fas fa-star me-2 text-warning"></i>5th Daycare Visit Milestone
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <p class="mb-1">Would you like to send a satisfaction survey to</p>
+                <p class="fw-bold fs-5 mb-3">{{ request.args.get('survey_name', 'this customer') }}?</p>
+                <p class="text-muted small mb-0">They just completed their 5th daycare visit.</p>
+            </div>
+            <div class="modal-footer justify-content-center gap-2">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Skip
+                </button>
+                <form method="POST" action="{{ url_for('admin.send_survey', user_id=request.args.get('survey_prompt')) }}">
+                    <input type="hidden" name="service_type" value="Daycare">
+                    <button type="submit" class="btn btn-warning fw-bold">
+                        <i class="fas fa-sms me-1"></i>Send Survey
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+window.addEventListener('load', function() {
+    new bootstrap.Modal(document.getElementById('milestoneSurveyModal')).show();
+});
+</script>
+{% endif %}
+
 {% endblock %}
 

@@ -807,6 +807,18 @@ def daycare_checkout(attendance_id):
     except Exception as e:
         current_app.logger.error(f'Daycare punch card check failed: {e}')
 
+    # Check daycare milestone — prompt staff to send survey if hit
+    if owner_id and owner_phone:
+        try:
+            from app.survey_service import is_daycare_milestone
+            if is_daycare_milestone(owner_id):
+                owner_name = owner.first_name + ' ' + owner.last_name if owner else ''
+                return redirect(url_for('admin.daycare_dashboard',
+                                        survey_prompt=owner_id,
+                                        survey_name=owner_name))
+        except Exception as e:
+            current_app.logger.error(f'Daycare milestone check failed: {e}')
+
     return redirect(url_for('admin.daycare_dashboard'))
 
 
