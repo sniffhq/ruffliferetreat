@@ -1954,6 +1954,7 @@ def daycare_walkin():
         return jsonify({'ok': False, 'error': 'Pet not found.'})
     enr = DaycareEnrollment.query.filter_by(pet_id=pet.id, is_walkin=True).first()
     if enr:
+        enr.enrollment_date = target_date  # update to today so dashboard query finds it
         enr.monday    = (field == 'monday')
         enr.tuesday   = (field == 'tuesday')
         enr.wednesday = (field == 'wednesday')
