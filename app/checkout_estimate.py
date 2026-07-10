@@ -233,6 +233,12 @@ def run_checkout_estimates(app):
     Main entry point — group checkouts by customer and send one SMS each.
     Returns a summary dict.
     """
+    with app.app_context():
+        from app.settings_service import get_setting
+        if get_setting('sms_estimate') == '0':
+            logger.info('Checkout estimate SMS suppressed — disabled in Business Settings.')
+            return {'sent': 0, 'skipped': 0, 'total': 0}
+
     grouped = get_checkouts_today(app)
     sent    = 0
     skipped = 0
