@@ -156,7 +156,7 @@
                                class="form-control"
                                min="{{ today.isoformat() }}" required>
                         <div id="date-validation-error" class="invalid-feedback d-block" style="display: none;">
-                            <i class="fas fa-exclamation-circle me-1"></i>Pick-up date must be after drop-off date
+                            <i class="fas fa-exclamation-circle me-1"></i>Pick-up date must be on or after drop-off date
                         </div>
                     </div>
 
@@ -375,8 +375,8 @@ function validateDates() {
     var checkinDate  = new Date(checkin + 'T00:00:00');
     var checkoutDate = new Date(checkout + 'T00:00:00');
     
-    // Check if checkout is after checkin
-    if (checkoutDate <= checkinDate) {
+    // Check if checkout is on or after checkin (same-day / day boarding is allowed)
+    if (checkoutDate < checkinDate) {
         checkoutInput.classList.add('is-invalid');
         errorDiv.style.display = 'block';
         return false;
@@ -402,7 +402,8 @@ function getNights() {
     var ci = getCheckinDate(), co = getCheckoutDate();
     if (!ci || !co) return 0;
     var diff = (new Date(co + 'T00:00:00') - new Date(ci + 'T00:00:00')) / 86400000;
-    return diff > 0 ? diff : 0;
+    // Same-day (day boarding) counts as 1 billable night minimum
+    return diff >= 0 ? Math.max(diff, 1) : 0;
 }
 
 function getBillableDays() {
@@ -458,12 +459,10 @@ document.querySelectorAll('.pet-checkbox').forEach(function(c) {
 });
 
 document.getElementById('checkin-date').addEventListener('change', function() {
-    // Set minimum checkout date to be day after checkin
+    // Checkout can be same day as check-in (day boarding) or later
     var checkinDate = this.value;
     if (checkinDate) {
-        var minCheckout = new Date(checkinDate + 'T00:00:00');
-        minCheckout.setDate(minCheckout.getDate() + 1);
-        document.getElementById('checkout-date').min = minCheckout.toISOString().split('T')[0];
+        document.getElementById('checkout-date').min = checkinDate;
     }
     validateDates();
     updatePricing();

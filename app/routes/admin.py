@@ -2469,9 +2469,9 @@ def boarding_detail(booking_id):
         try:
             from app.models import InvoiceAdjustment
 
-            # Nights: base nights + 1 if pickup after 10 AM
+            # Nights: base nights + 1 if pickup after 10 AM; minimum 1 for same-day stays
             cout = str(booking.check_out_time or '17:00')[:5]
-            days = (booking.check_out_date - booking.check_in_date).days
+            days = max((booking.check_out_date - booking.check_in_date).days, 1)
             if cout > '10:00':
                 days += 1
 
@@ -3440,11 +3440,12 @@ def _next_board_number():
 def _boarding_days(b):
     """
     Calculate billable nights for a boarding record.
-    Base = checkout_date - checkin_date (nights slept).
+    Base = checkout_date - checkin_date (nights slept), minimum 1 for same-day stays.
     If pickup is after 10:00 AM, the checkout day counts as an extra night.
     e.g. Jun 20–22, pickup at 5 PM = 3 nights; pickup at 9 AM = 2 nights.
+    Same-day (day boarding): always bills as 1 night.
     """
-    base = (b.check_out_date - b.check_in_date).days
+    base = max((b.check_out_date - b.check_in_date).days, 1)
     cout = str(b.check_out_time or '17:00')[:5]
     return base if cout <= '10:00' else base + 1
 
