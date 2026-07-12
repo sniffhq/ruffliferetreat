@@ -406,6 +406,8 @@ function getNights() {
 
 function getBillableDays() {
     // Charged per calendar day — check-in day and check-out day both count
+    var ci = getCheckinDate(), co = getCheckoutDate();
+    if (ci && co && ci === co) return 1;  // same-day = 1 night flat, no late-pickup surcharge
     var nights = getNights();
     if (nights === 0) return 0;
     return nights + 1;

@@ -20,9 +20,11 @@ MARKER = '[checkout-estimate]'
 
 
 def _boarding_days(b):
-    base = (b.check_out_date - b.check_in_date).days
+    raw = (b.check_out_date - b.check_in_date).days
+    if raw == 0:
+        return 1  # same-day stay always bills as 1 night, no late-pickup surcharge
     cout = str(b.check_out_time or '17:00')[:5]
-    return base if cout <= '10:00' else base + 1
+    return raw if cout <= '10:00' else raw + 1
 
 
 def get_checkouts_today(app):
