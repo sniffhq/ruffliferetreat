@@ -196,7 +196,7 @@
             <div class="card-header bg-light fw-bold">📝 Staff Notes (optional)</div>
             <div class="card-body">
                 <textarea name="notes" class="form-control" rows="3"
-                          placeholder="Any fun moments, things to mention to the owner, or notes for the team...">{{ existing.notes if existing and existing.notes else '' }}</textarea>
+                          placeholder="Any fun moments, things to mention to the owner, or notes for the team...">{{ existing.notes if existing and existing.notes else (default_notes or '') }}</textarea>
             </div>
         </div>
 
