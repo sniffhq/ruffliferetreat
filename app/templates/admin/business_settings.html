@@ -212,44 +212,73 @@
             </div>
             <div class="card shadow-sm mb-3">
                 <div class="card-header py-2 px-3" style="background:#1a1a2e;">
-                    <strong class="text-white"><i class="fas fa-clock me-2"></i>Operating Hours</strong>
+                    <strong class="text-white"><i class="fas fa-clock me-2"></i>Boarding Hours by Day</strong>
                 </div>
-                <div class="card-body">
-                    <p class="text-muted small mb-3">Sets the drop-off/pickup time slot windows shown when scheduling. Use 24-hour format (HH:MM).</p>
-                    <div class="row g-3">
-                        <div class="col-12"><strong class="small">Monday – Friday</strong></div>
-                        <div class="col-sm-3">
-                            <label class="form-label small mb-1">Open</label>
-                            <input type="time" name="ops_weekday_open" class="form-control form-control-sm"
-                                   value="{{ settings.ops_weekday_open }}">
-                        </div>
-                        <div class="col-sm-3">
-                            <label class="form-label small mb-1">Close</label>
-                            <input type="time" name="ops_weekday_close" class="form-control form-control-sm"
-                                   value="{{ settings.ops_weekday_close }}">
-                        </div>
-                        <div class="col-12 mt-2"><strong class="small">Saturday</strong></div>
-                        <div class="col-sm-3">
-                            <label class="form-label small mb-1">Open</label>
-                            <input type="time" name="ops_saturday_open" class="form-control form-control-sm"
-                                   value="{{ settings.ops_saturday_open }}">
-                        </div>
-                        <div class="col-sm-3">
-                            <label class="form-label small mb-1">Close</label>
-                            <input type="time" name="ops_saturday_close" class="form-control form-control-sm"
-                                   value="{{ settings.ops_saturday_close }}">
-                        </div>
-                        <div class="col-12 mt-2"><strong class="small">Sunday</strong></div>
-                        <div class="col-sm-3">
-                            <label class="form-label small mb-1">Open</label>
-                            <input type="time" name="ops_sunday_open" class="form-control form-control-sm"
-                                   value="{{ settings.ops_sunday_open }}">
-                        </div>
-                        <div class="col-sm-3">
-                            <label class="form-label small mb-1">Close</label>
-                            <input type="time" name="ops_sunday_close" class="form-control form-control-sm"
-                                   value="{{ settings.ops_sunday_close }}">
-                        </div>
+                <div class="card-body p-0">
+                    <p class="text-muted small px-3 pt-3 mb-2">Set when customers can drop off and pick up each day. The booking portal generates 15-minute time slots within these windows. Check "Closed" to hide that slot type on that day.</p>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered mb-0" style="min-width:600px;">
+                            <thead style="background:#f8f9fa;">
+                                <tr>
+                                    <th class="ps-3 align-middle" rowspan="2">Day</th>
+                                    <th colspan="3" class="text-center border-start">Drop-Off</th>
+                                    <th colspan="3" class="text-center border-start">Pick-Up</th>
+                                </tr>
+                                <tr class="small text-muted">
+                                    <th class="border-start fw-normal">Open</th>
+                                    <th class="fw-normal">Close</th>
+                                    <th class="text-center fw-normal">Closed</th>
+                                    <th class="border-start fw-normal">Open</th>
+                                    <th class="fw-normal">Close</th>
+                                    <th class="text-center fw-normal">Closed</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for day in boarding_days %}
+                                {% set dh = dropoff_hours[day] %}
+                                {% set ph = pickup_hours[day] %}
+                                <tr>
+                                    <td class="ps-3 fw-bold small align-middle">{{ day.capitalize() }}</td>
+                                    <td class="border-start align-middle">
+                                        <input type="time" name="boarding_dropoff_{{ day }}_open"
+                                               class="form-control form-control-sm"
+                                               value="{{ dh.open }}"
+                                               {{ 'disabled' if dh.closed else '' }}>
+                                    </td>
+                                    <td class="align-middle">
+                                        <input type="time" name="boarding_dropoff_{{ day }}_close"
+                                               class="form-control form-control-sm"
+                                               value="{{ dh.close }}"
+                                               {{ 'disabled' if dh.closed else '' }}>
+                                    </td>
+                                    <td class="text-center align-middle">
+                                        <input type="checkbox" name="boarding_dropoff_{{ day }}_closed"
+                                               class="form-check-input boarding-closed-check"
+                                               data-day="{{ day }}" data-slot="dropoff"
+                                               {{ 'checked' if dh.closed else '' }}>
+                                    </td>
+                                    <td class="border-start align-middle">
+                                        <input type="time" name="boarding_pickup_{{ day }}_open"
+                                               class="form-control form-control-sm"
+                                               value="{{ ph.open }}"
+                                               {{ 'disabled' if ph.closed else '' }}>
+                                    </td>
+                                    <td class="align-middle">
+                                        <input type="time" name="boarding_pickup_{{ day }}_close"
+                                               class="form-control form-control-sm"
+                                               value="{{ ph.close }}"
+                                               {{ 'disabled' if ph.closed else '' }}>
+                                    </td>
+                                    <td class="text-center align-middle">
+                                        <input type="checkbox" name="boarding_pickup_{{ day }}_closed"
+                                               class="form-check-input boarding-closed-check"
+                                               data-day="{{ day }}" data-slot="pickup"
+                                               {{ 'checked' if ph.closed else '' }}>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -620,5 +649,18 @@
             });
     });
 })();
+
+// Boarding hours — toggle time inputs when "Closed" checkbox changes
+document.querySelectorAll('.boarding-closed-check').forEach(function(cb) {
+    cb.addEventListener('change', function() {
+        var day  = this.dataset.day;
+        var slot = this.dataset.slot;
+        var inputs = document.querySelectorAll(
+            'input[name="boarding_' + slot + '_' + day + '_open"], ' +
+            'input[name="boarding_' + slot + '_' + day + '_close"]'
+        );
+        inputs.forEach(function(inp) { inp.disabled = cb.checked; });
+    });
+});
 </script>
 {% endblock %}

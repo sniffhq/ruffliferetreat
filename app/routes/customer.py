@@ -855,28 +855,53 @@ def available_times():
     except ValueError:
         return json.dumps([]), 200, {'Content-Type': 'application/json'}
 
-    # Generate slots based on day-of-week schedule:
-    #   Mon-Fri  : 07:00 - 18:00
-    #   Saturday : 07:00 - 11:00  and  17:00 - 18:00
-    #   Sunday   : 15:00 - 18:00
-    weekday = target_date.weekday()  # 0=Mon, 5=Sat, 6=Sun
+    # Generate slots from boarding hours settings (per-day drop-off / pick-up windows)
+    weekday = target_date.weekday()  # 0=Mon … 6=Sun
+    _DAY_NAMES = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+    day_name = _DAY_NAMES[weekday]
+    setting_key = 'boarding_dropoff_hours' if slot_type == 'checkin' else 'boarding_pickup_hours'
 
-    if weekday == 6:        # Sunday
-        windows = [(15, 18)]
-    elif weekday == 5:      # Saturday
-        windows = [(7, 11), (17, 18)]
-    else:                   # Mon-Fri
-        windows = [(7, 18)]
+    open_str  = None
+    close_str = None
+    day_closed = False
 
+    try:
+        from app.settings_service import get_setting as _gs2
+        import json as _json2
+        raw = _gs2(setting_key)
+        if raw and raw != '{}':
+            hours_cfg = _json2.loads(raw)
+            day_cfg   = hours_cfg.get(day_name, {})
+            day_closed = day_cfg.get('closed', False)
+            if not day_closed:
+                open_str  = day_cfg.get('open')
+                close_str = day_cfg.get('close')
+    except Exception:
+        pass
+
+    # Fallback to legacy hardcoded schedule if settings not configured
+    if not day_closed and (not open_str or not close_str):
+        if weekday == 6:    # Sunday
+            open_str, close_str = '15:00', '18:00'
+        elif weekday == 5:  # Saturday
+            open_str, close_str = ('07:00', '11:00') if slot_type == 'checkin' else ('17:00', '18:00')
+        else:               # Mon-Fri
+            open_str, close_str = '07:00', '18:00'
+
+    # Build 15-minute increments between open and close
     slots = []
-    for (start_h, end_h) in windows:
-        for hour in range(start_h, end_h + 1):
-            for minute in (0, 15, 30, 45):
-                if hour == end_h and minute > 0:
-                    break
-                time_str = f'{hour:02d}:{minute:02d}'
-                display  = datetime.strptime(time_str, '%H:%M').strftime('%I:%M %p').lstrip('0')
-                slots.append({'time': time_str, 'display': display})
+    if not day_closed and open_str and close_str:
+        def _t2m(t):
+            h, m = map(int, t.split(':'))
+            return h * 60 + m
+        cur = _t2m(open_str)
+        end = _t2m(close_str)
+        while cur <= end:
+            h, m = divmod(cur, 60)
+            time_str = f'{h:02d}:{m:02d}'
+            display  = datetime.strptime(time_str, '%H:%M').strftime('%I:%M %p').lstrip('0')
+            slots.append({'time': time_str, 'display': display})
+            cur += 15
 
     # Find already-taken slots on this date
     taken = set()

@@ -9139,7 +9139,10 @@ def business_settings():
     from app.settings_service import get_setting, set_setting
     from app.models import BlackoutDate
 
+    _BOARDING_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+
     if request.method == 'POST':
+        import json as _json
         for key in _BUSINESS_SETTING_DEFAULTS:
             if key in _TOGGLE_KEYS:
                 val = '1' if request.form.get(key) else '0'
@@ -9151,6 +9154,17 @@ def business_settings():
                     continue  # don't overwrite numeric/text fields with blank
             set_setting(key, val, user_id=current_user.id)
 
+        # Boarding hours — serialize per-day form fields to JSON
+        for slot in ('dropoff', 'pickup'):
+            hours = {}
+            for day in _BOARDING_DAYS:
+                hours[day] = {
+                    'open':   request.form.get(f'boarding_{slot}_{day}_open', '07:00') or '07:00',
+                    'close':  request.form.get(f'boarding_{slot}_{day}_close', '18:00') or '18:00',
+                    'closed': bool(request.form.get(f'boarding_{slot}_{day}_closed')),
+                }
+            set_setting(f'boarding_{slot}_hours', _json.dumps(hours), user_id=current_user.id)
+
         try:
             from app.audit_service import audit
             audit('settings.business.updated', 'settings', None, 'Business Settings',
@@ -9161,9 +9175,46 @@ def business_settings():
         flash('Settings saved.', 'success')
         return redirect(url_for('admin.business_settings') + '#' + request.form.get('_tab', 'info'))
 
+    import json as _json
+    _DEFAULT_DAY_DROPOFF = {'open': '07:00', 'close': '18:00', 'closed': False}
+    _DEFAULT_DAY_PICKUP  = {'open': '07:00', 'close': '18:00', 'closed': False}
+    _DROPOFF_DEFAULTS = {
+        'monday': {'open': '07:00', 'close': '18:00', 'closed': False},
+        'tuesday': {'open': '07:00', 'close': '18:00', 'closed': False},
+        'wednesday': {'open': '07:00', 'close': '18:00', 'closed': False},
+        'thursday': {'open': '07:00', 'close': '18:00', 'closed': False},
+        'friday': {'open': '07:00', 'close': '18:00', 'closed': False},
+        'saturday': {'open': '07:00', 'close': '11:00', 'closed': False},
+        'sunday': {'open': '15:00', 'close': '18:00', 'closed': True},
+    }
+    _PICKUP_DEFAULTS = {
+        'monday': {'open': '07:00', 'close': '18:00', 'closed': False},
+        'tuesday': {'open': '07:00', 'close': '18:00', 'closed': False},
+        'wednesday': {'open': '07:00', 'close': '18:00', 'closed': False},
+        'thursday': {'open': '07:00', 'close': '18:00', 'closed': False},
+        'friday': {'open': '07:00', 'close': '18:00', 'closed': False},
+        'saturday': {'open': '17:00', 'close': '18:00', 'closed': False},
+        'sunday': {'open': '15:00', 'close': '18:00', 'closed': False},
+    }
+    try:
+        raw = get_setting('boarding_dropoff_hours')
+        dropoff_hours = _json.loads(raw) if raw and raw != '{}' else {}
+    except Exception:
+        dropoff_hours = {}
+    try:
+        raw = get_setting('boarding_pickup_hours')
+        pickup_hours = _json.loads(raw) if raw and raw != '{}' else {}
+    except Exception:
+        pickup_hours = {}
+    for day in _BOARDING_DAYS:
+        dropoff_hours.setdefault(day, dict(_DROPOFF_DEFAULTS[day]))
+        pickup_hours.setdefault(day, dict(_PICKUP_DEFAULTS[day]))
+
     settings = {key: _biz_setting(key) for key in _BUSINESS_SETTING_DEFAULTS}
     blackouts = BlackoutDate.query.order_by(BlackoutDate.start_date).all()
-    return render_template('admin/business_settings.html', settings=settings, blackouts=blackouts)
+    return render_template('admin/business_settings.html', settings=settings, blackouts=blackouts,
+                           dropoff_hours=dropoff_hours, pickup_hours=pickup_hours,
+                           boarding_days=_BOARDING_DAYS)
 
 
 @bp.route('/settings/blackouts', methods=['POST'])
