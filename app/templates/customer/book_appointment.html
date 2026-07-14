@@ -184,7 +184,7 @@
                             <i class="fas fa-calendar-times me-2"></i>
                             <strong>We will be closed:</strong>
                             {% for b in future_blocks %}
-                            {{ b.start_date.strftime('%b %d') }}{% if b.start_date != b.end_date %}&ndash;{{ b.end_date.strftime('%b %d') }}{% endif %}{% if b.reason %} ({{ b.reason }}){% endif %}{% if not loop.last %}, {% endif %}
+                            {{ b.start_date.strftime('%b %d, %Y') }}{% if b.start_date != b.end_date %}&ndash;{{ b.end_date.strftime('%b %d, %Y') }}{% endif %}{% if b.reason %} ({{ b.reason }}){% endif %}{% if not loop.last %}, {% endif %}
                             {% endfor %}
                         </div>
                     </div>
