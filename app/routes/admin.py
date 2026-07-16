@@ -7759,6 +7759,48 @@ def support():
                            mtd_display=mtd_display,
                            mtd_label=mtd_label,
                            mtd_minutes=mtd_minutes)
+@bp.route('/support/export')
+@login_required
+@admin_required
+def export_support_tickets():
+    """Export support tickets as CSV, filtered by status if provided."""
+    import csv
+    import io
+    from app.models import SupportTicket
+
+    status = request.args.get('status', '').strip()
+    q = SupportTicket.query.order_by(SupportTicket.created_at.desc())
+    if status:
+        q = q.filter_by(status=status)
+    tickets = q.all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Ticket #', 'Type', 'Subject', 'Status', 'Submitted By',
+                     'Created', 'Updated', 'Time Invested (min)', 'Description'])
+    for t in tickets:
+        submitter = f'{t.submitter.first_name} {t.submitter.last_name}' if t.submitter else '—'
+        writer.writerow([
+            t.id,
+            t.type_label,
+            t.subject,
+            t.status.replace('_', ' ').title(),
+            submitter,
+            t.created_at.strftime('%Y-%m-%d %H:%M') if t.created_at else '',
+            t.updated_at.strftime('%Y-%m-%d %H:%M') if t.updated_at else '',
+            t.total_minutes or 0,
+            t.description,
+        ])
+
+    filename = f'support_tickets{"_" + status if status else ""}.csv'
+    from flask import Response
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+    )
+
+
 @bp.route('/support/<int:ticket_id>/status', methods=['POST'])
 @login_required
 @admin_required
