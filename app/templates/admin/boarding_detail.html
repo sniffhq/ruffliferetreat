@@ -32,6 +32,32 @@
     </div>
     {% endif %}
 
+    <!-- Meds / Special Instructions Alert -->
+    {% if booking.medications or booking.pet.special_instructions %}
+    <div class="alert alert-warning d-flex align-items-start gap-3 mb-4 py-3"
+         style="border-left:5px solid #fd7e14;">
+        <i class="fas fa-pills fa-lg mt-1 flex-shrink-0 text-danger"></i>
+        <div class="flex-grow-1">
+            <strong class="d-block mb-2" style="font-size:1rem;">
+                <i class="fas fa-exclamation-circle text-danger me-1"></i>
+                Medication &amp; Instruction Alert — {{ booking.pet.name }}
+            </strong>
+            {% if booking.medications %}
+            <div class="mb-1">
+                <span class="badge bg-danger me-1"><i class="fas fa-pills me-1"></i>Medications</span>
+                <span class="small">{{ booking.medications }}</span>
+            </div>
+            {% endif %}
+            {% if booking.pet.special_instructions %}
+            <div>
+                <span class="badge bg-info text-dark me-1"><i class="fas fa-clipboard-list me-1"></i>Special Instructions</span>
+                <span class="small">{{ booking.pet.special_instructions }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Pet Information Card -->
     <div class="row mb-4">
         <div class="col-md-8">
