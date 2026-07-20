@@ -853,6 +853,43 @@ def daycare_waive_session(attendance_id):
     return redirect(url_for('admin.daycare_dashboard'))
 
 
+@bp.route('/daycare/attendance/<int:attendance_id>/addon', methods=['POST'])
+@login_required
+@admin_required
+def daycare_add_addon(attendance_id):
+    """Add or replace add-ons on a checked-in daycare attendance record."""
+    att = DaycareAttendance.query.get_or_404(attendance_id)
+    from app.rate_resolver import get_rates as _gr
+    rates = _gr()
+    addon_map = {
+        'addon_spa_bath_nails': ('Spa Bath + Nail Trim', rates.get('addon_spa_bath_nails', 30)),
+        'addon_spa_bath':       ('Spa Bath',             rates.get('addon_spa_bath', 20)),
+        'addon_nail_trim':      ('Nail Trim',             rates.get('addon_nail_trim', 15)),
+    }
+    selected = []
+    for key, (label, price) in addon_map.items():
+        if request.form.get(key):
+            selected.append(f'{label} (${int(price)})')
+
+    if selected:
+        att.addons = 'Add-ons: ' + ', '.join(selected)
+    else:
+        att.addons = None
+
+    db.session.commit()
+    try:
+        from app.audit_service import audit
+        pet_name = att.enrollment.pet.name if att.enrollment and att.enrollment.pet else '—'
+        desc = f'Add-ons set on daycare session: {att.addons or "none"} by {current_user.first_name} {current_user.last_name}'
+        audit('daycare.addon', 'daycare_attendance', attendance_id, pet_name, desc)
+    except Exception:
+        pass
+
+    addon_str = ', '.join(selected) if selected else 'none'
+    flash(f'Add-ons updated: {addon_str}.', 'success')
+    return redirect(url_for('admin.daycare_dashboard'))
+
+
 @bp.route('/daycare/enrollment/<int:enrollment_id>/deactivate', methods=['POST'])
 @login_required
 @admin_required
@@ -1506,7 +1543,8 @@ def invoice_audit():
                         DaycareAttendance.check_in_time <= week_end
                     ).count()
                     rate = enr.special_rate if enr.special_rate else (rates['daycare'] if wc > 1 else float(current_app.config.get('DAYCARE_RATE_SINGLE', 25.0)))
-                    daycare_balance += rate
+                    _, _dc_addon = _parse_addons_from_notes(att.addons or '')
+                    daycare_balance += rate + _dc_addon
                     daycare_count   += 1
 
         if boarding_balance > 0 or daycare_balance > 0:
@@ -4050,7 +4088,8 @@ def send_invoice_sms(customer_id):
                         rates['daycare'] if wc > 1
                         else float(current_app.config.get('DAYCARE_RATE_SINGLE', 25.0))
                     )
-                    total += rate
+                    _, _sms_addon = _parse_addons_from_notes(att.addons or '')
+                    total += rate + _sms_addon
                     _sms_attendance_ids.append(att.id)
 
     # Apply custom line adjustments
@@ -4256,7 +4295,8 @@ def mark_invoice_paid(customer_id):
                         DaycareAttendance.check_in_time <= week_end
                     ).count()
                     rate = enr.special_rate if enr.special_rate else (DAYCARE_MULTI if week_count > 1 else DAYCARE_SINGLE)
-                    total += rate
+                    _, addon_cost = _parse_addons_from_notes(att.addons or '')
+                    total += rate + addon_cost
                     attendance_ids.append(att.id)
 
     if total <= 0:

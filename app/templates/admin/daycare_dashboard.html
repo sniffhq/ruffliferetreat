@@ -134,14 +134,24 @@
                     <tbody>
                         {% for attendance in checked_in %}
                         <tr>
-                            <td><strong>{{ attendance.enrollment.pet.name }}</strong>{% if attendance.enrollment.pet.vacc_expiring_soon %}<span class="badge bg-warning text-dark ms-1" title="Vaccination expiring within 60 days"><i class="fas fa-exclamation-triangle"></i></span>{% endif %}</td>
+                            <td>
+                                <strong>{{ attendance.enrollment.pet.name }}</strong>
+                                {% if attendance.enrollment.pet.vacc_expiring_soon %}<span class="badge bg-warning text-dark ms-1" title="Vaccination expiring within 60 days"><i class="fas fa-exclamation-triangle"></i></span>{% endif %}
+                                {% if attendance.addons %}<br><span class="badge bg-secondary mt-1" style="font-size:0.75rem;"><i class="fas fa-plus-circle me-1"></i>{{ attendance.addons|replace('Add-ons: ', '') }}</span>{% endif %}
+                            </td>
                             <td>{{ attendance.enrollment.pet.owner.first_name }} {{ attendance.enrollment.pet.owner.last_name }}</td>
                             <td>{{ attendance.check_in_time.strftime('%I:%M %p') }}</td>
                             <td>
                                 {% set duration = (now - attendance.check_in_time).total_seconds() / 3600 %}
                                 {{ "%.1f"|format(duration) }} hours
                             </td>
-                            <td>
+                            <td class="text-nowrap">
+                                <button type="button" class="btn btn-sm btn-outline-secondary me-1"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#addonModal{{ attendance.id }}"
+                                        title="Add services">
+                                    <i class="fas fa-plus-circle me-1"></i>Add-On
+                                </button>
                                 <form method="POST" action="{{ url_for('admin.daycare_checkout', attendance_id=attendance.id) }}"
                                       style="display: inline;"
                                       onsubmit="return confirm('Check out {{ attendance.enrollment.pet.name }}?');">
@@ -151,6 +161,55 @@
                                 </form>
                             </td>
                         </tr>
+
+                        <!-- Add-On Modal for {{ attendance.enrollment.pet.name }} -->
+                        <div class="modal fade" id="addonModal{{ attendance.id }}" tabindex="-1"
+                             aria-labelledby="addonModalLabel{{ attendance.id }}" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header" style="background:#1a1a2e;">
+                                        <h5 class="modal-title text-white" id="addonModalLabel{{ attendance.id }}">
+                                            <i class="fas fa-plus-circle me-2" style="color:#B07A8E;"></i>
+                                            Add-Ons — {{ attendance.enrollment.pet.name }}
+                                        </h5>
+                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <form method="POST" action="{{ url_for('admin.daycare_add_addon', attendance_id=attendance.id) }}">
+                                        <div class="modal-body">
+                                            <p class="text-muted small mb-3">Select services to add to today's daycare session. Existing add-ons will be replaced.</p>
+                                            {% set cur = attendance.addons or '' %}
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" name="addon_spa_bath" id="addon_spa_bath_{{ attendance.id }}" value="1"
+                                                    {{ 'checked' if 'Spa Bath' in cur and 'Nail' not in cur else '' }}>
+                                                <label class="form-check-label" for="addon_spa_bath_{{ attendance.id }}">
+                                                    <strong>Spa Bath</strong> <span class="text-muted">($20)</span>
+                                                </label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" name="addon_nail_trim" id="addon_nail_trim_{{ attendance.id }}" value="1"
+                                                    {{ 'checked' if 'Nail Trim' in cur and 'Spa Bath' not in cur else '' }}>
+                                                <label class="form-check-label" for="addon_nail_trim_{{ attendance.id }}">
+                                                    <strong>Nail Trim</strong> <span class="text-muted">($15)</span>
+                                                </label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" name="addon_spa_bath_nails" id="addon_spa_bath_nails_{{ attendance.id }}" value="1"
+                                                    {{ 'checked' if 'Spa Bath + Nail Trim' in cur else '' }}>
+                                                <label class="form-check-label" for="addon_spa_bath_nails_{{ attendance.id }}">
+                                                    <strong>Spa Bath + Nail Trim</strong> <span class="text-muted">($30)</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                            <button type="submit" class="btn text-white" style="background:#B07A8E;">
+                                                <i class="fas fa-save me-1"></i>Save Add-Ons
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
                         {% endfor %}
                     </tbody>
                 </table>

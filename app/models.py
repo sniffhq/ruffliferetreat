@@ -257,6 +257,7 @@ class DaycareAttendance(db.Model):
     waived        = db.Column(db.Boolean, default=False, nullable=False, server_default='0')
     waived_by     = db.Column(db.String(100), nullable=True)   # staff name who waived it
     waived_at     = db.Column(db.DateTime, nullable=True)
+    addons        = db.Column(db.Text, nullable=True)           # "Add-ons: Spa Bath ($20), ..."
     created_at    = db.Column(db.DateTime, default=datetime.now)
     
     # Relationships
