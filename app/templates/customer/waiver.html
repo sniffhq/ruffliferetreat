@@ -58,21 +58,77 @@
                     </div>
                 </div>
 
+                <!-- Additional Acknowledgments -->
+                <h6 class="fw-bold mb-3" style="color:#1a1a2e;">
+                    <i class="fas fa-clipboard-check me-2" style="color:#B07A8E;"></i>
+                    Additional Acknowledgments
+                </h6>
+
+                <!-- Emergency Co-Housing -->
+                <div class="p-3 rounded mb-3" style="background:#fff8f5; border:1px solid #B07A8E;">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox"
+                               name="waiver_emergency_cohousing" id="waiver_emergency_cohousing"
+                               value="1" required>
+                        <label class="form-check-label" for="waiver_emergency_cohousing"
+                               style="font-size:0.9rem;">
+                            <strong>Emergency Housing:</strong> I give permission for my dog(s) to be
+                            temporarily housed with other dogs in the event of an emergency (e.g. severe
+                            weather, facility issue) if I cannot be reached. I understand Ruff Life Retreat
+                            will make every effort to contact me first.
+                        </label>
+                    </div>
+                </div>
+
+                <!-- End-of-Life Wishes -->
+                <div class="p-3 rounded mb-3" style="background:#fff8f5; border:1px solid #B07A8E;">
+                    <label class="form-label fw-bold mb-2" style="font-size:0.9rem; color:#1a1a2e;">
+                        <i class="fas fa-heart me-1 text-danger"></i>
+                        In the unlikely event that my pet passes away while in your care, my wishes are:
+                        <span class="text-danger">*</span>
+                    </label>
+                    <select name="waiver_end_of_life_wishes" class="form-select form-select-sm" required>
+                        <option value="">— Please select —</option>
+                        <option value="contact_first">Contact me or my emergency contact immediately — I will make arrangements</option>
+                        <option value="private_cremation">Authorize private cremation (costs are my responsibility)</option>
+                        <option value="communal_cremation">Authorize communal cremation</option>
+                    </select>
+                </div>
+
+                <!-- Senior Dog Acknowledgment -->
+                <div class="p-3 rounded mb-4" style="background:#fff8f5; border:1px solid #B07A8E;">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox"
+                               name="waiver_senior_ack" id="waiver_senior_ack"
+                               value="1" required>
+                        <label class="form-check-label" for="waiver_senior_ack"
+                               style="font-size:0.9rem;">
+                            <strong>Kennel Environment Awareness:</strong> I understand that a kennel
+                            environment can cause stress, anxiety, and nervousness in dogs, which may
+                            result in symptoms such as diarrhea, vomiting, loss of appetite, or general
+                            uneasiness. I acknowledge this risk is heightened for senior dogs (10+ years
+                            old) and agree that Ruff Life Retreat is not liable for these stress-related
+                            responses.
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Main Agreement -->
                 <div class="form-check p-3 rounded mb-4"
-                     style="background:#fff8f5; border:1px solid #B07A8E;">
+                     style="background:#1a1a2e; border:1px solid #1a1a2e;">
                     <input class="form-check-input" type="checkbox"
                            name="waiver_accepted" id="waiver_accepted" value="1" required>
                     <label class="form-check-label fw-bold" for="waiver_accepted"
-                           style="color:#1a1a2e; font-size:0.9rem;">
+                           style="color:#ffffff; font-size:0.9rem;">
                         I have read, understood, and agree to all terms of the Ruff Life Retreat
-                        Doggy Daycare &amp; Boarding Waiver. I confirm this serves as my
-                        electronic signature.
+                        Doggy Daycare &amp; Boarding Waiver, including all acknowledgments above.
+                        I confirm this serves as my electronic signature.
                     </label>
                 </div>
 
                 <div class="d-grid">
                     <button type="submit" class="btn btn-lg fw-bold text-white"
-                            style="background:#1a1a2e;">
+                            style="background:#B07A8E;">
                         <i class="fas fa-signature me-2"></i>Sign Waiver &amp; Continue
                     </button>
                 </div>

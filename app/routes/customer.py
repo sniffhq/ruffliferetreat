@@ -42,13 +42,20 @@ def waiver():
         return redirect(url_for('customer.dashboard'))
 
     if request.method == 'POST':
-        if request.form.get('waiver_accepted') == '1':
-            current_user.waiver_accepted    = True
-            current_user.waiver_accepted_at = datetime.now()
+        end_of_life = request.form.get('waiver_end_of_life_wishes', '').strip()
+        if (request.form.get('waiver_accepted') == '1'
+                and request.form.get('waiver_emergency_cohousing') == '1'
+                and request.form.get('waiver_senior_ack') == '1'
+                and end_of_life):
+            current_user.waiver_accepted             = True
+            current_user.waiver_accepted_at          = datetime.now()
+            current_user.waiver_emergency_cohousing  = True
+            current_user.waiver_end_of_life_wishes   = end_of_life
+            current_user.waiver_senior_ack           = True
             db.session.commit()
             flash('Thank you for signing the waiver! Welcome to Ruff Life Retreat.', 'success')
             return redirect(url_for('customer.dashboard'))
-        flash('Please check the box to accept the waiver before continuing.', 'warning')
+        flash('Please complete all acknowledgments before continuing.', 'warning')
 
     return render_template('customer/waiver.html')
 

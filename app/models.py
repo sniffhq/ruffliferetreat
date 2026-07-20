@@ -28,6 +28,9 @@ class User(UserMixin, db.Model):
     # Waiver tracking
     waiver_accepted = db.Column(db.Boolean, default=False, nullable=False)
     waiver_accepted_at = db.Column(db.DateTime, nullable=True)
+    waiver_emergency_cohousing = db.Column(db.Boolean, default=False, nullable=False)
+    waiver_end_of_life_wishes  = db.Column(db.String(100), nullable=True)
+    waiver_senior_ack          = db.Column(db.Boolean, default=False, nullable=False)
 
     # Service interest (captured at registration)
     interested_in_daycare  = db.Column(db.Boolean, default=False)

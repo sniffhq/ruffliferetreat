@@ -76,12 +76,19 @@
                             <th>Email</th>
                             <th>Phone</th>
                             <th>Accepted On</th>
-                            <th>Member Since</th>
+                            <th>Emergency Co-Housing</th>
+                            <th>End-of-Life Wishes</th>
+                            <th>Kennel Risk Ack.</th>
                             <th></th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for c in accepted %}
+                        {% set eol_labels = {
+                            'contact_first': 'Contact me first',
+                            'private_cremation': 'Private cremation',
+                            'communal_cremation': 'Communal cremation'
+                        } %}
                         <tr>
                             <td><strong>{{ c.first_name }} {{ c.last_name }}</strong></td>
                             <td class="text-muted small">{{ c.email }}</td>
@@ -95,7 +102,21 @@
                                 <span class="badge bg-secondary">Prior to tracking</span>
                                 {% endif %}
                             </td>
-                            <td class="text-muted small">{{ c.created_at.strftime('%m/%d/%Y') if c.created_at else '—' }}</td>
+                            <td class="text-center">
+                                {% if c.waiver_emergency_cohousing %}
+                                <i class="fas fa-check-circle text-success"></i>
+                                {% else %}
+                                <span class="text-muted small">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="small">{{ eol_labels.get(c.waiver_end_of_life_wishes, c.waiver_end_of_life_wishes or '—') }}</td>
+                            <td class="text-center">
+                                {% if c.waiver_senior_ack %}
+                                <i class="fas fa-check-circle text-success"></i>
+                                {% else %}
+                                <span class="text-muted small">—</span>
+                                {% endif %}
+                            </td>
                             <td>
                                 <a href="{{ url_for('admin.customer_detail', customer_id=c.id) }}"
                                    class="btn btn-sm btn-outline-primary">View</a>
