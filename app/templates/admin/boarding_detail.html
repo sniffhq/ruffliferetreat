@@ -207,8 +207,8 @@
                         <!-- Special Notes -->
                         <div class="mb-3">
                             <label for="special_notes" class="form-label"><i class="fas fa-sticky-note"></i> Special Notes</label>
-                            <textarea class="form-control" id="special_notes" name="special_notes" rows="3">{{ booking.special_notes or '' }}</textarea>
-                            <small class="form-text text-muted">e.g., Anxious around other dogs, prefers quiet area, favorite toy is the red ball</small>
+                            <textarea class="form-control" id="special_notes" name="special_notes" rows="3">{{ special_notes_display }}</textarea>
+                            <small class="form-text text-muted">e.g., Anxious around other dogs, prefers quiet area, favorite toy is the red ball. <em>Add-ons are managed via the checkboxes below.</em></small>
                         </div>
 
                         <button type="submit" class="btn btn-primary">

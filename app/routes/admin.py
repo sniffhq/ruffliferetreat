@@ -321,6 +321,12 @@ def approve_appointment(appt_id):
                 check_in_time  = appt.start_time.strftime('%H:%M') if appt.start_time else '08:00'
                 check_out_time = appt.end_time.strftime('%H:%M') if appt.end_time else '17:00'
 
+                # Copy add-ons from appointment notes → special_notes
+                _appt_addons, _ = _parse_addons_from_notes(appt.notes or '', structured_only=True)
+                _sn = None
+                if _appt_addons:
+                    _sn = 'Add-ons: ' + ', '.join(_appt_addons)
+
                 booking = Boarding(
                     pet_id         = appt.pet_id,
                     user_id        = appt.user_id,
@@ -328,6 +334,7 @@ def approve_appointment(appt_id):
                     check_in_time  = check_in_time,
                     check_out_date = check_out_date,
                     check_out_time = check_out_time,
+                    special_notes  = _sn,
                     status         = 'active',
                     booking_number = _next_board_number()
                 )
@@ -2580,9 +2587,18 @@ def boarding_detail(booking_id):
     booking = Boarding.query.get_or_404(booking_id)
     
     if request.method == 'POST':
-        booking.medications     = request.form.get('medications', '')
+        import re as _re
+        booking.medications      = request.form.get('medications', '')
         booking.feeding_schedule = request.form.get('feeding_schedule', '')
-        booking.special_notes   = request.form.get('special_notes', '')
+        new_notes = request.form.get('special_notes', '')
+        # Preserve any existing Add-ons: line — it's managed by the checkboxes, not this textarea
+        existing = booking.special_notes or ''
+        addon_match = _re.search(r'(?:^|\n)(Add-ons:[^\n]*)', existing)
+        if addon_match:
+            # Strip any Add-ons: line from what the textarea submitted (safety), then re-append
+            new_notes = _re.sub(r'\n?Add-ons:[^\n]*', '', new_notes).rstrip()
+            new_notes = (new_notes + '\n' + addon_match.group(1)).lstrip('\n')
+        booking.special_notes = new_notes
         db.session.commit()
         flash('Booking details updated.', 'success')
         return redirect(url_for('admin.boarding_dashboard'))
@@ -2680,9 +2696,14 @@ def boarding_detail(booking_id):
         except Exception as e:
             current_app.logger.error(f'Invoice preview error: {e}')
 
+    import re as _re2
+    # Strip the Add-ons: line from the textarea display — it's managed by checkboxes
+    special_notes_display = _re2.sub(r'\n?Add-ons:[^\n]*', '', booking.special_notes or '').strip()
+
     return render_template('admin/boarding_detail.html',
         booking=booking, addons=addons, today=today_d,
-        invoice_preview=invoice_preview, rates=rates, customer=customer)
+        invoice_preview=invoice_preview, rates=rates, customer=customer,
+        special_notes_display=special_notes_display)
 
 
 @bp.route('/boarding/<int:booking_id>/addons', methods=['POST'])
@@ -8857,32 +8878,42 @@ def grooming_report():
             continue
         
         addons = []
-        notes_src = b.special_notes or ''
-        
-        if _bsvc:
+
+        # Priority 1: special_notes (staff-set via boarding detail checkboxes)
+        if b.special_notes:
+            m = re.search(r'Add-ons?:\s*(.+)', b.special_notes, re.IGNORECASE)
+            if m:
+                for item in m.group(1).split(','):
+                    item = item.strip()
+                    if item:
+                        addons.append(item)
+
+        # Priority 2: appointment notes (legacy / customer-requested at booking time)
+        if not addons and _bsvc:
             appt = (Appointment.query
                 .filter_by(pet_id=b.pet_id, service_type_id=_bsvc.id)
                 .filter(Appointment.appointment_date == b.check_in_date)
                 .order_by(Appointment.id.desc())
                 .first())
             if appt and appt.notes:
-                notes_src = appt.notes
-        
-        m = re.search(r'Add-ons?:\s*(.+)', notes_src, re.IGNORECASE)
-        if m:
-            for item in m.group(1).split(','):
-                item = item.strip()
-                if item:
-                    addons.append(item)
-        
-        if not addons and b.special_notes:
-            m2 = re.search(r'Add-ons?:\s*(.+)', b.special_notes, re.IGNORECASE)
-            if m2:
-                for item in m2.group(1).split(','):
-                    item = item.strip()
-                    if item:
-                        addons.append(item)
-        
+                m2 = re.search(r'Add-ons?:\s*(.+)', appt.notes, re.IGNORECASE)
+                if m2:
+                    for item in m2.group(1).split(','):
+                        item = item.strip()
+                        if item:
+                            addons.append(item)
+                # freetext fallback for very old bookings
+                if not addons:
+                    n = appt.notes.lower()
+                    has_bath  = any(w in n for w in ['bath', 'bathe', 'wash', 'shampoo', 'spa'])
+                    has_nails = any(w in n for w in ['nail', 'nails', 'trim', 'clip'])
+                    if has_bath and has_nails:
+                        addons.append('Spa Bath + Nail Trim ($30)')
+                    elif has_bath:
+                        addons.append('Spa Bath ($20)')
+                    elif has_nails:
+                        addons.append('Nail Trim ($15)')
+
         grooming_addons = [a for a in addons if any(
             kw in a.lower() for kw in ['bath', 'nail', 'spa', 'groom']
         )]
