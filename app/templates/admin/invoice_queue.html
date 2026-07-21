@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}Invoice Queue — Ruff Life Retreat{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Header -->
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h2 class="fw-bold mb-0" style="color:#1a1a2e;">
+                <i class="fas fa-cash-register me-2 text-mauve"></i> Invoice Queue
+            </h2>
+            <p class="text-muted mb-0 mt-1">All customers with unpaid balances — mark paid without leaving this page.</p>
+        </div>
+        <div class="text-end">
+            <div class="fw-bold" style="font-size:1.5rem; color:#1a1a2e;">${{ '%.2f'|format(grand_total) }}</div>
+            <div class="text-muted" style="font-size:0.82rem;">total open · {{ queue|length }} customer{{ 's' if queue|length != 1 else '' }}</div>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+    <div class="alert alert-{{ 'success' if cat == 'success' else 'danger' if cat == 'danger' else 'info' }} alert-dismissible fade show" role="alert">
+        {{ msg }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+    {% endwith %}
+
+    {% if not queue %}
+    <div class="text-center py-5">
+        <i class="fas fa-check-circle fa-4x mb-3" style="color:#28a745;"></i>
+        <h4 class="fw-bold text-muted">All Clear!</h4>
+        <p class="text-muted">No outstanding invoices right now.</p>
+    </div>
+    {% else %}
+
+    <!-- Queue cards -->
+    <div class="row g-3">
+    {% for item in queue %}
+    {% set c = item.customer %}
+    <div class="col-12" id="queue-card-{{ c.id }}">
+        <div class="card shadow-sm border-0" style="border-left: 4px solid {% if item.days_outstanding > 30 %}#dc3545{% elif item.days_outstanding > 14 %}#fd7e14{% else %}#B07A8E{% endif %} !important; border-left-width:4px !important;">
+            <div class="card-body p-4">
+
+                <!-- Customer header row -->
+                <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
+                    <div>
+                        <h5 class="fw-bold mb-0" style="color:#1a1a2e;">
+                            {{ c.first_name }} {{ c.last_name }}
+                        </h5>
+                        <div class="text-muted" style="font-size:0.82rem;">
+                            {{ c.phone }}
+                            {% if item.days_outstanding > 0 %}
+                            &nbsp;·&nbsp;
+                            <span class="{% if item.days_outstanding > 30 %}text-danger fw-bold{% elif item.days_outstanding > 14 %}text-warning fw-bold{% else %}text-muted{% endif %}">
+                                {{ item.days_outstanding }}d outstanding
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <div class="fw-bold" style="font-size:1.25rem; color:#1a1a2e;">${{ '%.2f'|format(item.total) }}</div>
+                        <div class="text-muted" style="font-size:0.78rem;">total due</div>
+                    </div>
+                </div>
+
+                <div class="row g-3">
+
+                    <!-- ── Boarding section ── -->
+                    {% if item.boarding_lines %}
+                    <div class="col-md-6">
+                        <div class="p-3 rounded" style="background:#f8f9fa; border:1px solid #e9ecef;">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <span class="fw-semibold" style="color:#1a1a2e; font-size:0.9rem;">
+                                    <i class="fas fa-hotel me-1 text-mauve"></i> Boarding
+                                </span>
+                                <span class="fw-bold text-mauve">${{ '%.2f'|format(item.boarding_total) }}</span>
+                            </div>
+                            <table class="table table-sm mb-3" style="font-size:0.8rem;">
+                                <tbody>
+                                {% for line in item.boarding_lines %}
+                                <tr>
+                                    <td class="ps-0 border-0 py-1">
+                                        <span class="fw-semibold">{{ line.pet }}</span>
+                                        {% if line.booking_number %}
+                                        <span class="badge bg-secondary ms-1" style="font-size:0.65rem;">{{ line.booking_number }}</span>
+                                        {% endif %}
+                                        <br><span class="text-muted">{{ line.dates }}</span>
+                                    </td>
+                                    <td class="text-end border-0 py-1 pe-0 text-nowrap">${{ '%.2f'|format(line.amount) }}</td>
+                                </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                            <!-- Mark boarding paid form -->
+                            <form method="POST" action="{{ url_for('admin.mark_invoice_paid', customer_id=c.id) }}">
+                                <input type="hidden" name="invoice_type" value="boarding">
+                                <input type="hidden" name="_next_queue" value="1">
+                                <div class="input-group input-group-sm">
+                                    <select name="payment_method" class="form-select" style="max-width:110px;">
+                                        <option value="card">Card</option>
+                                        <option value="cash">Cash</option>
+                                        <option value="zelle">Zelle</option>
+                                    </select>
+                                    <button type="submit" class="btn btn-mauve btn-sm">
+                                        <i class="fas fa-check me-1"></i> Mark Paid
+                                    </button>
+                                    <a href="{{ url_for('admin.customer_invoice', customer_id=c.id, type='boarding') }}"
+                                       class="btn btn-outline-secondary btn-sm" title="View full invoice">
+                                        <i class="fas fa-file-invoice"></i>
+                                    </a>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- ── Daycare section ── -->
+                    {% if item.daycare_lines %}
+                    <div class="col-md-6">
+                        <div class="p-3 rounded" style="background:#f8f9fa; border:1px solid #e9ecef;">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <span class="fw-semibold" style="color:#1a1a2e; font-size:0.9rem;">
+                                    <i class="fas fa-paw me-1 text-mauve"></i> Daycare
+                                </span>
+                                <span class="fw-bold text-mauve">${{ '%.2f'|format(item.daycare_total) }}</span>
+                            </div>
+                            <!-- Show up to 5 sessions, collapse the rest -->
+                            {% set visible = item.daycare_lines[:5] %}
+                            {% set hidden  = item.daycare_lines[5:] %}
+                            <table class="table table-sm mb-3" style="font-size:0.8rem;">
+                                <tbody>
+                                {% for line in visible %}
+                                <tr>
+                                    <td class="ps-0 border-0 py-1">
+                                        <span class="fw-semibold">{{ line.pet }}</span>
+                                        <br><span class="text-muted">{{ line.date }}</span>
+                                    </td>
+                                    <td class="text-end border-0 py-1 pe-0">${{ '%.2f'|format(line.amount) }}</td>
+                                </tr>
+                                {% endfor %}
+                                {% if hidden %}
+                                <tr id="dc-extra-{{ c.id }}" style="display:none;">
+                                    <td colspan="2" class="ps-0 border-0 py-0">
+                                        <table class="table table-sm mb-0" style="font-size:0.8rem;">
+                                        {% for line in hidden %}
+                                        <tr>
+                                            <td class="ps-0 border-0 py-1">
+                                                <span class="fw-semibold">{{ line.pet }}</span>
+                                                <br><span class="text-muted">{{ line.date }}</span>
+                                            </td>
+                                            <td class="text-end border-0 py-1 pe-0">${{ '%.2f'|format(line.amount) }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                        </table>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td colspan="2" class="ps-0 border-0 py-0">
+                                        <button type="button" class="btn btn-link btn-sm p-0 text-muted"
+                                                style="font-size:0.75rem;"
+                                                onclick="document.getElementById('dc-extra-{{ c.id }}').style.display='';this.style.display='none';">
+                                            + {{ hidden|length }} more session{{ 's' if hidden|length != 1 else '' }}
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                </tbody>
+                            </table>
+                            <!-- Mark daycare paid form -->
+                            <form method="POST" action="{{ url_for('admin.mark_invoice_paid', customer_id=c.id) }}">
+                                <input type="hidden" name="invoice_type" value="daycare">
+                                <input type="hidden" name="_next_queue" value="1">
+                                <div class="input-group input-group-sm">
+                                    <select name="payment_method" class="form-select" style="max-width:110px;">
+                                        <option value="card">Card</option>
+                                        <option value="cash">Cash</option>
+                                        <option value="zelle">Zelle</option>
+                                    </select>
+                                    <button type="submit" class="btn btn-mauve btn-sm">
+                                        <i class="fas fa-check me-1"></i> Mark Paid
+                                    </button>
+                                    <a href="{{ url_for('admin.customer_invoice', customer_id=c.id, type='daycare') }}"
+                                       class="btn btn-outline-secondary btn-sm" title="View full invoice">
+                                        <i class="fas fa-file-invoice"></i>
+                                    </a>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                </div><!-- /row -->
+            </div><!-- /card-body -->
+        </div><!-- /card -->
+    </div>
+    {% endfor %}
+    </div><!-- /row -->
+
+    {% endif %}
+</div>
+{% endblock %}

@@ -1464,6 +1464,118 @@ def get_available_times():
     return jsonify(slots_data)
 
 
+@bp.route('/invoice-queue')
+@login_required
+@admin_required
+def invoice_queue():
+    """Billing queue — all customers with open balances, mark-paid inline."""
+    from app.models import Payment, Boarding, DaycareAttendance, DaycareEnrollment
+    from app.rate_resolver import get_rates, get_pet_boarding_rate
+    from datetime import date, timedelta
+
+    today = date.today()
+    queue = []
+    customers_with_pets = User.query.filter_by(role='customer', is_active=True).all()
+
+    for c in customers_with_pets:
+        rates = get_rates(c)
+        boarding_lines  = []
+        daycare_lines   = []
+        boarding_total  = 0.0
+        daycare_total   = 0.0
+        oldest_date     = None
+
+        for pet in sorted(c.pets, key=lambda p: p.name):
+            # ── Unpaid completed boardings ────────────────────────────────
+            boardings = Boarding.query.filter_by(
+                pet_id=pet.id, status='completed'
+            ).filter(Boarding.payment_id == None).order_by(Boarding.check_out_date.asc()).all()
+
+            for b in boardings:
+                days = _boarding_days(b)
+                siblings = Boarding.query.filter_by(
+                    user_id=c.id,
+                    check_in_date=b.check_in_date,
+                    check_out_date=b.check_out_date,
+                    status='completed'
+                ).order_by(Boarding.pet_id.asc()).all()
+                is_first = (not siblings) or siblings[0].pet_id == pet.id
+                rate = get_pet_boarding_rate(pet, c, is_additional=not is_first)
+                _, addon_cost = _parse_addons_from_notes(b.special_notes or '', structured_only=True)
+                if addon_cost == 0:
+                    try:
+                        from app.models import Appointment as _Appt, ServiceType as _ST
+                        _svc = _ST.query.filter(_ST.name.ilike('%boarding%')).first()
+                        if _svc:
+                            _a = _Appt.query.filter_by(
+                                pet_id=pet.id, user_id=c.id,
+                                service_type_id=_svc.id
+                            ).order_by(_Appt.id.desc()).first()
+                            if _a and _a.notes:
+                                _, addon_cost = _parse_addons_from_notes(_a.notes)
+                    except Exception:
+                        pass
+                line_amt = rate * days + addon_cost
+                boarding_total += line_amt
+                boarding_lines.append({
+                    'pet':    pet.name,
+                    'dates':  f'{b.check_in_date.strftime("%b %d")} – {b.check_out_date.strftime("%b %d, %Y")}',
+                    'detail': f'{days} night{"s" if days != 1 else ""} @ ${rate:.0f}' + (f' + ${addon_cost:.0f} add-ons' if addon_cost else ''),
+                    'amount': line_amt,
+                    'booking_number': b.booking_number or '',
+                })
+                if oldest_date is None or b.check_out_date < oldest_date:
+                    oldest_date = b.check_out_date
+
+            # ── Unpaid daycare sessions ───────────────────────────────────
+            for enr in DaycareEnrollment.query.filter_by(pet_id=pet.id).all():
+                atts = DaycareAttendance.query.filter_by(
+                    enrollment_id=enr.id
+                ).filter(
+                    DaycareAttendance.check_out_time != None,
+                    DaycareAttendance.payment_id == None,
+                    DaycareAttendance.waived != True,
+                ).order_by(DaycareAttendance.check_in_time.asc()).all()
+
+                for att in atts:
+                    week_start = att.check_in_time.date() - timedelta(days=att.check_in_time.weekday())
+                    week_end   = week_start + timedelta(days=6)
+                    wc = DaycareAttendance.query.filter(
+                        DaycareAttendance.enrollment_id == enr.id,
+                        DaycareAttendance.check_in_time >= week_start,
+                        DaycareAttendance.check_in_time <= week_end
+                    ).count()
+                    rate = enr.special_rate if enr.special_rate else (
+                        rates['daycare'] if wc > 1 else float(current_app.config.get('DAYCARE_RATE_SINGLE', 25.0))
+                    )
+                    _, addon_cost = _parse_addons_from_notes(att.addons or '')
+                    line_amt = rate + addon_cost
+                    daycare_total += line_amt
+                    daycare_lines.append({
+                        'pet':    pet.name,
+                        'date':   att.check_in_time.strftime('%b %d, %Y'),
+                        'detail': f'${rate:.0f}' + (f' + ${addon_cost:.0f} add-ons' if addon_cost else ''),
+                        'amount': line_amt,
+                    })
+                    if oldest_date is None or att.check_in_time.date() < oldest_date:
+                        oldest_date = att.check_in_time.date()
+
+        if boarding_total > 0 or daycare_total > 0:
+            queue.append({
+                'customer':        c,
+                'boarding_lines':  boarding_lines,
+                'daycare_lines':   daycare_lines,
+                'boarding_total':  boarding_total,
+                'daycare_total':   daycare_total,
+                'total':           boarding_total + daycare_total,
+                'days_outstanding': (today - oldest_date).days if oldest_date else 0,
+            })
+
+    queue.sort(key=lambda x: x['days_outstanding'], reverse=True)
+    grand_total = sum(q['total'] for q in queue)
+    return render_template('admin/invoice_queue.html', queue=queue, grand_total=grand_total, today=today)
+
+
 @bp.route('/invoices/audit')
 @login_required
 @admin_required
@@ -4366,6 +4478,8 @@ def mark_invoice_paid(customer_id):
         current_app.logger.error(f'Receipt SMS failed for customer {customer_id}: {_sms_err}')
 
     flash(f'{invoice_type.capitalize()} invoice marked as paid — ${total:.2f} recorded. Receipt SMS sent.', 'success')
+    if request.form.get('_next_queue'):
+        return redirect(url_for('admin.invoice_queue'))
     return redirect(url_for('admin.customer_detail', customer_id=customer_id))
 
 
