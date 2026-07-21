@@ -48,17 +48,18 @@ def is_bot_submission(request, form_loaded_at):
 
 @bp.route('/')
 def index():
+    import random
     from app.models import SurveyResponse
     hero_url = url_for('static', filename='img/homepage.jpg')
-    # Most recent completed survey with a comment for the testimonial banner
-    testimonial = (SurveyResponse.query
+    all_reviews = (SurveyResponse.query
         .filter(SurveyResponse.submitted_at.isnot(None))
         .filter(SurveyResponse.comments.isnot(None))
         .filter(SurveyResponse.overall_rating >= 4)
-        .order_by(SurveyResponse.submitted_at.desc())
-        .first())
+        .all())
+    random.shuffle(all_reviews)
+    testimonials = all_reviews[:10]  # cap at 10 carousel slides
     from flask import make_response
-    resp = make_response(render_template('public/index.html', hero_url=hero_url, testimonial=testimonial))
+    resp = make_response(render_template('public/index.html', hero_url=hero_url, testimonials=testimonials))
     resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     resp.headers['Pragma'] = 'no-cache'
     return resp

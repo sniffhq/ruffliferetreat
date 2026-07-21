@@ -16,21 +16,59 @@
              alt="Ruff Life Retreat Facility">
     </div>
     
-    <!-- Service Cards - Now Clickable! -->
-    {% if testimonial %}
-    <div class="testimonial-banner my-5 mx-auto" style="max-width:760px;">
-        <div class="d-flex justify-content-center mb-2">
-            {% for i in range(testimonial.overall_rating) %}
-            <i class="fas fa-star" style="color:#F4C542;font-size:1.1rem;margin:0 2px;"></i>
-            {% endfor %}
-        </div>
-        <blockquote class="mb-2" style="font-size:1.1rem;font-style:italic;color:#1B2A4A;line-height:1.7;">
-            "{{ testimonial.comments }}"
-        </blockquote>
-        <div style="font-size:0.88rem;color:#888;font-weight:600;">
-            — {{ testimonial.user.first_name }} {{ testimonial.user.last_name[0] }}.
-            {% if testimonial.service_type %}
-            &nbsp;·&nbsp; {{ testimonial.service_type }}
+    <!-- Testimonials Carousel -->
+    {% if testimonials %}
+    <div class="my-5 mx-auto" style="max-width:760px;">
+        <h4 class="fw-bold mb-4" style="color:#1a1a2e;">
+            <i class="fas fa-star me-2" style="color:#F4C542;"></i>What Our Customers Say
+        </h4>
+        <div id="testimonialCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="5000">
+            <div class="carousel-inner">
+                {% for t in testimonials %}
+                <div class="carousel-item {% if loop.first %}active{% endif %}">
+                    <div class="testimonial-banner">
+                        <div class="d-flex justify-content-center mb-3">
+                            {% for i in range(t.overall_rating) %}
+                            <i class="fas fa-star" style="color:#F4C542;font-size:1.1rem;margin:0 2px;"></i>
+                            {% endfor %}
+                            {% for i in range(5 - t.overall_rating) %}
+                            <i class="far fa-star" style="color:#F4C542;font-size:1.1rem;margin:0 2px;"></i>
+                            {% endfor %}
+                        </div>
+                        <blockquote class="mb-3" style="font-size:1.05rem;font-style:italic;color:#1B2A4A;line-height:1.75;">
+                            "{{ t.comments }}"
+                        </blockquote>
+                        <div style="font-size:0.88rem;color:#888;font-weight:600;">
+                            — {{ t.user.first_name }} {{ t.user.last_name[0] }}.
+                            {% if t.service_type %}
+                            &nbsp;·&nbsp; {{ t.service_type }}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% if testimonials|length > 1 %}
+            <button class="carousel-control-prev" type="button" data-bs-target="#testimonialCarousel" data-bs-slide="prev"
+                    style="width:40px;left:-48px;">
+                <span style="background:#1a1a2e;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;">
+                    <i class="fas fa-chevron-left" style="color:white;font-size:0.85rem;"></i>
+                </span>
+            </button>
+            <button class="carousel-control-next" type="button" data-bs-target="#testimonialCarousel" data-bs-slide="next"
+                    style="width:40px;right:-48px;">
+                <span style="background:#1a1a2e;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;">
+                    <i class="fas fa-chevron-right" style="color:white;font-size:0.85rem;"></i>
+                </span>
+            </button>
+            <div class="carousel-indicators" style="position:relative;margin-top:16px;bottom:auto;">
+                {% for t in testimonials %}
+                <button type="button" data-bs-target="#testimonialCarousel" data-bs-slide-to="{{ loop.index0 }}"
+                        {% if loop.first %}class="active"{% endif %}
+                        style="background:#1a1a2e;width:8px;height:8px;border-radius:50%;border:none;margin:0 4px;opacity:{% if loop.first %}1{% else %}0.3{% endif %};">
+                </button>
+                {% endfor %}
+            </div>
             {% endif %}
         </div>
     </div>
@@ -81,22 +119,12 @@
 .testimonial-banner {
     background: white;
     border-radius: 16px;
-    padding: 36px 40px;
+    padding: 40px 48px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-    border-left: 5px solid #1B2A4A;
+    border-top: 4px solid #B07A8E;
     text-align: center;
     position: relative;
-}
-
-.testimonial-banner::before {
-    content: '\201C';
-    font-size: 5rem;
-    color: #e8e8e8;
-    position: absolute;
-    top: -10px;
-    left: 20px;
-    line-height: 1;
-    font-family: Georgia, serif;
+    min-height: 180px;
 }
 
 .hero-image-container {
