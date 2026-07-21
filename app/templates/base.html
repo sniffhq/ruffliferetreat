@@ -59,44 +59,152 @@
                 <ul class="navbar-nav me-auto align-items-lg-center gap-lg-1">
                     {% if current_user.is_authenticated and current_user.is_admin %}
 
-                    <!-- Operations Dropdown -->
+                    <!-- Ops Dashboard (single link) -->
+                    <li class="nav-item">
+                        <a class="nav-link px-3 py-2 rounded" href="{{ url_for('admin.ops_dashboard') }}"
+                           style="font-size:0.875rem;">
+                            <i class="fas fa-tachometer-alt me-1"></i> Dashboard
+                        </a>
+                    </li>
+
+                    <!-- Daycare Dropdown -->
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle px-3 py-2 rounded" href="#"
                            data-bs-toggle="dropdown" style="font-size:0.875rem;">
-                            <i class="fas fa-th-large me-1"></i> Operations
+                            <i class="fas fa-paw me-1"></i> Daycare
                         </a>
                         <ul class="dropdown-menu dropdown-menu-dark" style="background:#16213e; border:1px solid #333;">
                             <li>
-                                <a class="dropdown-item py-2 fw-bold" href="{{ url_for('admin.ops_dashboard') }}">
-                                    <i class="fas fa-tachometer-alt me-2" style="color:#B07A8E;"></i> Operations Dashboard
-                                </a>
-                            </li>
-                            <li><hr class="dropdown-divider" style="border-color:#333;"></li>
-                            <li>
                                 <a class="dropdown-item py-2" href="{{ url_for('admin.daycare_dashboard') }}">
-                                    <i class="fas fa-paw me-2 text-mauve"></i> Daycare Dashboard
+                                    <i class="fas fa-paw me-2 text-mauve"></i> Dashboard
                                 </a>
                             </li>
                             <li>
                                 <a class="dropdown-item py-2" href="{{ url_for('admin.daycare_schedule') }}">
-                                    <i class="fas fa-calendar-week me-2 text-mauve"></i> Daycare Schedule
+                                    <i class="fas fa-calendar-week me-2 text-mauve"></i> Schedule
                                 </a>
                             </li>
                             <li>
+                                <a class="dropdown-item py-2" href="{{ url_for('admin.daycare_waitlist_admin') }}">
+                                    <i class="fas fa-list-ol me-2 text-mauve"></i> Waitlist
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider" style="border-color:#333;"></li>
+                            <li>
+                                <a class="dropdown-item py-2" href="{{ url_for('admin.play_groups') }}">
+                                    <i class="fas fa-dog me-2 text-mauve"></i> Play Groups
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item py-2" href="{{ url_for('admin.report_cards') }}">
+                                    <i class="fas fa-clipboard-list me-2 text-mauve"></i> Report Cards
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
+                    <!-- Boarding Dropdown -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle px-3 py-2 rounded" href="#"
+                           data-bs-toggle="dropdown" style="font-size:0.875rem;">
+                            <i class="fas fa-hotel me-1"></i> Boarding
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-dark" style="background:#16213e; border:1px solid #333;">
+                            <li>
                                 <a class="dropdown-item py-2" href="{{ url_for('admin.boarding_dashboard') }}">
-                                    <i class="fas fa-hotel me-2 text-mauve"></i> Boarding Dashboard
+                                    <i class="fas fa-hotel me-2 text-mauve"></i> Dashboard
                                 </a>
                             </li>
                             <li>
                                 <a class="dropdown-item py-2" href="{{ url_for('admin.boarding_capacity') }}">
-                                    <i class="fas fa-chart-pie me-2 text-mauve"></i> Boarding Capacity
+                                    <i class="fas fa-chart-pie me-2 text-mauve"></i> Capacity
                                 </a>
                             </li>
                             <li>
                                 <a class="dropdown-item py-2" href="{{ url_for('admin.kennel_settings') }}">
-                                    <i class="fas fa-bed me-2 text-mauve"></i> Kennel Setup
+                                    <i class="fas fa-bed me-2 text-mauve"></i> Kennel Board
                                 </a>
                             </li>
+                        </ul>
+                    </li>
+
+                    <!-- Customers Dropdown -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle px-3 py-2 rounded" href="#"
+                           data-bs-toggle="dropdown" style="font-size:0.875rem;">
+                            <i class="fas fa-users me-1"></i> Customers
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-dark" style="background:#16213e; border:1px solid #333;">
+                            <li>
+                                <a class="dropdown-item py-2" href="{{ url_for('admin.dashboard') }}">
+                                    <i class="fas fa-address-book me-2 text-mauve"></i> Customer List
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item py-2" href="{{ url_for('reports.vaccination_status_report') }}">
+                                    <i class="fas fa-syringe me-2 text-mauve"></i> Vaccinations
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item py-2" href="{{ url_for('admin.waiver_report') }}">
+                                    <i class="fas fa-file-signature me-2 text-mauve"></i> Waivers
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item py-2" href="{{ url_for('admin.incidents') }}">
+                                    <i class="fas fa-exclamation-triangle me-2 text-mauve"></i> Incidents
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item py-2" href="{{ url_for('admin.surveys') }}">
+                                    <i class="fas fa-star me-2 text-mauve"></i> Satisfaction
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
+                    <!-- Reports Dropdown -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle px-3 py-2 rounded" href="#"
+                           data-bs-toggle="dropdown" style="font-size:0.875rem;">
+                            <i class="fas fa-chart-bar me-1"></i> Reports
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-dark" style="background:#16213e; border:1px solid #333;">
+                            <li>
+                                <a class="dropdown-item py-2" href="{{ url_for('reports.reports_dashboard') }}">
+                                    <i class="fas fa-chart-bar me-2 text-mauve"></i> Reports Dashboard
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item py-2" href="{{ url_for('admin.grooming_report') }}">
+                                    <i class="fas fa-cut me-2 text-mauve"></i> Grooming Report
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item py-2" href="{{ url_for('admin.invoice_audit') }}">
+                                    <i class="fas fa-file-invoice me-2 text-mauve"></i> Invoice Register
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item py-2" href="{{ url_for('admin.daily_log') }}">
+                                    <i class="fas fa-clipboard-list me-2 text-mauve"></i> Daily Log
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item py-2" href="{{ url_for('admin.sms_report') }}">
+                                    <i class="fas fa-sms me-2 text-mauve"></i> SMS Report
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
+                    <!-- Settings Dropdown -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle px-3 py-2 rounded" href="#"
+                           data-bs-toggle="dropdown" style="font-size:0.875rem;">
+                            <i class="fas fa-cog me-1"></i> Settings
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-dark" style="background:#16213e; border:1px solid #333;">
                             <li>
                                 <a class="dropdown-item py-2" href="{{ url_for('admin.business_settings') }}">
                                     <i class="fas fa-cog me-2 text-mauve"></i> Business Settings
@@ -107,45 +215,17 @@
                                     <i class="fas fa-users-cog me-2 text-mauve"></i> Staff Management
                                 </a>
                             </li>
-                            <li><hr class="dropdown-divider" style="border-color:#333;"></li>
                             <li>
-                                <a class="dropdown-item py-2" href="{{ url_for('admin.report_cards') }}">
-                                    <i class="fas fa-clipboard-list me-2 text-mauve"></i> Report Cards
+                                <a class="dropdown-item py-2" href="{{ url_for('admin.service_types') }}">
+                                    <i class="fas fa-tags me-2 text-mauve"></i> Service Types &amp; Pricing
                                 </a>
                             </li>
-                            <li><hr class="dropdown-divider" style="border-color:#333;"></li>
                             <li>
-                                <a class="dropdown-item py-2" href="{{ url_for('admin.play_groups') }}">
-                                    <i class="fas fa-dog me-2 text-mauve"></i> Play Groups
-                                </a>
-                            </li>
-                            <li><hr class="dropdown-divider" style="border-color:#333;"></li>
-                            <li>
-                                <a class="dropdown-item py-2" href="{{ url_for('admin.invoice_audit') }}">
-                                    <i class="fas fa-file-invoice me-2 text-mauve"></i> Invoice Register
-                                </a>
-                            </li>
-                            <li><hr class="dropdown-divider" style="border-color:#333;"></li>
-                            <li>
-                                <a class="dropdown-item py-2" href="{{ url_for('admin.daily_log') }}">
-                                    <i class="fas fa-clipboard-list me-2 text-mauve"></i> Daily Log
-                                </a>
-                            </li>
-                            <li><hr class="dropdown-divider" style="border-color:#333;"></li>
-                            <li>
-                                <a class="dropdown-item py-2" href="{{ url_for('admin.grooming_report') }}">
-                                    <i class="fas fa-cut me-2 text-mauve"></i> Daily Grooming Report
+                                <a class="dropdown-item py-2" href="{{ url_for('admin.blocks') }}">
+                                    <i class="fas fa-shield-alt me-2 text-mauve"></i> Service Blocks
                                 </a>
                             </li>
                         </ul>
-                    </li>
-
-                    <!-- Reports -->
-                    <li class="nav-item">
-                        <a class="nav-link px-3 py-2 rounded" href="{{ url_for('reports.reports_dashboard') }}"
-                           style="font-size:0.875rem;">
-                            <i class="fas fa-chart-bar me-1"></i> Reports
-                        </a>
                     </li>
 
                     <!-- Inbox with badge -->
@@ -169,19 +249,11 @@
                         </a>
                     </li>
 
-                    <!-- SMS Report -->
+                    <!-- Support -->
                     <li class="nav-item">
-                        <a class="nav-link px-3 py-2 rounded" href="{{ url_for('admin.sms_report') }}"
+                        <a class="nav-link px-3 py-2 rounded" href="{{ url_for('admin.support') }}"
                            style="font-size:0.875rem;">
-                            <i class="fas fa-chart-bar me-1"></i> SMS Report
-                        </a>
-                    </li>
-
-                    <!-- Vaccinations -->
-                    <li class="nav-item">
-                        <a class="nav-link px-3 py-2 rounded" href="{{ url_for('reports.vaccination_status_report') }}"
-                           style="font-size:0.875rem;">
-                            <i class="fas fa-syringe me-1"></i> Vaccinations
+                            <i class="fas fa-life-ring me-1"></i> Support
                         </a>
                     </li>
 
@@ -190,14 +262,6 @@
                         <a class="nav-link px-3 py-2 rounded" href="{{ url_for('admin.kb_index') }}"
                            style="font-size:0.875rem;">
                             <i class="fas fa-book me-1"></i> KB
-                        </a>
-                    </li>
-
-                    <!-- Support -->
-                    <li class="nav-item">
-                        <a class="nav-link px-3 py-2 rounded" href="{{ url_for('admin.support') }}"
-                           style="font-size:0.875rem;">
-                            <i class="fas fa-life-ring me-1"></i> Support
                         </a>
                     </li>
 
@@ -238,37 +302,6 @@
                                 </li>
                                 <li><hr class="dropdown-divider" style="border-color:#333;"></li>
                                 {% if current_user.is_admin %}
-                                <li>
-                                    <a class="dropdown-item py-2" href="{{ url_for('admin.dashboard') }}">
-                                        <i class="fas fa-tachometer-alt me-2 text-mauve"></i> Admin Dashboard
-                                    </a>
-                                </li>
-                                <li><hr class="dropdown-divider" style="border-color:#333;"></li>
-                                <li>
-                                    <a class="dropdown-item py-2" href="{{ url_for('admin.blocks') }}">
-                                        <i class="fas fa-shield-alt me-2 text-mauve"></i> Service Blocks
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item py-2" href="{{ url_for('admin.service_types') }}">
-                                        <i class="fas fa-tags me-2 text-mauve"></i> Service Types &amp; Pricing
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item py-2" href="{{ url_for('admin.incidents') }}">
-                                        <i class="fas fa-exclamation-triangle me-2 text-mauve"></i> Incidents
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item py-2" href="{{ url_for('admin.surveys') }}">
-                                        <i class="fas fa-star me-2 text-mauve"></i> Satisfaction
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item py-2" href="{{ url_for('admin.waiver_report') }}">
-                                        <i class="fas fa-file-signature me-2 text-mauve"></i> Waiver Report
-                                    </a>
-                                </li>
                                 <li><hr class="dropdown-divider" style="border-color:#333;"></li>
                                 {% endif %}
                                 <li>
