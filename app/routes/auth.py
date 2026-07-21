@@ -14,7 +14,21 @@ def index():
         if current_user.is_admin:
             return redirect(url_for('admin.dashboard'))
         return redirect(url_for('customer.dashboard'))
-    return render_template('index.html')
+    import random
+    from app.models import SurveyResponse
+    from flask import make_response
+    hero_url = url_for('static', filename='img/homepage.jpg')
+    all_reviews = (SurveyResponse.query
+        .filter(SurveyResponse.submitted_at.isnot(None))
+        .filter(SurveyResponse.comments.isnot(None))
+        .filter(SurveyResponse.overall_rating >= 4)
+        .all())
+    random.shuffle(all_reviews)
+    testimonials = all_reviews[:10]
+    resp = make_response(render_template('public/index.html', hero_url=hero_url, testimonials=testimonials))
+    resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    resp.headers['Pragma'] = 'no-cache'
+    return resp
 
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
