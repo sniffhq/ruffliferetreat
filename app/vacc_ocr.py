@@ -141,9 +141,18 @@ def _ocr_image(image_path):
     tmp_path = None
     try:
         import pytesseract
-        from PIL import Image
+        from PIL import Image, ImageOps
         pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
-        from PIL import ImageOps
+
+        # HEIC/HEIF support — register opener if pillow-heif is installed
+        suffix = str(image_path).lower()
+        if suffix.endswith('.heic') or suffix.endswith('.heif'):
+            try:
+                from pillow_heif import register_heif_opener
+                register_heif_opener()
+            except ImportError:
+                logger.warning('pillow-heif not installed; HEIC files may not open correctly')
+
         img = Image.open(image_path)
         # Apply EXIF rotation (phone photos are often stored sideways)
         img = ImageOps.exif_transpose(img)
@@ -230,6 +239,19 @@ def _parse_date(s):
         except ValueError:
             pass
 
+    # DD-Mon-YYYY with hyphens (e.g. "14-Oct-2025", "25-Jul-2026")
+    m = re.match(
+        r'^(\d{1,2})-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{4})$',
+        s, re.IGNORECASE
+    )
+    if m:
+        mo = MONTH_MAP.get(m.group(2).lower())
+        if mo:
+            try:
+                return date(int(m.group(3)), mo, int(m.group(1)))
+            except ValueError:
+                pass
+
     return None
 
 
@@ -259,6 +281,22 @@ def _extract_all_dates(text):
         if d:
             results.append((m.start(), d))
             seen_positions.add(m.start())
+
+    # DD-Mon-YYYY hyphenated (e.g. "14-Oct-2025")
+    for m in re.finditer(
+        r'\b(\d{1,2})-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{4})\b',
+        text, re.IGNORECASE
+    ):
+        if m.start() in seen_positions:
+            continue
+        mo = MONTH_MAP.get(m.group(2).lower())
+        if mo:
+            try:
+                d = date(int(m.group(3)), mo, int(m.group(1)))
+                results.append((m.start(), d))
+                seen_positions.add(m.start())
+            except ValueError:
+                pass
 
     # Month-name dates
     month_re = (
@@ -334,6 +372,101 @@ def _is_invoice_format(text):
     """
     tl = text.lower()
     return bool(re.search(r'invoice|receipt|subtotal|amount\s*(paid|remaining)|payment\s*history', tl))
+
+
+def _is_dual_table_cert(text):
+    """
+    Detect certificates that have TWO separate tables:
+      1. Treatment table with 'Date Given' and 'Expiration Date' (vaccine lot expiry)
+      2. A separate 'Due Date' section listing when the next vaccination is due.
+    Example: Cobb County Animal Services Rabies Certificate.
+    The 'Expiration Date' in table 1 is the lot/product expiry — NOT what we want.
+    The 'Due Date' in table 2 is when the vaccination needs to be renewed — what we want.
+    """
+    tl = text.lower()
+    has_expiration_col = bool(re.search(r'expir(?:ation|y)?\s*date', tl))
+    has_due_date       = bool(re.search(r'due\s*date', tl))
+    has_date_given     = bool(re.search(r'date\s*given', tl))
+    return has_expiration_col and has_due_date and has_date_given
+
+
+def _parse_dual_table_cert(text):
+    """
+    Parse dual-table certificates (e.g. Cobb County Rabies Certificate).
+    - Reads vaccine names and Due Dates from the 'Due Date' section (bottom table).
+    - Reads the vaccination date (Date Given) from the top treatment table.
+    - Deliberately ignores the 'Expiration Date' column (that is the lot expiry, not the
+      renewal due date).
+    """
+    results = []
+    today   = date.today()
+    lines   = text.split('\n')
+
+    # ── Step 1: Pull vaccination_date (Date Given) from top table ─────────────
+    # Find first past date on a line that also contains a vaccine name or "date given"
+    given_date = None
+    in_treatment_table = False
+    for line in lines:
+        if re.search(r'date\s*given|vet\s*treatment\s*type', line, re.IGNORECASE):
+            in_treatment_table = True
+        if re.search(r'due\s*date', line, re.IGNORECASE):
+            in_treatment_table = False   # switched to bottom section
+        if in_treatment_table:
+            for _, d in _extract_all_dates(line):
+                if d <= today:
+                    given_date = d
+                    break
+        if given_date:
+            break
+
+    # ── Step 2: Locate the Due Date section and parse it ──────────────────────
+    # Find the line that acts as the Due Date table header, then read rows below it
+    due_header_idx = None
+    for i, line in enumerate(lines):
+        if re.search(r'due\s*date', line, re.IGNORECASE) and re.search(r'vet\s*treatment', line, re.IGNORECASE):
+            due_header_idx = i
+            break
+    # Fallback: first line that contains only "Due Date"
+    if due_header_idx is None:
+        for i, line in enumerate(lines):
+            if re.search(r'^\s*due\s*date\s*$', line, re.IGNORECASE):
+                due_header_idx = i
+                break
+
+    if due_header_idx is None:
+        return results
+
+    # Parse rows after the Due Date header
+    for line in lines[due_header_idx + 1:]:
+        stripped = line.strip()
+        if not stripped or len(stripped) < 4:
+            continue
+        # Stop at next blank section or signature block
+        if re.search(r'vet\s*signature|date\s*:', stripped, re.IGNORECASE):
+            break
+
+        vaccine = _match_vaccine_name(stripped)
+        if not vaccine:
+            continue
+
+        dates = _extract_all_dates(stripped)
+        expiry = None
+        for _, d in dates:
+            if d > today:
+                expiry = d
+                break
+        # Accept any date if all are past (shouldn't happen on a valid cert, but be safe)
+        if not expiry and dates:
+            expiry = dates[-1][1]
+
+        results.append({
+            'vaccine_name':     vaccine,
+            'vaccination_date': given_date,
+            'expiration_date':  expiry,
+            'confidence':       'high' if expiry else 'low',
+        })
+
+    return results
 
 
 def _is_two_column_format(text):
@@ -803,7 +936,7 @@ def extract_vaccination_data(file_path):
 
     if suffix == '.pdf':
         text = _ocr_pdf(path)
-    elif suffix in ('.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.webp'):
+    elif suffix in ('.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.webp', '.heic', '.heif'):
         text = _ocr_image(path)
     else:
         logger.warning(f'Unsupported file type: {suffix}')
@@ -827,6 +960,10 @@ def extract_vaccination_data(file_path):
     elif _is_invoice_format(text):
         logger.info('Document classified as: invoice/receipt')
         results = _parse_invoice_format(text)
+
+    elif _is_dual_table_cert(text):
+        logger.info('Document classified as: dual-table cert (Date Given + separate Due Date section)')
+        results = _parse_dual_table_cert(text)
 
     elif _is_two_column_format(text):
         logger.info('Document classified as: two-column (given + due)')
