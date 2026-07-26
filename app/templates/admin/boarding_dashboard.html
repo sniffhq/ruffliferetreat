@@ -256,7 +256,10 @@
 {% macro addon_badges(b) %}
 {%- set ns = namespace(addons=[]) %}
 {%- for appt in b.pet.appointments %}
-  {%- if appt.notes and 'Add-ons:' in appt.notes %}
+  {%- if appt.notes and 'Add-ons:' in appt.notes
+      and appt.appointment_date is not none
+      and appt.appointment_date >= b.check_in_date
+      and appt.appointment_date <= b.check_out_date %}
     {%- set parts = appt.notes.split('Add-ons:') %}
     {%- if parts|length > 1 %}
       {%- for item in parts[1].split(',') %}
