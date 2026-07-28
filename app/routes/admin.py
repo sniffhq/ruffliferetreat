@@ -9364,7 +9364,7 @@ def _biz_setting(key):
 def business_settings():
     """View and update facility-wide business info, rates, SMS, portal, and policy settings."""
     from app.settings_service import get_setting, set_setting
-    from app.models import BlackoutDate
+    from app.models import BlackoutDate, AddonBlackout
 
     _BOARDING_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 
@@ -9439,7 +9439,9 @@ def business_settings():
 
     settings = {key: _biz_setting(key) for key in _BUSINESS_SETTING_DEFAULTS}
     blackouts = BlackoutDate.query.order_by(BlackoutDate.start_date).all()
+    addon_blackouts = AddonBlackout.query.order_by(AddonBlackout.start_date).all()
     return render_template('admin/business_settings.html', settings=settings, blackouts=blackouts,
+                           addon_blackouts=addon_blackouts,
                            dropoff_hours=dropoff_hours, pickup_hours=pickup_hours,
                            boarding_days=_BOARDING_DAYS)
 
@@ -9483,6 +9485,50 @@ def delete_blackout(bo_id):
     """Delete a blackout date range."""
     from app.models import BlackoutDate
     bo = BlackoutDate.query.get_or_404(bo_id)
+    db.session.delete(bo)
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
+@bp.route('/settings/addon-blackouts', methods=['POST'])
+@login_required
+@admin_required
+def create_addon_blackout():
+    """Create a date range where add-ons are disabled in the customer portal."""
+    from app.models import AddonBlackout
+    from datetime import date as _date
+    data = request.get_json(silent=True) or {}
+    try:
+        start = _date.fromisoformat(data.get('start_date', ''))
+        end   = _date.fromisoformat(data.get('end_date', ''))
+    except (ValueError, TypeError):
+        return jsonify({'ok': False, 'error': 'Invalid dates.'}), 400
+    if end < start:
+        return jsonify({'ok': False, 'error': 'End date must be on or after start date.'}), 400
+    label = (data.get('label') or '').strip()[:255]
+    bo = AddonBlackout(
+        start_date = start,
+        end_date   = end,
+        label      = label or None,
+        created_by = f'{current_user.first_name} {current_user.last_name}',
+    )
+    db.session.add(bo)
+    db.session.commit()
+    return jsonify({
+        'ok': True, 'id': bo.id,
+        'start_date': bo.start_date.isoformat(),
+        'end_date':   bo.end_date.isoformat(),
+        'label':      bo.label or '',
+    })
+
+
+@bp.route('/settings/addon-blackouts/<int:bo_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def delete_addon_blackout(bo_id):
+    """Delete an add-on blackout date range."""
+    from app.models import AddonBlackout
+    bo = AddonBlackout.query.get_or_404(bo_id)
     db.session.delete(bo)
     db.session.commit()
     return jsonify({'ok': True})

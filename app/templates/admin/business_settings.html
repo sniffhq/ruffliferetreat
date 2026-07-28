@@ -409,6 +409,63 @@
                     </div>
                 </div>
             </div>
+            <!-- Add-On Blackout Dates -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-header py-2 px-3" style="background:#1a1a2e;">
+                    <strong class="text-white"><i class="fas fa-calendar-times me-2"></i>Add-On Blackout Dates</strong>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">
+                        Define date ranges when add-ons are hidden from customers during booking — useful for holidays or high-volume periods when grooming staff is unavailable.
+                        Add-ons are suppressed if the customer's <strong>checkout date</strong> falls within a blackout range.
+                    </p>
+
+                    <!-- Existing blackout list -->
+                    <div id="addon-blackout-list" class="mb-3">
+                        {% if addon_blackouts %}
+                        {% for ab in addon_blackouts %}
+                        <div class="d-flex align-items-center justify-content-between border rounded px-3 py-2 mb-2" id="addon-bl-{{ ab.id }}">
+                            <div>
+                                <span class="fw-bold me-2">{{ ab.start_date.strftime('%b %d, %Y') }} – {{ ab.end_date.strftime('%b %d, %Y') }}</span>
+                                {% if ab.label %}<span class="text-muted small">{{ ab.label }}</span>{% endif %}
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                    onclick="deleteAddonBlackout({{ ab.id }})">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <p class="text-muted small" id="addon-bl-empty">No blackout dates set.</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Add new blackout -->
+                    <div class="border rounded p-3 bg-light">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold mb-1">Start Date</label>
+                                <input type="date" id="ab-start" class="form-control form-control-sm">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold mb-1">End Date</label>
+                                <input type="date" id="ab-end" class="form-control form-control-sm">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold mb-1">Label <span class="text-muted fw-normal">(optional)</span></label>
+                                <input type="text" id="ab-label" class="form-control form-control-sm" placeholder="e.g. Thanksgiving Weekend">
+                            </div>
+                            <div class="col-md-2">
+                                <button type="button" class="btn btn-warning btn-sm w-100" onclick="addAddonBlackout()">
+                                    <i class="fas fa-plus me-1"></i>Add
+                                </button>
+                            </div>
+                        </div>
+                        <div id="ab-error" class="text-danger small mt-2" style="display:none;"></div>
+                    </div>
+                </div>
+            </div>
+
             <div class="d-flex justify-content-end"><button type="submit" class="btn btn-warning fw-bold px-4"><i class="fas fa-save me-2"></i>Save</button></div>
         </div>
 
@@ -649,6 +706,63 @@
             });
     });
 })();
+
+// ── Add-On Blackout Dates CRUD ───────────────────────────────────────────────
+function addAddonBlackout() {
+    const start = document.getElementById('ab-start').value;
+    const end   = document.getElementById('ab-end').value;
+    const label = document.getElementById('ab-label').value.trim();
+    const err   = document.getElementById('ab-error');
+    err.style.display = 'none';
+    if (!start || !end) { err.textContent = 'Start and end dates are required.'; err.style.display = ''; return; }
+    if (end < start)    { err.textContent = 'End date must be on or after start date.'; err.style.display = ''; return; }
+
+    fetch('/admin/settings/addon-blackouts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ start_date: start, end_date: end, label: label })
+    }).then(r => r.json()).then(d => {
+        if (!d.ok) { err.textContent = d.error; err.style.display = ''; return; }
+        const fmt = iso => {
+            const dt = new Date(iso + 'T12:00:00');
+            return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        };
+        const empty = document.getElementById('addon-bl-empty');
+        if (empty) empty.remove();
+        const list = document.getElementById('addon-blackout-list');
+        const row = document.createElement('div');
+        row.className = 'd-flex align-items-center justify-content-between border rounded px-3 py-2 mb-2';
+        row.id = `addon-bl-${d.id}`;
+        row.innerHTML = `
+            <div>
+                <span class="fw-bold me-2">${fmt(d.start_date)} – ${fmt(d.end_date)}</span>
+                ${d.label ? `<span class="text-muted small">${d.label}</span>` : ''}
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-danger"
+                    onclick="deleteAddonBlackout(${d.id})">
+                <i class="fas fa-trash-alt"></i>
+            </button>`;
+        list.appendChild(row);
+        document.getElementById('ab-start').value = '';
+        document.getElementById('ab-end').value   = '';
+        document.getElementById('ab-label').value = '';
+    });
+}
+
+function deleteAddonBlackout(id) {
+    if (!confirm('Remove this add-on blackout date?')) return;
+    fetch(`/admin/settings/addon-blackouts/${id}`, { method: 'DELETE' })
+        .then(r => r.json()).then(d => {
+            if (d.ok) {
+                const row = document.getElementById(`addon-bl-${id}`);
+                if (row) row.remove();
+                const list = document.getElementById('addon-blackout-list');
+                if (!list.querySelector('[id^="addon-bl-"]')) {
+                    list.innerHTML = '<p class="text-muted small" id="addon-bl-empty">No blackout dates set.</p>';
+                }
+            }
+        });
+}
 
 // Boarding hours — toggle time inputs when "Closed" checkbox changes
 document.querySelectorAll('.boarding-closed-check').forEach(function(cb) {

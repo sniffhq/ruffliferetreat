@@ -1083,6 +1083,21 @@ class BlackoutDate(db.Model):
         return f'<BlackoutDate {self.start_date}–{self.end_date}>'
 
 
+class AddonBlackout(db.Model):
+    """Date ranges where add-ons are disabled in the customer booking portal."""
+    __tablename__ = 'addon_blackout'
+
+    id         = db.Column(db.Integer, primary_key=True)
+    start_date = db.Column(db.Date, nullable=False)
+    end_date   = db.Column(db.Date, nullable=False)
+    label      = db.Column(db.String(255), nullable=True)
+    created_by = db.Column(db.String(100), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    def __repr__(self):
+        return f'<AddonBlackout {self.start_date}–{self.end_date}>'
+
+
 class FacilitySetting(db.Model):
     """Key/value store for facility-wide configuration."""
     __tablename__ = 'facility_setting'

@@ -614,6 +614,14 @@ def book_appointment():
     blocked_dates_json   = _json.dumps(sorted(blocked_dates))
     blackout_ranges_json = _json.dumps(blackout_ranges)
 
+    # Add-on blackout ranges — suppress add-ons when checkout date falls within these
+    from app.models import AddonBlackout as _AddonBlackout
+    addon_blackout_ranges = [
+        {'start': b.start_date.isoformat(), 'end': b.end_date.isoformat(), 'label': b.label or ''}
+        for b in _AddonBlackout.query.filter(_AddonBlackout.end_date >= today).all()
+    ]
+    addon_blackout_ranges_json = _json.dumps(addon_blackout_ranges)
+
     if request.method == 'POST':
         try:
             service_choice = request.form.get('service_choice', 'boarding')
@@ -841,7 +849,8 @@ def book_appointment():
                            booking_max=booking_max,
                            addon_spa_bath_nails=addon_spa_bath_nails,
                            addon_spa_bath=addon_spa_bath,
-                           addon_nail_trim=addon_nail_trim)
+                           addon_nail_trim=addon_nail_trim,
+                           addon_blackout_ranges_json=addon_blackout_ranges_json)
 
 @bp.route('/available-times')
 @login_required

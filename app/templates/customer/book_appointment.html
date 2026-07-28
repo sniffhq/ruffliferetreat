@@ -192,7 +192,7 @@
 
                     <!-- Add-Ons -->
                     {% if addon_spa_bath_nails or addon_spa_bath or addon_nail_trim %}
-                    <div class="col-12">
+                    <div class="col-12" id="addons-section">
                         <label class="form-label fw-bold">Add-Ons <span class="text-muted small">(optional)</span></label>
                         <div class="border rounded p-3 bg-light">
                             {% if addon_spa_bath_nails %}
@@ -475,12 +475,30 @@ document.getElementById('checkout-date').addEventListener('change', function() {
     updatePricing();
     loadTimeSlots(this.value, 'checkout');
     checkDateConflict();
+    checkAddonBlackout();
 });
 
 var blockedDates = {{ blocked_dates_json|safe }};
+var ADDON_BLACKOUTS = {{ addon_blackout_ranges_json|safe }};
 
 function isBlocked(dateStr) {
     return blockedDates.indexOf(dateStr) !== -1;
+}
+
+function checkAddonBlackout() {
+    var co = getCheckoutDate();
+    var section = document.getElementById('addons-section');
+    if (!section) return;
+    var blocked = co && ADDON_BLACKOUTS.some(function(r) {
+        return co >= r.start && co <= r.end;
+    });
+    if (blocked) {
+        section.style.display = 'none';
+        document.querySelectorAll('.addon-checkbox').forEach(function(cb) { cb.checked = false; });
+        updatePricing();
+    } else {
+        section.style.display = '';
+    }
 }
 
 function datesBetween(startStr, endStr) {
