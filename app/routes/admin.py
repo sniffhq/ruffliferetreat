@@ -8860,9 +8860,9 @@ def grooming_report():
         prep_date = today
     report_date = prep_date + timedelta(days=1)
     
-    # Get all active boardings checking out on the selected date
+    # Get all boardings checking out on the selected date (active or completed)
     checkouts = (Boarding.query
-        .filter_by(status='active')
+        .filter(Boarding.status.in_(['active', 'completed']))
         .filter(Boarding.check_out_date == report_date)
         .order_by(Boarding.check_out_time.asc())
         .all())
