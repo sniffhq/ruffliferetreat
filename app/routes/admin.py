@@ -8971,17 +8971,10 @@ def grooming_report():
         x['pickup_time'] or ''
     ))
 
-    # Early pickup filter — only show pets picked up before 10 AM
-    early_only = request.args.get('early', '0') == '1'
-    if early_only:
-        grooming_items = [i for i in grooming_items
-                          if i['pickup_hour'] is not None and i['pickup_hour'] < 10]
-
     return render_template('admin/grooming_report.html',
                            grooming_items=grooming_items,
                            report_date=report_date,
                            prep_date=prep_date,
-                           early_only=early_only,
                            today=today,
                            generated_at=datetime.now().strftime('%B %d, %Y at %I:%M %p'))
 
