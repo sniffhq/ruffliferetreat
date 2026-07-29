@@ -233,6 +233,22 @@
                         </ul>
                     </li>
 
+                    <!-- Grooming bell -->
+                    <li class="nav-item">
+                        <a class="nav-link px-3 py-2 rounded position-relative"
+                           href="{{ url_for('admin.grooming_report', date=grooming_bell_date) }}"
+                           title="{% if grooming_today_count > 0 %}{{ grooming_today_count }} pet{{ 's' if grooming_today_count != 1 }} need grooming today{% else %}No grooming add-ons today{% endif %}"
+                           style="font-size:0.875rem;">
+                            <i class="fas fa-cut"></i>
+                            {% if grooming_today_count > 0 %}
+                            <span class="badge bg-warning text-dark rounded-pill position-absolute"
+                                  style="top:4px; right:4px; font-size:0.65rem;">
+                                {{ grooming_today_count }}
+                            </span>
+                            {% endif %}
+                        </a>
+                    </li>
+
                     <!-- Inbox with badge -->
                     <li class="nav-item">
                         <a class="nav-link px-3 py-2 rounded position-relative" href="{{ url_for('admin.sms_inbox') }}"

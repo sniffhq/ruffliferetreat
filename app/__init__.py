@@ -43,19 +43,51 @@ def create_app(config_class=Config):
     @app.context_processor
     def inject_brand():
         # Unread SMS count for nav badge — only when user is logged in
-        unread_sms_count = 0
+        unread_sms_count   = 0
+        grooming_today_count = 0
         try:
             from flask_login import current_user
             if current_user and current_user.is_authenticated and getattr(current_user, 'is_admin', False):
-                from app.models import SmsMessage
+                from app.models import SmsMessage, Boarding, Appointment, ServiceType
+                from datetime import date
+                import re as _re
                 unread_sms_count = SmsMessage.query.filter_by(
                     direction='inbound', read=False
                 ).count()
+                # Count boarding checkouts today that have grooming add-ons
+                today = date.today()
+                _bsvc = ServiceType.query.filter(ServiceType.name.ilike('%boarding%')).first()
+                checkouts = (Boarding.query
+                    .filter(Boarding.status.in_(['active', 'completed']))
+                    .filter(Boarding.check_out_date == today)
+                    .all())
+                for _b in checkouts:
+                    _addons = []
+                    if _b.special_notes:
+                        _m = _re.search(r'Add-ons?:\s*(.+)', _b.special_notes, _re.IGNORECASE)
+                        if _m:
+                            _addons = [i.strip() for i in _m.group(1).split(',') if i.strip()]
+                    if not _addons and _bsvc:
+                        _a = (Appointment.query
+                            .filter_by(pet_id=_b.pet_id, service_type_id=_bsvc.id)
+                            .filter(Appointment.appointment_date == _b.check_in_date)
+                            .order_by(Appointment.id.desc()).first())
+                        if _a and _a.notes:
+                            _m2 = _re.search(r'Add-ons?:\s*(.+)', _a.notes, _re.IGNORECASE)
+                            if _m2:
+                                _addons = [i.strip() for i in _m2.group(1).split(',') if i.strip()]
+                    if any(kw in a.lower() for a in _addons for kw in ['bath', 'nail', 'spa', 'groom']):
+                        grooming_today_count += 1
         except Exception:
             pass
 
+        from datetime import date, timedelta
+        _yesterday = (date.today() - timedelta(days=1)).isoformat()
+
         return {
-            'unread_sms_count': unread_sms_count,
+            'unread_sms_count':      unread_sms_count,
+            'grooming_today_count':  grooming_today_count,
+            'grooming_bell_date':    _yesterday,
             'brand': {
                 'name':         app.config.get('BUSINESS_NAME',      'Ruff Life Retreat'),
                 'tagline':      app.config.get('BUSINESS_TAGLINE',   'Premium Boarding, Grooming & Daycare'),
