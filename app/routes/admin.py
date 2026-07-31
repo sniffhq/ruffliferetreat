@@ -9525,3 +9525,167 @@ def delete_addon_blackout(bo_id):
     db.session.delete(bo)
     db.session.commit()
     return jsonify({'ok': True})
+
+
+@bp.route('/settings/time-violations')
+@login_required
+@admin_required
+def boarding_time_violations():
+    """
+    Return upcoming boardings whose check-in or check-out times fall outside
+    the configured drop-off / pick-up windows.
+    """
+    from app.models import Boarding, Pet, User
+    from app.settings_service import get_setting as _gs
+    from datetime import date as _date, datetime as _dt
+    import json as _json
+
+    _DAY_NAMES = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+
+    # Load configured windows from DB
+    try:
+        dropoff_cfg = _json.loads(_gs('boarding_dropoff_hours') or '{}')
+    except Exception:
+        dropoff_cfg = {}
+    try:
+        pickup_cfg = _json.loads(_gs('boarding_pickup_hours') or '{}')
+    except Exception:
+        pickup_cfg = {}
+
+    # Fallback windows if not configured
+    _DEFAULT_DROPOFF = {
+        0: ('07:00', '12:00'), 1: ('07:00', '12:00'), 2: ('07:00', '12:00'),
+        3: ('07:00', '12:00'), 4: ('07:00', '12:00'), 5: ('07:00', '11:00'),
+        6: ('15:00', '18:00'),
+    }
+    _DEFAULT_PICKUP = {
+        0: ('13:30', '18:00'), 1: ('13:30', '18:00'), 2: ('13:30', '18:00'),
+        3: ('13:30', '18:00'), 4: ('13:30', '18:00'), 5: ('16:00', '18:00'),
+        6: ('15:00', '18:00'),
+    }
+
+    def _window(cfg, defaults, dow):
+        day_name = _DAY_NAMES[dow]
+        day_cfg  = cfg.get(day_name, {})
+        if day_cfg.get('closed'):
+            return None, None  # closed day — any time is technically wrong
+        o = day_cfg.get('open')  or defaults[dow][0]
+        c = day_cfg.get('close') or defaults[dow][1]
+        return o, c
+
+    def _outside(t_str, win_open, win_close):
+        if not t_str:
+            return False
+        t = t_str[:5]
+        return not (win_open <= t <= win_close)
+
+    today = _date.today()
+    boardings = (Boarding.query
+        .filter(Boarding.check_in_date >= today)
+        .filter(Boarding.check_in_date <= _date(2026, 12, 31))
+        .filter(Boarding.status.notin_(['cancelled']))
+        .order_by(Boarding.check_in_date.asc())
+        .all())
+
+    violations = []
+    for b in boardings:
+        try:
+            ci_dow = _dt.strptime(str(b.check_in_date), '%Y-%m-%d').weekday()
+            co_dow = _dt.strptime(str(b.check_out_date), '%Y-%m-%d').weekday()
+        except Exception:
+            continue
+
+        do_open, do_close = _window(dropoff_cfg, _DEFAULT_DROPOFF, ci_dow)
+        pu_open, pu_close = _window(pickup_cfg,  _DEFAULT_PICKUP,  co_dow)
+
+        issues = []
+        if do_open and do_close and _outside(b.check_in_time, do_open, do_close):
+            issues.append({
+                'field': 'checkin',
+                'label': 'Drop-Off',
+                'current': str(b.check_in_time or ''),
+                'window':  f'{do_open}–{do_close}',
+            })
+        if pu_open and pu_close and _outside(b.check_out_time, pu_open, pu_close):
+            issues.append({
+                'field': 'checkout',
+                'label': 'Pick-Up',
+                'current': str(b.check_out_time or ''),
+                'window':  f'{pu_open}–{pu_close}',
+            })
+        if not issues:
+            continue
+
+        pet   = b.pet
+        owner = User.query.get(b.user_id)
+        violations.append({
+            'boarding_id':   b.id,
+            'pet_name':      pet.name if pet else '—',
+            'owner_name':    f'{owner.first_name} {owner.last_name}' if owner else '—',
+            'owner_phone':   owner.phone if owner else '',
+            'owner_user_id': owner.id if owner else None,
+            'check_in_date':  str(b.check_in_date),
+            'check_out_date': str(b.check_out_date),
+            'issues': issues,
+        })
+
+    return jsonify(violations)
+
+
+@bp.route('/boarding/<int:boarding_id>/update-time', methods=['POST'])
+@login_required
+@admin_required
+def update_boarding_time(boarding_id):
+    """Update check_in_time or check_out_time for a boarding record."""
+    b    = Boarding.query.get_or_404(boarding_id)
+    data = request.get_json(silent=True) or {}
+    field    = data.get('field')   # 'checkin' or 'checkout'
+    new_time = (data.get('time') or '').strip()
+
+    if field not in ('checkin', 'checkout'):
+        return jsonify({'ok': False, 'error': 'Invalid field.'}), 400
+
+    # Validate HH:MM format
+    import re as _re
+    if not _re.match(r'^\d{2}:\d{2}$', new_time):
+        return jsonify({'ok': False, 'error': 'Invalid time format.'}), 400
+
+    if field == 'checkin':
+        b.check_in_time = new_time
+    else:
+        b.check_out_time = new_time
+    db.session.commit()
+
+    try:
+        from app.audit_service import audit
+        label = 'drop-off' if field == 'checkin' else 'pick-up'
+        audit('boarding.time.updated', 'boarding', b.id, f'Boarding #{b.id}',
+              f'{label.capitalize()} time updated to {new_time} by {current_user.first_name} {current_user.last_name}')
+    except Exception:
+        pass
+
+    return jsonify({'ok': True, 'time': new_time})
+
+
+@bp.route('/settings/time-violations/<int:boarding_id>/sms', methods=['POST'])
+@login_required
+@admin_required
+def time_violation_sms(boarding_id):
+    """Send an SMS to the pet owner about a boarding time that needs adjustment."""
+    from app.models import User
+    from app.sms_service import _send
+
+    b     = Boarding.query.get_or_404(boarding_id)
+    owner = User.query.get(b.user_id)
+    data  = request.get_json(silent=True) or {}
+    body  = (data.get('message') or '').strip()
+
+    if not owner or not owner.phone:
+        return jsonify({'ok': False, 'error': 'No phone number on file for this owner.'}), 400
+    if not body:
+        return jsonify({'ok': False, 'error': 'Message body is required.'}), 400
+
+    ok = _send(owner.phone, body, user_id=owner.id)
+    if ok:
+        return jsonify({'ok': True})
+    return jsonify({'ok': False, 'error': 'SMS send failed — check Twilio config.'}), 500

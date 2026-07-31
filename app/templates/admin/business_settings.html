@@ -326,6 +326,40 @@
                     </table>
                 </div>
             </div>
+            <!-- Time Violations -->
+            <div class="card shadow-sm mb-3" id="violations-card">
+                <div class="card-header py-2 px-3 d-flex align-items-center justify-content-between" style="background:#1a1a2e;">
+                    <strong class="text-white"><i class="fas fa-exclamation-triangle me-2 text-warning"></i>Boarding Time Violations</strong>
+                    <span class="badge bg-warning text-dark" id="violations-badge" style="display:none;"></span>
+                </div>
+                <div class="card-body p-0">
+                    <p class="text-muted small px-3 pt-3 mb-2">Upcoming boardings with drop-off or pick-up times outside your configured windows.</p>
+                    <div id="violations-loading" class="text-center py-3">
+                        <div class="spinner-border spinner-border-sm text-warning" role="status"></div>
+                        <span class="ms-2 small text-muted">Checking reservations...</span>
+                    </div>
+                    <div id="violations-empty" class="text-center py-3 text-success small" style="display:none;">
+                        <i class="fas fa-check-circle me-2"></i>No time violations found.
+                    </div>
+                    <div id="violations-table-wrap" style="display:none;">
+                        <div class="table-responsive">
+                            <table class="table table-sm mb-0">
+                                <thead style="background:#f8f9fa;">
+                                    <tr class="small">
+                                        <th class="ps-3">Pet / Owner</th>
+                                        <th>Drop-Off Date</th>
+                                        <th>Pick-Up Date</th>
+                                        <th>Issue</th>
+                                        <th class="text-end pe-3">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="violations-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="d-flex justify-content-end"><button type="submit" class="btn btn-warning fw-bold px-4"><i class="fas fa-save me-2"></i>Save</button></div>
         </div>
 
@@ -776,5 +810,243 @@ document.querySelectorAll('.boarding-closed-check').forEach(function(cb) {
         inputs.forEach(function(inp) { inp.disabled = cb.checked; });
     });
 });
+
+// ── Time Violations ────────────────────────────────────────────────────────
+var _violationsLoaded = false;
+
+function fmt12(t) {
+    if (!t) return '—';
+    var parts = t.split(':');
+    var h = parseInt(parts[0]), m = parts[1];
+    var ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return h + ':' + m + ' ' + ampm;
+}
+
+function fmtDate(d) {
+    if (!d) return '—';
+    var p = d.split('-');
+    return p[1] + '/' + p[2] + '/' + p[0];
+}
+
+function loadViolations() {
+    if (_violationsLoaded) return;
+    fetch('/admin/settings/time-violations')
+        .then(r => r.json())
+        .then(function(data) {
+            _violationsLoaded = true;
+            document.getElementById('violations-loading').style.display = 'none';
+            if (!data.length) {
+                document.getElementById('violations-empty').style.display = 'block';
+                return;
+            }
+            var badge = document.getElementById('violations-badge');
+            badge.textContent = data.length;
+            badge.style.display = '';
+            document.getElementById('violations-table-wrap').style.display = 'block';
+            var tbody = document.getElementById('violations-tbody');
+            tbody.innerHTML = '';
+            data.forEach(function(v) {
+                var issueHtml = v.issues.map(function(i) {
+                    return '<span class="badge bg-danger me-1">' + i.label + ': ' +
+                           fmt12(i.current) + ' (window ' + i.window + ')</span>';
+                }).join('');
+                var smsDefault = 'Hi, this is Ruff Life Retreat. We noticed your boarding reservation for ' +
+                    v.pet_name + ' has a ' + v.issues.map(i => i.label.toLowerCase()).join(' and ') +
+                    ' time that falls outside our available hours. Please reach out so we can coordinate an updated time. Thank you!';
+                var row = document.createElement('tr');
+                row.id = 'vrow-' + v.boarding_id;
+                row.innerHTML =
+                    '<td class="ps-3"><strong>' + v.pet_name + '</strong><br><small class="text-muted">' + v.owner_name + '</small></td>' +
+                    '<td class="small">' + fmtDate(v.check_in_date) + '</td>' +
+                    '<td class="small">' + fmtDate(v.check_out_date) + '</td>' +
+                    '<td>' + issueHtml + '</td>' +
+                    '<td class="text-end pe-3">' +
+                        '<button class="btn btn-sm btn-outline-primary me-1" onclick="openEditTime(' + JSON.stringify(v) + ')" title="Edit time"><i class="fas fa-pencil-alt"></i></button>' +
+                        '<button class="btn btn-sm btn-outline-success" onclick="openSmsModal(' + JSON.stringify(v) + ', ' + JSON.stringify(smsDefault) + ')" title="Send SMS"><i class="fas fa-sms"></i></button>' +
+                    '</td>';
+                tbody.appendChild(row);
+            });
+        })
+        .catch(function() {
+            document.getElementById('violations-loading').style.display = 'none';
+            document.getElementById('violations-empty').innerHTML =
+                '<i class="fas fa-exclamation-circle text-danger me-2"></i>Failed to load violations.';
+            document.getElementById('violations-empty').style.display = 'block';
+        });
+}
+
+// Load violations when Booking tab is shown
+document.querySelectorAll('[href="#tab-booking"]').forEach(function(el) {
+    el.addEventListener('shown.bs.tab', loadViolations);
+});
+// Also load if booking tab is already active on page load
+if (document.getElementById('tab-booking') &&
+    document.getElementById('tab-booking').classList.contains('show')) {
+    loadViolations();
+}
+
+// Edit time modal
+function openEditTime(v) {
+    var modal = new bootstrap.Modal(document.getElementById('editTimeModal'));
+    document.getElementById('edit-time-boarding-id').value = v.boarding_id;
+    document.getElementById('edit-time-pet').textContent   = v.pet_name + ' — ' + v.owner_name;
+    // Pre-select first issue
+    var issue = v.issues[0];
+    document.getElementById('edit-time-field').value = issue.field;
+    document.getElementById('edit-time-label').textContent = issue.label + ' time';
+    document.getElementById('edit-time-current').textContent = fmt12(issue.current) +
+        ' (allowed window: ' + issue.window + ')';
+    document.getElementById('edit-time-input').value = issue.current || '';
+    // If multiple issues, populate selector
+    var sel = document.getElementById('edit-time-field-sel');
+    sel.innerHTML = '';
+    v.issues.forEach(function(i) {
+        var opt = document.createElement('option');
+        opt.value = i.field;
+        opt.textContent = i.label + ' — ' + fmt12(i.current) + ' (window ' + i.window + ')';
+        sel.appendChild(opt);
+    });
+    sel.style.display = v.issues.length > 1 ? 'block' : 'none';
+    sel.onchange = function() {
+        var chosen = v.issues.find(i => i.field === sel.value);
+        if (chosen) {
+            document.getElementById('edit-time-field').value = chosen.field;
+            document.getElementById('edit-time-label').textContent = chosen.label + ' time';
+            document.getElementById('edit-time-current').textContent = fmt12(chosen.current) +
+                ' (allowed window: ' + chosen.window + ')';
+            document.getElementById('edit-time-input').value = chosen.current || '';
+        }
+    };
+    document.getElementById('edit-time-status').textContent = '';
+    modal.show();
+}
+
+document.getElementById('edit-time-save-btn').addEventListener('click', function() {
+    var bid   = document.getElementById('edit-time-boarding-id').value;
+    var field = document.getElementById('edit-time-field').value;
+    var time  = document.getElementById('edit-time-input').value;
+    var btn   = this;
+    btn.disabled = true;
+    fetch('/admin/boarding/' + bid + '/update-time', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({field: field, time: time})
+    })
+    .then(r => r.json())
+    .then(function(d) {
+        btn.disabled = false;
+        if (d.ok) {
+            document.getElementById('edit-time-status').innerHTML =
+                '<span class="text-success"><i class="fas fa-check me-1"></i>Saved.</span>';
+            // Reload violations
+            _violationsLoaded = false;
+            setTimeout(function() {
+                bootstrap.Modal.getInstance(document.getElementById('editTimeModal')).hide();
+                document.getElementById('violations-loading').style.display = 'block';
+                document.getElementById('violations-empty').style.display = 'none';
+                document.getElementById('violations-table-wrap').style.display = 'none';
+                loadViolations();
+            }, 800);
+        } else {
+            document.getElementById('edit-time-status').innerHTML =
+                '<span class="text-danger">' + (d.error || 'Error saving.') + '</span>';
+        }
+    });
+});
+
+// SMS modal
+function openSmsModal(v, defaultMsg) {
+    var modal = new bootstrap.Modal(document.getElementById('smsViolationModal'));
+    document.getElementById('sms-v-boarding-id').value   = v.boarding_id;
+    document.getElementById('sms-v-owner-name').textContent = v.owner_name;
+    document.getElementById('sms-v-phone').textContent   = v.owner_phone || 'No phone on file';
+    document.getElementById('sms-v-body').value          = defaultMsg;
+    document.getElementById('sms-v-status').textContent  = '';
+    document.getElementById('sms-v-send-btn').disabled   = !v.owner_phone;
+    modal.show();
+}
+
+document.getElementById('sms-v-send-btn').addEventListener('click', function() {
+    var bid  = document.getElementById('sms-v-boarding-id').value;
+    var body = document.getElementById('sms-v-body').value.trim();
+    var btn  = this;
+    if (!body) { document.getElementById('sms-v-status').textContent = 'Message is required.'; return; }
+    btn.disabled = true;
+    fetch('/admin/settings/time-violations/' + bid + '/sms', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({message: body})
+    })
+    .then(r => r.json())
+    .then(function(d) {
+        btn.disabled = false;
+        if (d.ok) {
+            document.getElementById('sms-v-status').innerHTML =
+                '<span class="text-success"><i class="fas fa-check me-1"></i>SMS sent.</span>';
+            setTimeout(function() {
+                bootstrap.Modal.getInstance(document.getElementById('smsViolationModal')).hide();
+            }, 1200);
+        } else {
+            document.getElementById('sms-v-status').innerHTML =
+                '<span class="text-danger">' + (d.error || 'Send failed.') + '</span>';
+        }
+    });
+});
 </script>
+
+<!-- Edit Time Modal -->
+<div class="modal fade" id="editTimeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#1a1a2e;">
+                <h5 class="modal-title text-white"><i class="fas fa-pencil-alt me-2"></i>Edit Boarding Time</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="fw-bold mb-1" id="edit-time-pet"></p>
+                <p class="small text-muted mb-3" id="edit-time-current"></p>
+                <input type="hidden" id="edit-time-boarding-id">
+                <input type="hidden" id="edit-time-field">
+                <select class="form-select form-select-sm mb-3" id="edit-time-field-sel" style="display:none;"></select>
+                <label class="form-label fw-bold small mb-1" id="edit-time-label">Time</label>
+                <input type="time" id="edit-time-input" class="form-control">
+                <div class="mt-2 small" id="edit-time-status"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning btn-sm fw-bold" id="edit-time-save-btn">
+                    <i class="fas fa-save me-1"></i>Save Time
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SMS Violation Modal -->
+<div class="modal fade" id="smsViolationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#1a1a2e;">
+                <h5 class="modal-title text-white"><i class="fas fa-sms me-2"></i>Notify Owner</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-1"><strong id="sms-v-owner-name"></strong></p>
+                <p class="small text-muted mb-3"><i class="fas fa-phone me-1"></i><span id="sms-v-phone"></span></p>
+                <input type="hidden" id="sms-v-boarding-id">
+                <label class="form-label fw-bold small mb-1">Message</label>
+                <textarea id="sms-v-body" class="form-control" rows="5"></textarea>
+                <div class="form-text">Edit the message before sending if needed.</div>
+                <div class="mt-2 small" id="sms-v-status"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success btn-sm fw-bold" id="sms-v-send-btn">
+                    <i class="fas fa-paper-plane me-1"></i>Send SMS
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
