@@ -912,7 +912,7 @@ def available_times():
             return h * 60 + m
         cur = _t2m(open_str)
         end = _t2m(close_str)
-        while cur <= end:
+        while cur < end:
             h, m = divmod(cur, 60)
             time_str = f'{h:02d}:{m:02d}'
             display  = datetime.strptime(time_str, '%H:%M').strftime('%I:%M %p').lstrip('0')
