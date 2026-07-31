@@ -829,6 +829,8 @@ function fmtDate(d) {
     return p[1] + '/' + p[2] + '/' + p[0];
 }
 
+var _violationMap = {};
+
 function loadViolations() {
     if (_violationsLoaded) return;
     fetch('/admin/settings/time-violations')
@@ -847,13 +849,11 @@ function loadViolations() {
             var tbody = document.getElementById('violations-tbody');
             tbody.innerHTML = '';
             data.forEach(function(v) {
+                _violationMap[v.boarding_id] = v;
                 var issueHtml = v.issues.map(function(i) {
                     return '<span class="badge bg-danger me-1">' + i.label + ': ' +
                            fmt12(i.current) + ' (window ' + i.window + ')</span>';
                 }).join('');
-                var smsDefault = 'Hi, this is Ruff Life Retreat. We noticed your boarding reservation for ' +
-                    v.pet_name + ' has a ' + v.issues.map(i => i.label.toLowerCase()).join(' and ') +
-                    ' time that falls outside our available hours. Please reach out so we can coordinate an updated time. Thank you!';
                 var row = document.createElement('tr');
                 row.id = 'vrow-' + v.boarding_id;
                 row.innerHTML =
@@ -862,8 +862,8 @@ function loadViolations() {
                     '<td class="small">' + fmtDate(v.check_out_date) + '</td>' +
                     '<td>' + issueHtml + '</td>' +
                     '<td class="text-end pe-3">' +
-                        '<button type="button" class="btn btn-sm btn-outline-primary me-1" onclick="openEditTime(' + JSON.stringify(v) + ')" title="Edit time"><i class="fas fa-pencil-alt"></i></button>' +
-                        '<button type="button" class="btn btn-sm btn-outline-success" onclick="openSmsModal(' + JSON.stringify(v) + ', ' + JSON.stringify(smsDefault) + ')" title="Send SMS"><i class="fas fa-sms"></i></button>' +
+                        '<button type="button" class="btn btn-sm btn-outline-primary me-1" data-vid="' + v.boarding_id + '" onclick="openEditTime(this.dataset.vid)" title="Edit time"><i class="fas fa-pencil-alt"></i></button>' +
+                        '<button type="button" class="btn btn-sm btn-outline-success" data-vid="' + v.boarding_id + '" onclick="openSmsModal(this.dataset.vid)" title="Send SMS"><i class="fas fa-sms"></i></button>' +
                     '</td>';
                 tbody.appendChild(row);
             });
@@ -887,7 +887,9 @@ if (document.getElementById('tab-booking') &&
 }
 
 // Edit time modal
-function openEditTime(v) {
+function openEditTime(boardingId) {
+    var v = _violationMap[boardingId];
+    if (!v) return;
     var modal = new bootstrap.Modal(document.getElementById('editTimeModal'));
     document.getElementById('edit-time-boarding-id').value = v.boarding_id;
     document.getElementById('edit-time-pet').textContent   = v.pet_name + ' — ' + v.owner_name;
@@ -956,14 +958,19 @@ document.getElementById('edit-time-save-btn').addEventListener('click', function
 });
 
 // SMS modal
-function openSmsModal(v, defaultMsg) {
+function openSmsModal(boardingId) {
+    var v = _violationMap[boardingId];
+    if (!v) return;
+    var defaultMsg = 'Hi, this is Ruff Life Retreat. We noticed your boarding reservation for ' +
+        v.pet_name + ' has a ' + v.issues.map(function(i) { return i.label.toLowerCase(); }).join(' and ') +
+        ' time that falls outside our available hours. Please reach out so we can coordinate an updated time. Thank you!';
     var modal = new bootstrap.Modal(document.getElementById('smsViolationModal'));
-    document.getElementById('sms-v-boarding-id').value   = v.boarding_id;
+    document.getElementById('sms-v-boarding-id').value      = v.boarding_id;
     document.getElementById('sms-v-owner-name').textContent = v.owner_name;
-    document.getElementById('sms-v-phone').textContent   = v.owner_phone || 'No phone on file';
-    document.getElementById('sms-v-body').value          = defaultMsg;
-    document.getElementById('sms-v-status').textContent  = '';
-    document.getElementById('sms-v-send-btn').disabled   = !v.owner_phone;
+    document.getElementById('sms-v-phone').textContent      = v.owner_phone || 'No phone on file';
+    document.getElementById('sms-v-body').value             = defaultMsg;
+    document.getElementById('sms-v-status').textContent     = '';
+    document.getElementById('sms-v-send-btn').disabled      = !v.owner_phone;
     modal.show();
 }
 
