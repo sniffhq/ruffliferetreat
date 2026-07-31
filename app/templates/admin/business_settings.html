@@ -862,8 +862,8 @@ function loadViolations() {
                     '<td class="small">' + fmtDate(v.check_out_date) + '</td>' +
                     '<td>' + issueHtml + '</td>' +
                     '<td class="text-end pe-3">' +
-                        '<button class="btn btn-sm btn-outline-primary me-1" onclick="openEditTime(' + JSON.stringify(v) + ')" title="Edit time"><i class="fas fa-pencil-alt"></i></button>' +
-                        '<button class="btn btn-sm btn-outline-success" onclick="openSmsModal(' + JSON.stringify(v) + ', ' + JSON.stringify(smsDefault) + ')" title="Send SMS"><i class="fas fa-sms"></i></button>' +
+                        '<button type="button" class="btn btn-sm btn-outline-primary me-1" onclick="openEditTime(' + JSON.stringify(v) + ')" title="Edit time"><i class="fas fa-pencil-alt"></i></button>' +
+                        '<button type="button" class="btn btn-sm btn-outline-success" onclick="openSmsModal(' + JSON.stringify(v) + ', ' + JSON.stringify(smsDefault) + ')" title="Send SMS"><i class="fas fa-sms"></i></button>' +
                     '</td>';
                 tbody.appendChild(row);
             });
