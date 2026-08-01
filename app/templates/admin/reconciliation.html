@@ -1,0 +1,421 @@
+{% extends "base.html" %}
+{% block title %}Invoice Reconciliation{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4" style="max-width:1100px;">
+
+    <div class="d-flex justify-content-between align-items-start mb-3">
+        <div>
+            <h3 class="mb-1"><i class="fas fa-balance-scale me-2" style="color:#B07A8E;"></i>Invoice Reconciliation</h3>
+            <div class="text-muted small">Run each section on demand — results reflect live data.</div>
+        </div>
+    </div>
+
+    <!-- ── 1. Aging Report ──────────────────────────────────────────────── -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-header py-2 px-3 d-flex align-items-center justify-content-between" style="background:#1a1a2e;">
+            <strong class="text-white"><i class="fas fa-clock me-2 text-warning"></i>Aging Report — Outstanding Invoices</strong>
+            <button type="button" class="btn btn-sm btn-outline-warning" onclick="runSection('aging')">Run</button>
+        </div>
+        <div class="card-body p-0">
+            <p class="text-muted small px-3 pt-3 mb-2">All outstanding (unpaid) invoices grouped by how long they've been open.</p>
+            <div id="aging-wrap" style="display:none;">
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead style="background:#f8f9fa;"><tr class="small">
+                            <th class="ps-3">Owner</th>
+                            <th>Service</th>
+                            <th>Invoice Date</th>
+                            <th>Age</th>
+                            <th>Bucket</th>
+                            <th class="text-end">Amount</th>
+                            <th class="text-end pe-3">Actions</th>
+                        </tr></thead>
+                        <tbody id="aging-tbody"></tbody>
+                        <tfoot id="aging-tfoot"></tfoot>
+                    </table>
+                </div>
+            </div>
+            <div id="aging-empty" class="text-center py-3 text-muted small" style="display:none;"><i class="fas fa-check-circle text-success me-2"></i>No outstanding invoices.</div>
+            <div id="aging-loading" class="text-center py-3" style="display:none;"><div class="spinner-border spinner-border-sm text-warning"></div></div>
+        </div>
+    </div>
+
+    <!-- ── 2. Unbilled Completed Boardings ─────────────────────────────── -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-header py-2 px-3 d-flex align-items-center justify-content-between" style="background:#1a1a2e;">
+            <strong class="text-white"><i class="fas fa-bed me-2 text-warning"></i>Unbilled Completed Boardings</strong>
+            <button type="button" class="btn btn-sm btn-outline-warning" onclick="runSection('unbilled-boarding')">Run</button>
+        </div>
+        <div class="card-body p-0">
+            <p class="text-muted small px-3 pt-3 mb-2">Completed boardings with no invoice generated yet.</p>
+            <div id="unbilled-boarding-wrap" style="display:none;">
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead style="background:#f8f9fa;"><tr class="small">
+                            <th class="ps-3">Pet</th>
+                            <th>Owner</th>
+                            <th>Check-In</th>
+                            <th>Check-Out</th>
+                            <th class="text-center">Nights</th>
+                            <th class="text-end pe-3">Actions</th>
+                        </tr></thead>
+                        <tbody id="unbilled-boarding-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="unbilled-boarding-empty" class="text-center py-3 text-muted small" style="display:none;"><i class="fas fa-check-circle text-success me-2"></i>All completed boardings are invoiced.</div>
+            <div id="unbilled-boarding-loading" class="text-center py-3" style="display:none;"><div class="spinner-border spinner-border-sm text-warning"></div></div>
+        </div>
+    </div>
+
+    <!-- ── 3. Unbilled Daycare Sessions ────────────────────────────────── -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-header py-2 px-3 d-flex align-items-center justify-content-between" style="background:#1a1a2e;">
+            <strong class="text-white"><i class="fas fa-paw me-2 text-warning"></i>Unbilled Daycare Sessions</strong>
+            <button type="button" class="btn btn-sm btn-outline-warning" onclick="runSection('unbilled-daycare')">Run</button>
+        </div>
+        <div class="card-body p-0">
+            <p class="text-muted small px-3 pt-3 mb-2">Past daycare attendance records with no invoice and not waived.</p>
+            <div id="unbilled-daycare-wrap" style="display:none;">
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead style="background:#f8f9fa;"><tr class="small">
+                            <th class="ps-3">Pet</th>
+                            <th>Owner</th>
+                            <th>Session Date</th>
+                            <th>Status</th>
+                            <th class="text-end pe-3">Actions</th>
+                        </tr></thead>
+                        <tbody id="unbilled-daycare-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="unbilled-daycare-empty" class="text-center py-3 text-muted small" style="display:none;"><i class="fas fa-check-circle text-success me-2"></i>All daycare sessions are invoiced or waived.</div>
+            <div id="unbilled-daycare-loading" class="text-center py-3" style="display:none;"><div class="spinner-border spinner-border-sm text-warning"></div></div>
+        </div>
+    </div>
+
+    <!-- ── 4. Duplicate Outstanding Invoices ───────────────────────────── -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-header py-2 px-3 d-flex align-items-center justify-content-between" style="background:#1a1a2e;">
+            <strong class="text-white"><i class="fas fa-copy me-2 text-warning"></i>Duplicate Outstanding Invoices</strong>
+            <button type="button" class="btn btn-sm btn-outline-warning" onclick="runSection('duplicates')">Run</button>
+        </div>
+        <div class="card-body p-0">
+            <p class="text-muted small px-3 pt-3 mb-2">Customers with more than one open invoice — may indicate a billing error.</p>
+            <div id="duplicates-wrap" style="display:none;">
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead style="background:#f8f9fa;"><tr class="small">
+                            <th class="ps-3">Owner</th>
+                            <th class="text-center"># Invoices</th>
+                            <th>Open Invoices</th>
+                            <th class="text-end">Total Owed</th>
+                            <th class="text-end pe-3">Actions</th>
+                        </tr></thead>
+                        <tbody id="duplicates-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="duplicates-empty" class="text-center py-3 text-muted small" style="display:none;"><i class="fas fa-check-circle text-success me-2"></i>No duplicate outstanding invoices.</div>
+            <div id="duplicates-loading" class="text-center py-3" style="display:none;"><div class="spinner-border spinner-border-sm text-warning"></div></div>
+        </div>
+    </div>
+
+    <!-- ── 5. Revenue by Period ─────────────────────────────────────────── -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-header py-2 px-3 d-flex align-items-center justify-content-between" style="background:#1a1a2e;">
+            <strong class="text-white"><i class="fas fa-chart-bar me-2 text-warning"></i>Revenue by Period</strong>
+            <div class="d-flex align-items-center gap-2">
+                <input type="date" id="rev-start" class="form-control form-control-sm" style="width:140px;">
+                <span class="text-white small">to</span>
+                <input type="date" id="rev-end" class="form-control form-control-sm" style="width:140px;">
+                <button type="button" class="btn btn-sm btn-outline-warning" onclick="runRevenue()">Run</button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div id="revenue-wrap" style="display:none;">
+                <div class="row g-3 mb-3" id="revenue-summary"></div>
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead style="background:#f8f9fa;"><tr class="small">
+                            <th class="ps-3">Service Type</th>
+                            <th class="text-center"># Payments</th>
+                            <th class="text-end pe-3">Total Collected</th>
+                        </tr></thead>
+                        <tbody id="revenue-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="revenue-empty" class="text-center py-3 text-muted small" style="display:none;"><i class="fas fa-info-circle me-2"></i>No paid invoices in this period.</div>
+            <div id="revenue-loading" class="text-center py-3" style="display:none;"><div class="spinner-border spinner-border-sm text-warning"></div></div>
+        </div>
+    </div>
+
+    <!-- ── 6. Expected vs Billed ────────────────────────────────────────── -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-header py-2 px-3 d-flex align-items-center justify-content-between" style="background:#1a1a2e;">
+            <strong class="text-white"><i class="fas fa-not-equal me-2 text-warning"></i>Expected vs Billed Discrepancies</strong>
+            <button type="button" class="btn btn-sm btn-outline-warning" onclick="runSection('discrepancy')">Run</button>
+        </div>
+        <div class="card-body p-0">
+            <p class="text-muted small px-3 pt-3 mb-2">Completed boardings where the invoice amount doesn't match the calculated rate × nights + add-ons. Checks the most recent 500 completed boardings.</p>
+            <div id="discrepancy-wrap" style="display:none;">
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead style="background:#f8f9fa;"><tr class="small">
+                            <th class="ps-3">Pet / Owner</th>
+                            <th>Dates</th>
+                            <th class="text-center">Nights</th>
+                            <th class="text-end">Rate</th>
+                            <th class="text-end">Add-Ons</th>
+                            <th class="text-end">Expected</th>
+                            <th class="text-end">Billed</th>
+                            <th class="text-end pe-3">Diff</th>
+                        </tr></thead>
+                        <tbody id="discrepancy-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="discrepancy-empty" class="text-center py-3 text-muted small" style="display:none;"><i class="fas fa-check-circle text-success me-2"></i>No discrepancies found.</div>
+            <div id="discrepancy-loading" class="text-center py-3" style="display:none;"><div class="spinner-border spinner-border-sm text-warning"></div></div>
+        </div>
+    </div>
+
+</div>
+
+<!-- SMS Modal -->
+<div class="modal fade" id="reconSmsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#1a1a2e;">
+                <h5 class="modal-title text-white"><i class="fas fa-sms me-2"></i>Send Reminder</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-1 fw-bold" id="recon-sms-owner"></p>
+                <p class="small text-muted mb-3"><i class="fas fa-phone me-1"></i><span id="recon-sms-phone"></span></p>
+                <input type="hidden" id="recon-sms-customer-id">
+                <label class="form-label fw-bold small mb-1">Message</label>
+                <textarea id="recon-sms-body" class="form-control" rows="5"></textarea>
+                <div class="mt-2 small" id="recon-sms-status"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success btn-sm fw-bold" id="recon-sms-send">
+                    <i class="fas fa-paper-plane me-1"></i>Send SMS
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function fmtDate(d) {
+    if (!d) return '—';
+    var p = d.split('-'); return p[1] + '/' + p[2] + '/' + p[0];
+}
+function fmtMoney(n) {
+    return '$' + parseFloat(n).toFixed(2);
+}
+function bucketColor(b) {
+    if (b === '0–7 days')   return 'success';
+    if (b === '8–30 days')  return 'warning';
+    if (b === '31–90 days') return 'orange';
+    return 'danger';
+}
+
+var _reconSmsMap = {};
+
+function openReconSms(customerId, ownerName, phone, defaultMsg) {
+    _reconSmsMap.customerId = customerId;
+    document.getElementById('recon-sms-customer-id').value   = customerId;
+    document.getElementById('recon-sms-owner').textContent   = ownerName;
+    document.getElementById('recon-sms-phone').textContent   = phone || 'No phone on file';
+    document.getElementById('recon-sms-body').value          = defaultMsg;
+    document.getElementById('recon-sms-status').textContent  = '';
+    document.getElementById('recon-sms-send').disabled       = !phone;
+    new bootstrap.Modal(document.getElementById('reconSmsModal')).show();
+}
+
+document.getElementById('recon-sms-send').addEventListener('click', function() {
+    var btn  = this;
+    var body = document.getElementById('recon-sms-body').value.trim();
+    var cid  = document.getElementById('recon-sms-customer-id').value;
+    if (!body) { document.getElementById('recon-sms-status').textContent = 'Message required.'; return; }
+    btn.disabled = true;
+    fetch('/admin/settings/reconciliation/sms', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({customer_id: parseInt(cid), message: body})
+    }).then(r => r.json()).then(function(d) {
+        btn.disabled = false;
+        if (d.ok) {
+            document.getElementById('recon-sms-status').innerHTML = '<span class="text-success"><i class="fas fa-check me-1"></i>Sent.</span>';
+            setTimeout(function() {
+                bootstrap.Modal.getInstance(document.getElementById('reconSmsModal')).hide();
+            }, 1000);
+        } else {
+            document.getElementById('recon-sms-status').innerHTML = '<span class="text-danger">' + (d.error || 'Failed.') + '</span>';
+        }
+    });
+});
+
+function showLoading(section) {
+    document.getElementById(section + '-loading').style.display = 'block';
+    document.getElementById(section + '-wrap').style.display    = 'none';
+    document.getElementById(section + '-empty').style.display   = 'none';
+}
+function hideLoading(section) {
+    document.getElementById(section + '-loading').style.display = 'none';
+}
+
+function runSection(section) {
+    showLoading(section);
+    fetch('/admin/settings/reconciliation/' + section)
+        .then(r => r.json())
+        .then(function(data) {
+            hideLoading(section);
+            if (!data.length) {
+                document.getElementById(section + '-empty').style.display = 'block';
+                return;
+            }
+            document.getElementById(section + '-wrap').style.display = 'block';
+            var tbody = document.getElementById(section + '-tbody');
+            tbody.innerHTML = '';
+
+            if (section === 'aging') renderAging(data, tbody);
+            else if (section === 'unbilled-boarding') renderUnbilledBoarding(data, tbody);
+            else if (section === 'unbilled-daycare')  renderUnbilledDaycare(data, tbody);
+            else if (section === 'duplicates')        renderDuplicates(data, tbody);
+            else if (section === 'discrepancy')       renderDiscrepancy(data, tbody);
+        });
+}
+
+function renderAging(data, tbody) {
+    var totals = {};
+    var grandTotal = 0;
+    data.forEach(function(r) {
+        grandTotal += r.amount;
+        totals[r.bucket] = (totals[r.bucket] || 0) + r.amount;
+        var smsMsg = 'Hi ' + r.owner.split(' ')[0] + ', this is Ruff Life Retreat. You have an outstanding balance of ' +
+            fmtMoney(r.amount) + ' for ' + r.service_type + '. Please reach out to settle at your earliest convenience. Thank you!';
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+            '<td class="ps-3"><a href="/admin/customers/' + r.customer_id + '">' + r.owner + '</a></td>' +
+            '<td class="small text-muted">' + r.service_type + '</td>' +
+            '<td class="small">' + fmtDate(r.payment_date) + '</td>' +
+            '<td class="small">' + r.age_days + 'd</td>' +
+            '<td><span class="badge bg-' + (r.age_days <= 7 ? 'success' : r.age_days <= 30 ? 'warning text-dark' : r.age_days <= 90 ? 'orange' : 'danger') + '">' + r.bucket + '</span></td>' +
+            '<td class="text-end fw-bold">' + fmtMoney(r.amount) + '</td>' +
+            '<td class="text-end pe-3"><button type="button" class="btn btn-sm btn-outline-success" data-cid="' + r.customer_id + '" data-owner="' + r.owner + '" data-phone="' + (r.phone||'') + '" data-msg="' + encodeURIComponent(smsMsg) + '" onclick="openReconSms(this.dataset.cid, this.dataset.owner, this.dataset.phone, decodeURIComponent(this.dataset.msg))"><i class="fas fa-sms"></i></button></td>';
+        tbody.appendChild(tr);
+    });
+    var tfoot = document.getElementById('aging-tfoot');
+    tfoot.innerHTML = '<tr class="table-dark fw-bold"><td class="ps-3" colspan="5">Total Outstanding</td><td class="text-end">' + fmtMoney(grandTotal) + '</td><td></td></tr>';
+}
+
+function renderUnbilledBoarding(data, tbody) {
+    data.forEach(function(r) {
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+            '<td class="ps-3"><strong>' + r.pet + '</strong></td>' +
+            '<td><a href="/admin/customers/' + r.customer_id + '">' + r.owner + '</a></td>' +
+            '<td class="small">' + fmtDate(r.check_in_date) + '</td>' +
+            '<td class="small">' + fmtDate(r.check_out_date) + '</td>' +
+            '<td class="text-center">' + r.nights + '</td>' +
+            '<td class="text-end pe-3"><a href="/admin/boarding/' + r.boarding_id + '" class="btn btn-sm btn-outline-primary">View</a></td>';
+        tbody.appendChild(tr);
+    });
+}
+
+function renderUnbilledDaycare(data, tbody) {
+    data.forEach(function(r) {
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+            '<td class="ps-3"><strong>' + r.pet + '</strong></td>' +
+            '<td><a href="/admin/customers/' + r.customer_id + '">' + r.owner + '</a></td>' +
+            '<td class="small">' + fmtDate(r.attendance_date) + '</td>' +
+            '<td><span class="badge bg-secondary">' + r.status + '</span></td>' +
+            '<td class="text-end pe-3"><a href="/admin/customers/' + r.customer_id + '" class="btn btn-sm btn-outline-primary">View</a></td>';
+        tbody.appendChild(tr);
+    });
+}
+
+function renderDuplicates(data, tbody) {
+    data.forEach(function(r) {
+        var invoiceList = r.invoices.map(function(i) {
+            return '#' + i.id + ' ' + fmtMoney(i.amount) + ' (' + i.service + ', ' + fmtDate(i.date) + ')';
+        }).join('<br>');
+        var smsMsg = 'Hi ' + r.owner.split(' ')[0] + ', this is Ruff Life Retreat. We noticed you have multiple open invoices totaling ' +
+            fmtMoney(r.total) + '. Please contact us so we can sort this out. Thank you!';
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+            '<td class="ps-3"><a href="/admin/customers/' + r.customer_id + '">' + r.owner + '</a></td>' +
+            '<td class="text-center"><span class="badge bg-danger">' + r.count + '</span></td>' +
+            '<td class="small text-muted">' + invoiceList + '</td>' +
+            '<td class="text-end fw-bold">' + fmtMoney(r.total) + '</td>' +
+            '<td class="text-end pe-3"><button type="button" class="btn btn-sm btn-outline-success" data-cid="' + r.customer_id + '" data-owner="' + r.owner + '" data-phone="' + (r.phone||'') + '" data-msg="' + encodeURIComponent(smsMsg) + '" onclick="openReconSms(this.dataset.cid, this.dataset.owner, this.dataset.phone, decodeURIComponent(this.dataset.msg))"><i class="fas fa-sms"></i></button></td>';
+        tbody.appendChild(tr);
+    });
+}
+
+function renderDiscrepancy(data, tbody) {
+    data.forEach(function(r) {
+        var diffClass = r.diff > 0 ? 'text-danger' : 'text-success';
+        var diffLabel = (r.diff > 0 ? 'Under-billed ' : 'Over-billed ') + fmtMoney(Math.abs(r.diff));
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+            '<td class="ps-3"><strong>' + r.pet + '</strong><br><small class="text-muted">' + r.owner + '</small></td>' +
+            '<td class="small">' + fmtDate(r.check_in_date) + ' – ' + fmtDate(r.check_out_date) + '</td>' +
+            '<td class="text-center">' + r.nights + '</td>' +
+            '<td class="text-end small">' + fmtMoney(r.rate) + '/night</td>' +
+            '<td class="text-end small">' + fmtMoney(r.addon) + '</td>' +
+            '<td class="text-end fw-bold">' + fmtMoney(r.expected) + '</td>' +
+            '<td class="text-end">' + fmtMoney(r.billed) + '</td>' +
+            '<td class="text-end pe-3 fw-bold ' + diffClass + '">' + diffLabel + '</td>';
+        tbody.appendChild(tr);
+    });
+}
+
+function runRevenue() {
+    var start = document.getElementById('rev-start').value;
+    var end   = document.getElementById('rev-end').value;
+    if (!start || !end) { alert('Please select a date range.'); return; }
+    showLoading('revenue');
+    fetch('/admin/settings/reconciliation/revenue?start=' + start + '&end=' + end)
+        .then(r => r.json())
+        .then(function(d) {
+            hideLoading('revenue');
+            if (!d.count) {
+                document.getElementById('revenue-empty').style.display = 'block';
+                return;
+            }
+            document.getElementById('revenue-wrap').style.display = 'block';
+            document.getElementById('revenue-summary').innerHTML =
+                '<div class="col-md-4"><div class="card text-center py-3"><div class="h4 mb-0 text-success">' + fmtMoney(d.total) + '</div><div class="small text-muted">Total Collected</div></div></div>' +
+                '<div class="col-md-4"><div class="card text-center py-3"><div class="h4 mb-0">' + d.count + '</div><div class="small text-muted">Payments</div></div></div>' +
+                '<div class="col-md-4"><div class="card text-center py-3"><div class="h4 mb-0">' + fmtMoney(d.total / d.count) + '</div><div class="small text-muted">Avg per Payment</div></div></div>';
+            var tbody = document.getElementById('revenue-tbody');
+            tbody.innerHTML = '';
+            Object.entries(d.by_type).forEach(function([type, v]) {
+                var tr = document.createElement('tr');
+                tr.innerHTML =
+                    '<td class="ps-3 text-capitalize">' + type + '</td>' +
+                    '<td class="text-center">' + v.count + '</td>' +
+                    '<td class="text-end pe-3 fw-bold">' + fmtMoney(v.total) + '</td>';
+                tbody.appendChild(tr);
+            });
+        });
+}
+
+// Default revenue date range to current month
+(function() {
+    var now = new Date();
+    var y = now.getFullYear(), m = String(now.getMonth() + 1).padStart(2, '0');
+    var lastDay = new Date(y, now.getMonth() + 1, 0).getDate();
+    document.getElementById('rev-start').value = y + '-' + m + '-01';
+    document.getElementById('rev-end').value   = y + '-' + m + '-' + String(lastDay).padStart(2, '0');
+})();
+</script>
+{% endblock %}

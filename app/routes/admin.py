@@ -9689,3 +9689,234 @@ def time_violation_sms(boarding_id):
     if ok:
         return jsonify({'ok': True})
     return jsonify({'ok': False, 'error': 'SMS send failed — check Twilio config.'}), 500
+
+
+# ── Invoice Reconciliation ─────────────────────────────────────────────────
+
+@bp.route('/settings/reconciliation')
+@login_required
+@admin_required
+def invoice_reconciliation():
+    """Invoice reconciliation dashboard."""
+    return render_template('admin/reconciliation.html')
+
+
+@bp.route('/settings/reconciliation/<section>')
+@login_required
+@admin_required
+def reconciliation_section(section):
+    """Return JSON data for a reconciliation card."""
+    from app.models import Payment, DaycareAttendance
+    from datetime import date as _date, datetime as _dt, timedelta as _td
+    import json as _json
+
+    today = _date.today()
+
+    # ── 1. Aging Report ───────────────────────────────────────────────────
+    if section == 'aging':
+        payments = Payment.query.filter_by(status='outstanding').order_by(Payment.payment_date.asc()).all()
+        rows = []
+        for p in payments:
+            age = (today - p.payment_date).days if p.payment_date else 0
+            if   age <= 7:   bucket = '0–7 days'
+            elif age <= 30:  bucket = '8–30 days'
+            elif age <= 90:  bucket = '31–90 days'
+            else:            bucket = '90+ days'
+            owner = p.customer
+            rows.append({
+                'payment_id':   p.id,
+                'customer_id':  p.customer_id,
+                'owner':        f'{owner.first_name} {owner.last_name}' if owner else '—',
+                'phone':        owner.phone if owner else '',
+                'amount':       round(p.amount, 2),
+                'payment_date': str(p.payment_date),
+                'age_days':     age,
+                'bucket':       bucket,
+                'service_type': p.service_type or '—',
+            })
+        return jsonify(rows)
+
+    # ── 2. Unbilled Completed Boardings ───────────────────────────────────
+    if section == 'unbilled-boarding':
+        from app.models import Pet
+        boardings = (Boarding.query
+            .filter_by(status='completed')
+            .filter(Boarding.payment_id == None)
+            .order_by(Boarding.check_out_date.desc())
+            .all())
+        rows = []
+        for b in boardings:
+            pet   = b.pet
+            owner = User.query.get(b.user_id)
+            days  = max((b.check_out_date - b.check_in_date).days, 1) if b.check_in_date and b.check_out_date else '?'
+            rows.append({
+                'boarding_id':    b.id,
+                'pet':            pet.name if pet else '—',
+                'owner':          f'{owner.first_name} {owner.last_name}' if owner else '—',
+                'customer_id':    b.user_id,
+                'check_in_date':  str(b.check_in_date),
+                'check_out_date': str(b.check_out_date),
+                'nights':         days,
+            })
+        return jsonify(rows)
+
+    # ── 3. Unbilled Daycare Sessions ──────────────────────────────────────
+    if section == 'unbilled-daycare':
+        sessions = (DaycareAttendance.query
+            .filter(DaycareAttendance.payment_id == None)
+            .filter(DaycareAttendance.waived == False)
+            .filter(DaycareAttendance.attendance_date < today)
+            .order_by(DaycareAttendance.attendance_date.desc())
+            .all())
+        rows = []
+        for s in sessions:
+            enroll = s.enrollment
+            pet    = enroll.pet if enroll else None
+            owner  = User.query.get(enroll.user_id) if enroll else None
+            rows.append({
+                'attendance_id':    s.id,
+                'pet':              pet.name if pet else '—',
+                'owner':            f'{owner.first_name} {owner.last_name}' if owner else '—',
+                'customer_id':      enroll.user_id if enroll else None,
+                'attendance_date':  str(s.attendance_date),
+                'status':           s.status or '—',
+            })
+        return jsonify(rows)
+
+    # ── 4. Duplicate Outstanding Invoices ─────────────────────────────────
+    if section == 'duplicates':
+        from sqlalchemy import func
+        dupes = (db.session.query(Payment.customer_id, func.count(Payment.id).label('cnt'),
+                                  func.sum(Payment.amount).label('total'))
+                 .filter_by(status='outstanding')
+                 .group_by(Payment.customer_id)
+                 .having(func.count(Payment.id) > 1)
+                 .all())
+        rows = []
+        for d in dupes:
+            owner = User.query.get(d.customer_id)
+            pmts  = Payment.query.filter_by(customer_id=d.customer_id, status='outstanding').all()
+            rows.append({
+                'customer_id': d.customer_id,
+                'owner':       f'{owner.first_name} {owner.last_name}' if owner else '—',
+                'phone':       owner.phone if owner else '',
+                'count':       d.cnt,
+                'total':       round(float(d.total), 2),
+                'invoices':    [{'id': p.id, 'amount': round(p.amount, 2),
+                                 'date': str(p.payment_date), 'service': p.service_type or '—'}
+                                for p in pmts],
+            })
+        return jsonify(rows)
+
+    # ── 5. Revenue by Period ──────────────────────────────────────────────
+    if section == 'revenue':
+        start_str = request.args.get('start', str(today.replace(day=1)))
+        end_str   = request.args.get('end',   str(today))
+        try:
+            start = _date.fromisoformat(start_str)
+            end   = _date.fromisoformat(end_str)
+        except ValueError:
+            return jsonify({'error': 'Invalid dates'}), 400
+
+        payments = (Payment.query
+            .filter_by(status='paid')
+            .filter(Payment.payment_date >= start)
+            .filter(Payment.payment_date <= end)
+            .all())
+
+        by_type = {}
+        for p in payments:
+            svc = (p.service_type or 'other').lower()
+            by_type.setdefault(svc, {'count': 0, 'total': 0.0})
+            by_type[svc]['count'] += 1
+            by_type[svc]['total'] += p.amount
+
+        return jsonify({
+            'start':    start_str,
+            'end':      end_str,
+            'total':    round(sum(p.amount for p in payments), 2),
+            'count':    len(payments),
+            'by_type':  {k: {'count': v['count'], 'total': round(v['total'], 2)}
+                         for k, v in sorted(by_type.items())},
+        })
+
+    # ── 6. Expected vs Billed Discrepancies ───────────────────────────────
+    if section == 'discrepancy':
+        from app.rate_resolver import get_rates, get_pet_boarding_rate
+
+        # Find completed boardings that have a payment, check expected vs billed
+        boardings = (Boarding.query
+            .filter_by(status='completed')
+            .filter(Boarding.payment_id != None)
+            .order_by(Boarding.check_out_date.desc())
+            .limit(500)   # cap to avoid timeout
+            .all())
+
+        rows = []
+        for b in boardings:
+            owner = User.query.get(b.user_id)
+            if not owner:
+                continue
+            try:
+                siblings = Boarding.query.filter_by(
+                    user_id=b.user_id,
+                    check_in_date=b.check_in_date,
+                    check_out_date=b.check_out_date,
+                    status='completed'
+                ).order_by(Boarding.pet_id.asc()).all()
+                is_first = (not siblings) or siblings[0].pet_id == b.pet_id
+                days = max((b.check_out_date - b.check_in_date).days, 1)
+                rate = get_pet_boarding_rate(b.pet, owner, is_additional=not is_first)
+                _, addon_cost = _parse_addons_from_notes(b.special_notes or '', structured_only=True)
+                expected = round(rate * days + addon_cost, 2)
+            except Exception:
+                continue
+
+            payment = Payment.query.get(b.payment_id)
+            if not payment:
+                continue
+
+            # For shared payments (multi-pet), compare per-boarding expected only
+            diff = round(expected - payment.amount, 2)
+            if abs(diff) < 0.01:
+                continue  # no discrepancy
+
+            rows.append({
+                'boarding_id':    b.id,
+                'pet':            b.pet.name if b.pet else '—',
+                'owner':          f'{owner.first_name} {owner.last_name}',
+                'customer_id':    b.user_id,
+                'check_in_date':  str(b.check_in_date),
+                'check_out_date': str(b.check_out_date),
+                'nights':         days,
+                'rate':           rate,
+                'addon':          addon_cost,
+                'expected':       expected,
+                'billed':         round(payment.amount, 2),
+                'diff':           diff,
+                'payment_id':     payment.id,
+            })
+
+        return jsonify(rows)
+
+    return jsonify({'error': 'Unknown section'}), 404
+
+
+@bp.route('/settings/reconciliation/sms', methods=['POST'])
+@login_required
+@admin_required
+def reconciliation_sms():
+    """Send a reconciliation reminder SMS to a customer."""
+    from app.sms_service import _send
+    data = request.get_json(silent=True) or {}
+    customer_id = data.get('customer_id')
+    body        = (data.get('message') or '').strip()
+
+    owner = User.query.get(customer_id) if customer_id else None
+    if not owner or not owner.phone:
+        return jsonify({'ok': False, 'error': 'No phone number on file.'}), 400
+    if not body:
+        return jsonify({'ok': False, 'error': 'Message is required.'}), 400
+
+    ok = _send(owner.phone, body, user_id=owner.id)
+    return jsonify({'ok': ok, 'error': None if ok else 'SMS send failed.'})
