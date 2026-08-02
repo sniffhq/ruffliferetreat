@@ -1110,3 +1110,72 @@ class FacilitySetting(db.Model):
 
     def __repr__(self):
         return '<FacilitySetting %s=%s>' % (self.key, self.value)
+
+
+class Invoice(db.Model):
+    """
+    Snapshot invoice — one per boarding, auto-generated at checkout completion.
+    Line items are locked at generation time; not recalculated on each page load.
+    Lifecycle: draft → sent → paid  (or void at any pre-paid stage)
+    """
+    __tablename__ = 'invoice'
+
+    id             = db.Column(db.Integer, primary_key=True)
+    invoice_number = db.Column(db.String(20), unique=True, nullable=False)
+    customer_id    = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    boarding_id    = db.Column(db.Integer, db.ForeignKey('boarding.id'), nullable=True)
+    service_type   = db.Column(db.String(20), nullable=False, default='boarding')
+
+    # Snapshot — set at generation, not recalculated
+    line_items     = db.Column(db.Text, nullable=False, default='[]')  # JSON array
+    subtotal       = db.Column(db.Float, nullable=False, default=0.0)
+    total          = db.Column(db.Float, nullable=False, default=0.0)
+
+    # Lifecycle status
+    status         = db.Column(db.String(20), nullable=False, default='draft')
+    # draft  — generated, not yet sent to customer
+    # sent   — SMS dispatched, awaiting payment
+    # paid   — payment collected
+    # void   — cancelled before payment
+
+    generated_at   = db.Column(db.DateTime, default=datetime.now)
+    generated_by   = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    sent_at        = db.Column(db.DateTime, nullable=True)
+    paid_at        = db.Column(db.DateTime, nullable=True)
+    payment_method = db.Column(db.String(30), nullable=True)
+    voided_at      = db.Column(db.DateTime, nullable=True)
+    voided_reason  = db.Column(db.String(255), nullable=True)
+
+    notes          = db.Column(db.Text, nullable=True)
+    created_at     = db.Column(db.DateTime, default=datetime.now)
+
+    customer  = db.relationship('User', foreign_keys=[customer_id],
+                                backref=db.backref('invoices', lazy=True,
+                                                   order_by='Invoice.created_at.desc()'))
+    generator = db.relationship('User', foreign_keys=[generated_by])
+    boarding  = db.relationship('Boarding',
+                                backref=db.backref('invoice', uselist=False))
+
+    @property
+    def items(self):
+        import json
+        try:
+            return json.loads(self.line_items or '[]')
+        except Exception:
+            return []
+
+    @property
+    def status_badge(self):
+        return {
+            'draft': 'secondary',
+            'sent':  'warning',
+            'paid':  'success',
+            'void':  'danger',
+        }.get(self.status, 'secondary')
+
+    @property
+    def status_label(self):
+        return self.status.title()
+
+    def __repr__(self):
+        return f'<Invoice {self.invoice_number} {self.status}>'

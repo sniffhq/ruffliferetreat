@@ -2484,9 +2484,18 @@ def complete_boarding(booking_id):
         audit('boarding.completed', 'boarding', booking.id, booking.pet.name,
               f'Boarding completed for {booking.pet.name} by {current_user.first_name} {current_user.last_name}')
     except Exception: pass
-    flash(f'{booking.pet.name}\'s boarding is complete — invoice is ready to send.', 'success')
-    return redirect(url_for('admin.customer_invoice',
-                            customer_id=booking.user_id, type='boarding'))
+
+    # Auto-generate snapshot invoice
+    try:
+        invoice = _generate_boarding_invoice(booking, generated_by_id=current_user.id)
+        db.session.commit()
+        flash(f'{booking.pet.name}\'s boarding is complete — review the draft invoice below.', 'success')
+        return redirect(url_for('admin.view_invoice', inv_id=invoice.id))
+    except Exception as _e:
+        current_app.logger.error(f'Invoice generation failed for boarding {booking_id}: {_e}')
+        flash(f'{booking.pet.name}\'s boarding is complete — invoice is ready to send.', 'success')
+        return redirect(url_for('admin.customer_invoice',
+                                customer_id=booking.user_id, type='boarding'))
 
 @bp.route('/boarding/<int:booking_id>/cancel', methods=['POST'])
 @login_required
@@ -9920,3 +9929,441 @@ def reconciliation_sms():
 
     ok = _send(owner.phone, body, user_id=owner.id)
     return jsonify({'ok': ok, 'error': None if ok else 'SMS send failed.'})
+
+
+# ============================================================================
+# INVOICE REVAMP — snapshot-based invoices
+# ============================================================================
+
+def _generate_boarding_invoice(booking, generated_by_id=None):
+    """
+    Build a draft Invoice snapshot for a completed boarding.
+    Rates, add-ons, and existing adjustments are captured at this moment
+    and stored as JSON — not recalculated later.
+    Returns the Invoice object (not yet committed — caller must commit).
+    """
+    from app.models import Invoice, InvoiceAdjustment
+    from app.rate_resolver import get_pet_boarding_rate
+    import json
+
+    # Idempotent — return existing invoice if already generated
+    if booking.invoice:
+        return booking.invoice
+
+    customer = booking.user
+    pet      = booking.pet
+    days     = _boarding_days(booking)
+
+    # Additional-pet discount check
+    siblings = Boarding.query.filter_by(
+        user_id        = booking.user_id,
+        check_in_date  = booking.check_in_date,
+        check_out_date = booking.check_out_date,
+        status         = 'completed',
+    ).order_by(Boarding.pet_id.asc()).all()
+    is_first = (not siblings) or siblings[0].pet_id == pet.id
+    rate     = get_pet_boarding_rate(pet, customer, is_additional=not is_first)
+
+    line_items = []
+
+    # Base boarding line
+    base_amt = rate * days
+    line_items.append({
+        'description': (f'Boarding — {booking.check_in_date.strftime("%b %d")} '
+                        f'to {booking.check_out_date.strftime("%b %d, %Y")}'),
+        'detail': (f'{days} night{"s" if days != 1 else ""} @ ${rate:.0f}/night'
+                   + (' (additional pet)' if not is_first else '')),
+        'amount': base_amt,
+        'type':   'boarding',
+    })
+
+    # Add-ons — prefer special_notes; fall back to appointment notes
+    addons, _ = _parse_addons_from_notes(booking.special_notes or '', structured_only=True)
+    if not addons:
+        try:
+            from app.models import Appointment as _Appt, ServiceType as _ST
+            _svc = _ST.query.filter(_ST.name.ilike('%boarding%')).first()
+            if _svc:
+                _a = _Appt.query.filter_by(
+                    pet_id          = pet.id,
+                    user_id         = customer.id,
+                    service_type_id = _svc.id,
+                    appointment_date= booking.check_in_date,
+                ).order_by(_Appt.id.desc()).first()
+                if _a and _a.notes:
+                    addons, _ = _parse_addons_from_notes(_a.notes)
+        except Exception:
+            pass
+
+    for addon_name in addons:
+        addon_price = _parse_addon_price(addon_name)
+        if addon_price:
+            line_items.append({
+                'description': addon_name,
+                'detail':      '',
+                'amount':      addon_price,
+                'type':        'addon',
+            })
+
+    # Existing InvoiceAdjustment records (discounts / overrides / custom lines)
+    adjs = InvoiceAdjustment.query.filter_by(customer_id=customer.id).filter(
+        db.or_(
+            InvoiceAdjustment.line_key == f'boarding_{booking.id}',
+            db.and_(
+                InvoiceAdjustment.adj_type == 'custom',
+                db.or_(InvoiceAdjustment.service_type == 'boarding',
+                       InvoiceAdjustment.service_type == None),
+            ),
+        )
+    ).all()
+    for adj in adjs:
+        line_items.append({
+            'description': adj.description,
+            'detail':      'discount' if adj.amount < 0 else 'additional charge',
+            'amount':      adj.amount,
+            'type':        'adjustment',
+        })
+
+    subtotal = sum(i['amount'] for i in line_items)
+    total    = max(0.0, subtotal)
+
+    # Sequential invoice number
+    last    = Invoice.query.order_by(Invoice.id.desc()).first()
+    next_n  = (last.id + 1) if last else 1
+    inv_num = f'INV-{next_n:04d}'
+
+    invoice = Invoice(
+        invoice_number = inv_num,
+        customer_id    = customer.id,
+        boarding_id    = booking.id,
+        service_type   = 'boarding',
+        line_items     = json.dumps(line_items),
+        subtotal       = subtotal,
+        total          = total,
+        status         = 'draft',
+        generated_by   = generated_by_id,
+    )
+    db.session.add(invoice)
+    return invoice
+
+
+@bp.route('/invoices/<int:inv_id>')
+@login_required
+@admin_required
+def view_invoice(inv_id):
+    from app.models import Invoice
+    invoice = Invoice.query.get_or_404(inv_id)
+    return render_template('admin/invoice_view.html', invoice=invoice, items=invoice.items)
+
+
+@bp.route('/invoices/<int:inv_id>/edit', methods=['POST'])
+@login_required
+@admin_required
+def edit_invoice(inv_id):
+    from app.models import Invoice
+    import json
+    invoice = Invoice.query.get_or_404(inv_id)
+    if invoice.status == 'paid':
+        flash('Cannot edit a paid invoice.', 'danger')
+        return redirect(url_for('admin.view_invoice', inv_id=inv_id))
+
+    descriptions = request.form.getlist('description[]')
+    amounts      = request.form.getlist('amount[]')
+    types        = request.form.getlist('type[]')
+
+    items = []
+    for i, desc in enumerate(descriptions):
+        desc = desc.strip()
+        if not desc:
+            continue
+        try:
+            amt = float(amounts[i])
+        except (ValueError, IndexError):
+            continue
+        t = types[i] if i < len(types) else 'custom'
+        items.append({'description': desc, 'detail': '', 'amount': amt, 'type': t})
+
+    # Add any new line from the "add line" form
+    new_desc = (request.form.get('new_description') or '').strip()
+    new_amt  = request.form.get('new_amount', '')
+    if new_desc and new_amt:
+        try:
+            items.append({'description': new_desc, 'detail': '', 'amount': float(new_amt), 'type': 'custom'})
+        except ValueError:
+            pass
+
+    subtotal         = sum(i['amount'] for i in items)
+    invoice.line_items = json.dumps(items)
+    invoice.subtotal   = subtotal
+    invoice.total      = max(0.0, subtotal)
+    if invoice.status == 'sent':
+        invoice.status = 'draft'   # requires re-send after edit
+    db.session.commit()
+
+    try:
+        from app.audit_service import audit
+        audit('invoice.edited', 'invoice', invoice.id, invoice.invoice_number,
+              f'Invoice {invoice.invoice_number} edited by {current_user.first_name} {current_user.last_name} — new total ${invoice.total:.2f}')
+    except Exception: pass
+
+    flash('Invoice updated.', 'success')
+    return redirect(url_for('admin.view_invoice', inv_id=inv_id))
+
+
+@bp.route('/invoices/<int:inv_id>/send', methods=['POST'])
+@login_required
+@admin_required
+def send_invoice_new(inv_id):
+    """Send the draft invoice via SMS and stamp an outstanding Payment record."""
+    from app.models import Invoice, InvoiceToken, SmsMessage, Payment
+    from app.sms_service import _normalize_phone
+    import secrets
+
+    invoice  = Invoice.query.get_or_404(inv_id)
+    customer = invoice.customer
+
+    if invoice.status == 'paid':
+        flash('Invoice is already paid.', 'info')
+        return redirect(url_for('admin.view_invoice', inv_id=inv_id))
+    if invoice.status == 'void':
+        flash('This invoice has been voided.', 'danger')
+        return redirect(url_for('admin.view_invoice', inv_id=inv_id))
+
+    # ── Create / update outstanding Payment record ────────────────────────
+    existing_pay = Payment.query.filter_by(
+        customer_id  = customer.id,
+        service_type = 'Boarding',
+        status       = 'outstanding',
+    ).first()
+
+    if existing_pay:
+        existing_pay.amount       = invoice.total
+        existing_pay.payment_date = datetime.now().date()
+        existing_pay.notes        = f'Invoice {invoice.invoice_number} sent via SMS (updated)'
+        pay_record = existing_pay
+    else:
+        pay_record = Payment(
+            customer_id    = customer.id,
+            amount         = invoice.total,
+            payment_date   = datetime.now().date(),
+            service_type   = 'Boarding',
+            payment_method = 'Invoice',
+            status         = 'outstanding',
+            notes          = f'Invoice {invoice.invoice_number} sent via SMS',
+        )
+        db.session.add(pay_record)
+    db.session.flush()
+
+    # Link boarding to payment record
+    if invoice.boarding:
+        invoice.boarding.payment_id = pay_record.id
+
+    invoice.status  = 'sent'
+    invoice.sent_at = datetime.now()
+
+    # Invoice token for customer link
+    token_rec = InvoiceToken.query.filter_by(customer_id=customer.id).first()
+    if not token_rec:
+        token_rec = InvoiceToken(customer_id=customer.id, token=secrets.token_urlsafe(32))
+        db.session.add(token_rec)
+    token_rec.last_sent = datetime.now()
+    db.session.flush()
+    db.session.commit()
+
+    # ── Send SMS ──────────────────────────────────────────────────────────
+    if not customer.phone:
+        flash(f'Invoice recorded (${invoice.total:.2f} outstanding) — no phone number on file.', 'info')
+        return redirect(url_for('admin.view_invoice', inv_id=inv_id))
+
+    try:
+        from twilio.rest import Client
+        from app.settings_service import sms_enabled as _sms_ok, get_business_setting as _biz
+        if not _sms_ok('sms_invoice'):
+            flash(f'Invoice recorded — SMS is currently disabled.', 'info')
+            return redirect(url_for('admin.view_invoice', inv_id=inv_id))
+
+        to_e164     = _normalize_phone(customer.phone)
+        from_number = current_app.config.get('TWILIO_PHONE_NUMBER')
+        business    = _biz('business_name', 'Ruff Life Retreat')
+        domain      = _biz('business_domain', 'rufflife.app')
+        link        = f'https://{domain}/invoice/{token_rec.token}'
+
+        _tpl = _biz_setting('sms_tpl_invoice')
+        body = _tpl.format(
+            first_name    = customer.first_name,
+            invoice_type  = 'boarding',
+            business_name = business,
+            total         = f'{invoice.total:.2f}',
+            link          = link,
+        )
+
+        client  = Client(current_app.config.get('TWILIO_ACCOUNT_SID'),
+                         current_app.config.get('TWILIO_AUTH_TOKEN'))
+        message = client.messages.create(body=body, from_=from_number, to=to_e164)
+
+        log = SmsMessage(
+            user_id     = customer.id,
+            direction   = 'outbound',
+            from_number = from_number,
+            to_number   = to_e164,
+            body        = body,
+            twilio_sid  = message.sid,
+            is_read     = True,
+        )
+        db.session.add(log)
+        db.session.commit()
+
+        try:
+            from app.audit_service import audit
+            audit('invoice.sent', 'invoice', invoice.id, invoice.invoice_number,
+                  f'Invoice {invoice.invoice_number} ${invoice.total:.2f} sent via SMS by {current_user.first_name} {current_user.last_name}')
+        except Exception: pass
+
+        flash(f'Invoice sent to {customer.first_name} — ${invoice.total:.2f} outstanding.', 'success')
+
+    except Exception as e:
+        current_app.logger.error(f'Invoice SMS failed for invoice {inv_id}: {e}')
+        flash(f'Invoice recorded but SMS failed: {e}', 'warning')
+
+    return redirect(url_for('admin.view_invoice', inv_id=inv_id))
+
+
+@bp.route('/invoices/<int:inv_id>/pay', methods=['POST'])
+@login_required
+@admin_required
+def pay_invoice(inv_id):
+    """Collect payment and mark invoice as paid."""
+    from app.models import Invoice, Payment, SmsMessage
+    invoice  = Invoice.query.get_or_404(inv_id)
+    customer = invoice.customer
+    method   = request.form.get('payment_method', 'card')
+
+    if invoice.status == 'paid':
+        flash('Invoice is already paid.', 'info')
+        return redirect(url_for('admin.view_invoice', inv_id=inv_id))
+    if invoice.status == 'void':
+        flash('Cannot collect payment on a voided invoice.', 'danger')
+        return redirect(url_for('admin.view_invoice', inv_id=inv_id))
+
+    total = invoice.total
+    # Zelle processing fee
+    if method.lower() == 'zelle':
+        total += 3.00
+
+    # Update existing outstanding Payment or create a new paid one
+    if invoice.boarding and invoice.boarding.payment_id:
+        pay = Payment.query.get(invoice.boarding.payment_id)
+        if pay:
+            pay.status         = 'paid'
+            pay.payment_method = method
+            pay.amount         = round(total, 2)
+            pay.payment_date   = datetime.now().date()
+            pay.notes          = (pay.notes or '') + ' — paid'
+        else:
+            pay = None
+    else:
+        pay = None
+
+    if not pay:
+        pay = Payment(
+            customer_id    = customer.id,
+            amount         = round(total, 2),
+            payment_date   = datetime.now().date(),
+            payment_method = method,
+            service_type   = 'Boarding',
+            notes          = f'Invoice {invoice.invoice_number} paid',
+            status         = 'paid',
+        )
+        db.session.add(pay)
+        db.session.flush()
+        if invoice.boarding:
+            invoice.boarding.payment_id = pay.id
+
+    invoice.status         = 'paid'
+    invoice.paid_at        = datetime.now()
+    invoice.payment_method = method
+    db.session.commit()
+
+    try:
+        from app.audit_service import audit
+        audit('invoice.paid', 'invoice', invoice.id, invoice.invoice_number,
+              f'Invoice {invoice.invoice_number} ${total:.2f} paid via {method} — logged by {current_user.first_name} {current_user.last_name}')
+    except Exception: pass
+
+    # Receipt SMS
+    try:
+        from app.sms_service import _normalize_phone
+        from app.settings_service import sms_enabled as _sms_ok, get_business_setting as _biz
+        if customer.phone and _sms_ok('sms_receipt'):
+            from twilio.rest import Client
+            to_e164     = _normalize_phone(customer.phone)
+            from_number = current_app.config.get('TWILIO_PHONE_NUMBER')
+            business    = _biz('business_name', 'Ruff Life Retreat')
+            body        = (f'Hi {customer.first_name}, we received your payment of '
+                           f'${total:.2f} for Invoice {invoice.invoice_number}. '
+                           f'Thank you — {business}!')
+            client  = Client(current_app.config.get('TWILIO_ACCOUNT_SID'),
+                             current_app.config.get('TWILIO_AUTH_TOKEN'))
+            msg     = client.messages.create(body=body, from_=from_number, to=to_e164)
+            log     = SmsMessage(user_id=customer.id, direction='outbound',
+                                 from_number=from_number, to_number=to_e164,
+                                 body=body, twilio_sid=msg.sid, is_read=True)
+            db.session.add(log)
+            db.session.commit()
+    except Exception as e:
+        current_app.logger.error(f'Receipt SMS failed for invoice {inv_id}: {e}')
+
+    flash(f'Invoice {invoice.invoice_number} marked paid — ${total:.2f} via {method}.', 'success')
+    return redirect(url_for('admin.view_invoice', inv_id=inv_id))
+
+
+@bp.route('/invoices/<int:inv_id>/void', methods=['POST'])
+@login_required
+@admin_required
+def void_invoice(inv_id):
+    """Void a draft or sent invoice."""
+    from app.models import Invoice, Payment
+    invoice = Invoice.query.get_or_404(inv_id)
+    if invoice.status == 'paid':
+        flash('Cannot void a paid invoice. Use an adjustment instead.', 'danger')
+        return redirect(url_for('admin.view_invoice', inv_id=inv_id))
+
+    reason              = (request.form.get('reason') or '').strip()
+    invoice.status      = 'void'
+    invoice.voided_at   = datetime.now()
+    invoice.voided_reason = reason or 'No reason given'
+
+    # Cancel outstanding payment linked to this boarding
+    if invoice.boarding and invoice.boarding.payment_id:
+        pay = Payment.query.get(invoice.boarding.payment_id)
+        if pay and pay.status == 'outstanding':
+            pay.status = 'void'
+        invoice.boarding.payment_id = None
+
+    db.session.commit()
+
+    try:
+        from app.audit_service import audit
+        audit('invoice.voided', 'invoice', invoice.id, invoice.invoice_number,
+              f'Invoice {invoice.invoice_number} voided by {current_user.first_name} {current_user.last_name}: {reason}')
+    except Exception: pass
+
+    flash(f'Invoice {invoice.invoice_number} voided.', 'warning')
+    return redirect(url_for('admin.customer_detail', customer_id=invoice.customer_id))
+
+
+@bp.route('/invoices/generate-boarding', methods=['POST'])
+@login_required
+@admin_required
+def generate_boarding_invoice():
+    """Manually generate a draft invoice for a completed boarding that was missed."""
+    bid      = request.form.get('boarding_id', type=int)
+    booking  = Boarding.query.get_or_404(bid)
+    if booking.status != 'completed':
+        flash('Boarding must be marked completed first.', 'warning')
+        return redirect(url_for('admin.boarding_detail', booking_id=bid))
+
+    invoice = _generate_boarding_invoice(booking, generated_by_id=current_user.id)
+    db.session.commit()
+    flash(f'Draft invoice {invoice.invoice_number} created.', 'success')
+    return redirect(url_for('admin.view_invoice', inv_id=invoice.id))
