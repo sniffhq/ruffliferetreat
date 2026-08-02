@@ -60,38 +60,57 @@ def is_bot_submission(request, form_loaded_at):
     Check for bot indicators:
     1. Honeypot field filled (bots fill all fields)
     2. Form submitted too fast (< 3 seconds)
-    3. Gibberish name detection
+    3. Gibberish / randomised name detection
+    4. Heavily-dotted email address (bot-generated gmail patterns)
     """
-    # Check honeypot - if filled, it's a bot
+    # 1. Honeypot — if filled, it's a bot
     honeypot = request.form.get('website', '')
     if honeypot:
         print(f"BOT DETECTED: Honeypot filled with '{honeypot}'")
         return True
-    
-    # Check timing - if form submitted in under 3 seconds, likely a bot
+
+    # 2. Timing — submitted under 3 seconds
     if form_loaded_at:
         try:
-            load_time = float(form_loaded_at)
-            elapsed = time.time() - load_time
+            elapsed = time.time() - float(form_loaded_at)
             if elapsed < 3:
-                print(f"BOT DETECTED: Form submitted in {elapsed:.2f} seconds")
+                print(f"BOT DETECTED: Submitted in {elapsed:.2f}s")
                 return True
         except (ValueError, TypeError):
             pass
-    
-    # Check for gibberish names — only flag obvious bot patterns
-    # Use a high threshold to avoid false positives on unusual surnames
-    first_name = request.form.get('first_name', '').lower()
-    last_name  = request.form.get('last_name', '').lower()
 
-    # Only check first names — last names are too varied (German, Slavic, etc.)
-    # Flag if first name has 7+ consecutive consonants or is all consonants
-    gibberish_pattern = re.compile(r'[^aeiou]{7,}')
-    all_consonants    = re.compile(r'^[^aeiou]+$')
-    if gibberish_pattern.search(first_name) or (len(first_name) > 3 and all_consonants.search(first_name)):
-        print(f"BOT DETECTED: Gibberish first name '{first_name} {last_name}'")
+    first_name = request.form.get('first_name', '').strip()
+    last_name  = request.form.get('last_name',  '').strip()
+    email      = request.form.get('email', '').strip().lower()
+
+    # 3. Name checks
+    fn_lower = first_name.lower()
+    ln_lower = last_name.lower()
+
+    # 3a. Very long names — real names rarely exceed 20 chars per part
+    if len(first_name) > 20 or len(last_name) > 20:
+        print(f"BOT DETECTED: Overly long name '{first_name} {last_name}'")
         return True
-    
+
+    # 3b. Mixed-case randomness — alternating caps mid-word (e.g. "BlOzFhfe", "waePYUjo")
+    #     Real names capitalise only the first letter.
+    mixed_caps = re.compile(r'[a-z][A-Z]|[A-Z][a-z][A-Z]')
+    if mixed_caps.search(first_name[1:]) or mixed_caps.search(last_name[1:]):
+        print(f"BOT DETECTED: Mixed-case randomised name '{first_name} {last_name}'")
+        return True
+
+    # 3c. 7+ consecutive consonants (original check, kept for coverage)
+    gibberish = re.compile(r'[^aeiouAEIOU\s\-\']{7,}')
+    if gibberish.search(first_name) or gibberish.search(last_name):
+        print(f"BOT DETECTED: Consonant cluster in name '{first_name} {last_name}'")
+        return True
+
+    # 4. Email — 5+ dots in the local part (e.g. m.a.d.ola.inb.e.n.d.e.ru.t9@gmail.com)
+    local_part = email.split('@')[0] if '@' in email else email
+    if local_part.count('.') >= 5:
+        print(f"BOT DETECTED: Heavily-dotted email '{email}'")
+        return True
+
     return False
 
 
