@@ -72,12 +72,12 @@
           </p>
           {% if invoice.sent_at %}
             <p class="mb-0 text-muted small">
-              <strong>Sent:</strong> {{ invoice.sent_at.strftime('%b %d, %Y %-I:%M %p') }}
+              <strong>Sent:</strong> {{ invoice.sent_at.strftime('%b %d, %Y %I:%M %p') }}
             </p>
           {% endif %}
           {% if invoice.paid_at %}
             <p class="mb-0 text-muted small">
-              <strong>Paid:</strong> {{ invoice.paid_at.strftime('%b %d, %Y %-I:%M %p') }}
+              <strong>Paid:</strong> {{ invoice.paid_at.strftime('%b %d, %Y %I:%M %p') }}
               via {{ invoice.payment_method or '—' }}
             </p>
           {% endif %}
