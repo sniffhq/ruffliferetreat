@@ -3700,6 +3700,14 @@ def customer_invoice(customer_id):
                 rate       = get_pet_boarding_rate(pet, customer, is_additional=not is_first)
                 amount     = rate * days
 
+                # Detect custom rate source
+                _b_pet_custom  = getattr(pet, 'custom_boarding_rate', None) is not None
+                _b_cust_custom = getattr(customer, 'custom_boarding_rate', None) is not None or (
+                    not is_first and getattr(customer, 'custom_boarding_rate_additional', None) is not None
+                )
+                _b_is_custom   = _b_pet_custom or _b_cust_custom
+                _b_rate_label  = f'${rate:.2f}'.rstrip('0').rstrip('.')
+
                 addons = []
                 try:
                     # structured_only=True prevents care notes ("please trim nails",
@@ -3731,7 +3739,11 @@ def customer_invoice(customer_id):
                     'paid_payment_id': b.payment_id,  # None = unpaid; set = already paid
                     'line_key':        f'boarding_{b.id}',
                     'description':     f'Boarding — {b.check_in_date.strftime("%b %d")} to {b.check_out_date.strftime("%b %d, %Y")}',
-                    'detail':          f'{days} night{"s" if days != 1 else ""} @ ${rate:.0f}/night{"  (additional pet)" if not is_first else ""}',
+                    'detail':          ' · '.join(filter(None, [
+                        f'{days} night{"s" if days != 1 else ""} @ {_b_rate_label}/night',
+                        'custom rate' if _b_is_custom else '',
+                        'additional pet' if not is_first else '',
+                    ])),
                     'amount':          amount,
                     'addons':          addons,
                     'addon_total':     sum(_parse_addon_price(a) for a in addons),
@@ -3772,12 +3784,19 @@ def customer_invoice(customer_id):
 
                 for att in attendances:
                     rate = daycare_rate_for_attendance(att)
+                    _dc_pet_custom  = getattr(pet, 'custom_daycare_rate', None) is not None
+                    _dc_cust_custom = getattr(customer, 'custom_daycare_rate', None) is not None
+                    _dc_is_custom   = _dc_pet_custom or _dc_cust_custom
+                    _dc_rate_label  = f'${rate:.2f}'.rstrip('0').rstrip('.')
+                    _dc_detail      = _dc_rate_label + '/day'
+                    if _dc_is_custom:
+                        _dc_detail += ' · custom rate'
                     lines.append({
                         'type':          'daycare',
                         'attendance_id': att.id,
                         'line_key':      f'daycare_{att.id}',
                         'description':   f'Daycare — {att.check_in_time.strftime("%b %d, %Y")}',
-                        'detail':        f'${"%.0f" % rate}/day',
+                        'detail':        _dc_detail,
                         'amount':        rate,
                         'addons':        [],
                         'addon_total':   0,
@@ -9964,15 +9983,28 @@ def _generate_boarding_invoice(booking, generated_by_id=None):
     is_first = (not siblings) or siblings[0].pet_id == pet.id
     rate     = get_pet_boarding_rate(pet, customer, is_additional=not is_first)
 
+    # Detect whether a custom rate was applied (pet-level or customer-level)
+    has_pet_custom     = pet and getattr(pet, 'custom_boarding_rate', None) is not None
+    has_cust_custom    = customer and (
+        getattr(customer, 'custom_boarding_rate', None) is not None or
+        (not is_first and getattr(customer, 'custom_boarding_rate_additional', None) is not None)
+    )
+    is_custom_rate = has_pet_custom or has_cust_custom
+
     line_items = []
 
     # Base boarding line
-    base_amt = rate * days
+    base_amt   = rate * days
+    rate_label = f'${rate:.2f}'.rstrip('0').rstrip('.')  # e.g. $45 or $42.50
+    detail_parts = [f'{days} night{"s" if days != 1 else ""} @ {rate_label}/night']
+    if is_custom_rate:
+        detail_parts.append('custom rate')
+    if not is_first:
+        detail_parts.append('additional pet')
     line_items.append({
         'description': (f'Boarding — {booking.check_in_date.strftime("%b %d")} '
                         f'to {booking.check_out_date.strftime("%b %d, %Y")}'),
-        'detail': (f'{days} night{"s" if days != 1 else ""} @ ${rate:.0f}/night'
-                   + (' (additional pet)' if not is_first else '')),
+        'detail': ' · '.join(detail_parts),
         'amount': base_amt,
         'type':   'boarding',
     })
