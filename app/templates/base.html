@@ -10,9 +10,62 @@
     <style>
         nav.ruff-navbar { background-color: #1a1a2e !important; }
 
-        /* ── Mauve brand colour utilities ─────────────────────────────── */
-        :root { --mauve: #B07A8E; --mauve-dark: #9A6070; --mauve-light: #C9A0AF; --mauve-pale: #F5EAF0; }
+        /* ── Midnight Rose theme ───────────────────────────────────────── */
+        :root {
+            /* Brand colours */
+            --mauve:       #C17B8F;
+            --mauve-dark:  #A5606F;
+            --mauve-light: #D4A0B0;
+            --mauve-pale:  #F5EAF0;
+            --gold:        #D4A853;
+            --gold-dark:   #B88E3A;
 
+            /* Override Bootstrap 5 primary → Midnight Rose */
+            --bs-primary:                  #C17B8F;
+            --bs-primary-rgb:              193, 123, 143;
+            --bs-primary-text-emphasis:    #C17B8F;
+            --bs-primary-bg-subtle:        #F5EAF0;
+            --bs-primary-border-subtle:    #D4A0B0;
+            --bs-link-color:               #C17B8F;
+            --bs-link-hover-color:         #A5606F;
+            --bs-link-color-rgb:           193, 123, 143;
+
+            /* Override Bootstrap 5 warning → Warm Gold */
+            --bs-warning:                  #D4A853;
+            --bs-warning-rgb:              212, 168, 83;
+            --bs-warning-text-emphasis:    #8A6520;
+            --bs-warning-bg-subtle:        #FBF3E0;
+            --bs-warning-border-subtle:    #EDD59A;
+
+            /* Page background */
+            --bs-body-bg:  #F9F5F0;
+        }
+
+        /* Primary button */
+        .btn-primary {
+            --bs-btn-color:            #fff;
+            --bs-btn-bg:               #C17B8F;
+            --bs-btn-border-color:     #C17B8F;
+            --bs-btn-hover-color:      #fff;
+            --bs-btn-hover-bg:         #A5606F;
+            --bs-btn-hover-border-color: #A5606F;
+            --bs-btn-active-bg:        #A5606F;
+            --bs-btn-focus-shadow-rgb: 193, 123, 143;
+        }
+
+        /* Warning button — dark text on gold */
+        .btn-warning {
+            --bs-btn-color:              #1a1a2e;
+            --bs-btn-bg:                 #D4A853;
+            --bs-btn-border-color:       #D4A853;
+            --bs-btn-hover-color:        #1a1a2e;
+            --bs-btn-hover-bg:           #B88E3A;
+            --bs-btn-hover-border-color: #B88E3A;
+            --bs-btn-active-bg:          #B88E3A;
+            --bs-btn-focus-shadow-rgb:   212, 168, 83;
+        }
+
+        /* Mauve utilities (aliases of primary now) */
         .text-mauve          { color: var(--mauve) !important; }
         .bg-mauve            { background-color: var(--mauve) !important; }
         .border-mauve        { border-color: var(--mauve) !important; }
