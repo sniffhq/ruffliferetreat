@@ -3,17 +3,17 @@
 {% block content %}
 
 <!-- Hero -->
-<div style="background:linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+<div style="background:linear-gradient(135deg, #1a1a2e 0%, #2A1820 60%, #1a1a2e 100%);
             margin-top:-1.5rem; padding:70px 0 60px; text-align:center; position:relative; overflow:hidden;">
     <div style="position:absolute;top:10px;right:60px;font-size:6rem;opacity:0.04;transform:rotate(15deg);">🐾</div>
     <div class="container position-relative">
         <div style="display:inline-block; background:rgba(255,193,7,0.15); border:1px solid rgba(255,193,7,0.3);
                     border-radius:50px; padding:6px 20px; font-size:0.8rem; letter-spacing:2px;
-                    text-transform:uppercase; color:#FFC107; margin-bottom:16px;">
+                    text-transform:uppercase; color:#D4A853; margin-bottom:16px;">
             Our Furry Guests
         </div>
         <h1 style="font-size:clamp(2rem,4vw,3.2rem); font-weight:800; color:white; margin-bottom:14px;">
-            The Ruff Life <span style="color:#FFC107;">Gallery</span>
+            The Ruff Life <span style="color:#D4A853;">Gallery</span>
         </h1>
         <p style="color:rgba(255,255,255,0.65); font-size:1.05rem; max-width:480px; margin:0 auto;">
             A peek at the happy faces, wagging tails, and clean coats coming through our doors every day.
@@ -30,7 +30,7 @@
                     id="tab-{{ tab }}"
                     style="padding:14px 24px; border:none; background:none; font-weight:600;
                            font-size:0.88rem; color:{% if tab == 'All' %}#1a1a2e{% else %}#888{% endif %};
-                           border-bottom:3px solid {% if tab == 'All' %}#FFC107{% else %}transparent{% endif %};
+                           border-bottom:3px solid {% if tab == 'All' %}#D4A853{% else %}transparent{% endif %};
                            cursor:pointer; white-space:nowrap; transition:all 0.2s;"
                     class="gallery-tab">
                 {{ tab }}
@@ -145,7 +145,7 @@ function filterGallery(category) {
     document.querySelectorAll('.gallery-tab').forEach(tab => {
         const isActive = tab.id === 'tab-' + category;
         tab.style.color = isActive ? '#1a1a2e' : '#888';
-        tab.style.borderBottom = isActive ? '3px solid #FFC107' : '3px solid transparent';
+        tab.style.borderBottom = isActive ? '3px solid #D4A853' : '3px solid transparent';
     });
     // Filter items
     document.querySelectorAll('.gallery-item').forEach(item => {

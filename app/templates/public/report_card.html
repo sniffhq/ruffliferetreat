@@ -9,8 +9,8 @@
     <style>
         body { background: #f0f2f5; font-family: Arial, sans-serif; }
         .report-card { max-width: 480px; margin: 30px auto; padding: 0 12px 40px; }
-        .header-card { background: linear-gradient(135deg, #1a1a2e, #0f3460); border-radius: 20px; padding: 32px 24px; text-align: center; color: white; margin-bottom: 20px; }
-        .pet-avatar { width: 80px; height: 80px; border-radius: 50%; background: #FFC107; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 2rem; }
+        .header-card { background: linear-gradient(135deg, #1a1a2e, #2A1820); border-radius: 20px; padding: 32px 24px; text-align: center; color: white; margin-bottom: 20px; }
+        .pet-avatar { width: 80px; height: 80px; border-radius: 50%; background: #D4A853; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 2rem; }
         .stat-card { background: white; border-radius: 14px; padding: 16px 20px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); display: flex; align-items: center; justify-content: space-between; }
         .stat-label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: #888; font-weight: 600; }
         .stat-value { font-size: 1.05rem; font-weight: 700; color: #1a1a2e; }
@@ -31,7 +31,7 @@
         <div style="color:rgba(255,255,255,0.7); font-size:0.9rem; margin-bottom:8px;">
             {{ card.card_date.strftime('%A, %B %d, %Y') }}
         </div>
-        <span style="background:rgba(255,193,7,0.2); border:1px solid #FFC107; color:#FFC107;
+        <span style="background:rgba(255,193,7,0.2); border:1px solid #D4A853; color:#D4A853;
                      padding:4px 16px; border-radius:50px; font-size:0.75rem; letter-spacing:1.5px; text-transform:uppercase;">
             {% if card.card_type == 'daycare' %}🐶 Daycare{% else %}🏨 Boarding{% endif %}
         </span>

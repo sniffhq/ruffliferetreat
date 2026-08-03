@@ -3,19 +3,19 @@
 {% block content %}
 
 <!-- Hero -->
-<div style="background:linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+<div style="background:linear-gradient(135deg, #1a1a2e 0%, #2A1820 60%, #1a1a2e 100%);
             margin-top:-1.5rem; padding: 90px 0 80px; position:relative; overflow:hidden;">
     <div style="position:absolute;top:20px;right:80px;font-size:6rem;opacity:0.04;transform:rotate(15deg);">🐾</div>
     <div style="position:absolute;bottom:10px;left:60px;font-size:8rem;opacity:0.04;transform:rotate(-10deg);">🐾</div>
     <div class="container text-center text-white position-relative">
         <div style="display:inline-block; background:rgba(255,193,7,0.15); border:1px solid rgba(255,193,7,0.3);
                     border-radius:50px; padding:6px 20px; font-size:0.8rem; letter-spacing:2px;
-                    text-transform:uppercase; color:#FFC107; margin-bottom:20px;">
+                    text-transform:uppercase; color:#D4A853; margin-bottom:20px;">
             Premium Pet Boarding
         </div>
         <h1 style="font-size:clamp(2.2rem,5vw,3.8rem); font-weight:800; line-height:1.15; margin-bottom:18px;">
             A Home Away<br>
-            <span style="color:#FFC107;">From Home</span>
+            <span style="color:#D4A853;">From Home</span>
         </h1>
         <p style="font-size:1.15rem; color:rgba(255,255,255,0.7); max-width:520px; margin:0 auto 36px;">
             Safe, comfortable, and caring overnight stays for your furry family member while you're away.
@@ -39,7 +39,7 @@
 </div>
 
 <!-- Stats bar -->
-<div style="background:#FFC107;">
+<div style="background:#D4A853;">
     <div class="container">
         <div class="row text-center g-0">
             {% for stat, label in [('24/7','Monitoring'),('Daily','Exercise'),('Premium','Meals'),('Vet','On Call')] %}
@@ -63,7 +63,7 @@
             ('fas fa-home','#0d6efd','Comfortable Accommodations','Spacious, climate-controlled suites with cozy bedding and plenty of natural light.'),
             ('fas fa-heartbeat','#198754','24/7 Monitoring','Round-the-clock supervision by trained staff to ensure your pet\'s safety and wellbeing.'),
             ('fas fa-running','#0dcaf0','Daily Exercise','Multiple play sessions and walks throughout the day in our secure outdoor areas.'),
-            ('fas fa-utensils','#FFC107','Premium Meals','Nutritious meals tailored to your pet\'s dietary needs and preferences.'),
+            ('fas fa-utensils','#D4A853','Premium Meals','Nutritious meals tailored to your pet\'s dietary needs and preferences.'),
             ('fas fa-user-md','#dc3545','Veterinary Care','On-call veterinary support and medication administration if needed.'),
             ('fas fa-camera','#6c757d','Photo Updates','Regular photo updates sent to you so you can see your pet enjoying their stay.')
         ] %}
@@ -147,7 +147,7 @@
         <div class="col-md-8 col-lg-6">
             <div style="border-radius:20px; overflow:hidden; box-shadow:0 8px 40px rgba(0,0,0,0.1);">
                 <div style="background:#1a1a2e; padding:28px; text-align:center;">
-                    <div style="color:#FFC107; font-size:2.4rem; font-weight:800;">${{ rates.boarding | int }}<span style="font-size:1rem; font-weight:400; color:rgba(255,193,7,0.7);">/night per pet</span></div>
+                    <div style="color:#D4A853; font-size:2.4rem; font-weight:800;">${{ rates.boarding | int }}<span style="font-size:1rem; font-weight:400; color:rgba(255,193,7,0.7);">/night per pet</span></div>
                     <div style="color:rgba(255,255,255,0.6); font-size:0.9rem;">Flat rate — no size surcharges</div>
                 </div>
                 <div style="background:white; padding:28px;">

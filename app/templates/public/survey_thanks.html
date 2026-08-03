@@ -9,25 +9,25 @@
 <body style="background:#f0f2f5;font-family:Arial,sans-serif;">
 <div style="max-width:440px;margin:60px auto;padding:0 12px;text-align:center;">
 
-    <div style="background:linear-gradient(135deg,#1a1a2e,#0f3460);border-radius:20px;
+    <div style="background:linear-gradient(135deg,#1a1a2e,#2A1820);border-radius:20px;
                 padding:48px 32px;color:white;margin-bottom:20px;">
         {% if survey.overall_rating and survey.overall_rating >= 4 %}
         <div style="font-size:4rem;margin-bottom:16px;">🤩</div>
-        <h2 style="color:#FFC107;font-weight:800;margin-bottom:12px;">Thank You!</h2>
+        <h2 style="color:#D4A853;font-weight:800;margin-bottom:12px;">Thank You!</h2>
         <p style="color:rgba(255,255,255,0.8);line-height:1.6;">
             We're so glad {{ survey.user.first_name }} and your pup had a great experience!
             Your feedback means the world to us. 🐾
         </p>
         {% elif survey.overall_rating and survey.overall_rating <= 2 %}
         <div style="font-size:4rem;margin-bottom:16px;">🙏</div>
-        <h2 style="color:#FFC107;font-weight:800;margin-bottom:12px;">Thank You for Your Honesty</h2>
+        <h2 style="color:#D4A853;font-weight:800;margin-bottom:12px;">Thank You for Your Honesty</h2>
         <p style="color:rgba(255,255,255,0.8);line-height:1.6;">
             We're sorry your experience wasn't perfect. Your feedback helps us improve.
             Our team will be in touch shortly.
         </p>
         {% else %}
         <div style="font-size:4rem;margin-bottom:16px;">🐾</div>
-        <h2 style="color:#FFC107;font-weight:800;margin-bottom:12px;">Thank You!</h2>
+        <h2 style="color:#D4A853;font-weight:800;margin-bottom:12px;">Thank You!</h2>
         <p style="color:rgba(255,255,255,0.8);line-height:1.6;">
             We appreciate you taking the time to share your feedback, {{ survey.user.first_name }}!
         </p>

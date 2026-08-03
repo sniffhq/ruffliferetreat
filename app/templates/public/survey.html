@@ -10,7 +10,7 @@
         .survey-wrap { max-width:480px; margin:30px auto; padding:0 12px 60px; }
         .star-row { display:flex; gap:8px; font-size:2rem; justify-content:center; margin:12px 0; }
         .star-btn { background:none; border:none; cursor:pointer; color:#ddd; transition:color 0.15s; font-size:2rem; padding:0; }
-        .star-btn.active, .star-btn:hover, .star-btn.hover { color:#FFC107; }
+        .star-btn.active, .star-btn:hover, .star-btn.hover { color:#D4A853; }
         .rec-group { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin:12px 0; }
         .rec-label { cursor:pointer; }
         .rec-label input { display:none; }
@@ -23,16 +23,16 @@
 <div class="survey-wrap">
 
     <!-- Header -->
-    <div style="background:linear-gradient(135deg,#1a1a2e,#0f3460);border-radius:20px;
+    <div style="background:linear-gradient(135deg,#1a1a2e,#2A1820);border-radius:20px;
                 padding:32px 24px;text-align:center;color:white;margin-bottom:20px;">
         <div style="font-size:2.5rem;margin-bottom:8px;">🐾</div>
-        <h2 style="font-weight:800;color:#FFC107;margin-bottom:4px;">How Did We Do?</h2>
+        <h2 style="font-weight:800;color:#D4A853;margin-bottom:4px;">How Did We Do?</h2>
         <div style="color:rgba(255,255,255,0.7);font-size:0.9rem;">
             Hi {{ survey.user.first_name }}! Your feedback helps us take better care of every pet.
         </div>
         {% if survey.service_type %}
         <div style="margin-top:10px;">
-            <span style="background:rgba(255,193,7,0.2);border:1px solid #FFC107;color:#FFC107;
+            <span style="background:rgba(255,193,7,0.2);border:1px solid #D4A853;color:#D4A853;
                          padding:4px 16px;border-radius:50px;font-size:0.78rem;">
                 {{ survey.service_type }}
             </span>
