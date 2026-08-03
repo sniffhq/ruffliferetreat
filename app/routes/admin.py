@@ -1669,13 +1669,17 @@ def invoice_audit():
         if boarding_balance > 0 or daycare_balance > 0:
             days_outstanding = (today - oldest_unpaid).days if oldest_unpaid else 0
             open_invoices.append({
-                'customer':          c,
-                'boarding_balance':  boarding_balance,
-                'daycare_balance':   daycare_balance,
-                'total_balance':     boarding_balance + daycare_balance,
-                'boarding_count':    boarding_count,
-                'daycare_count':     daycare_count,
-                'days_outstanding':  days_outstanding,
+                'customer':             c,
+                'boarding_balance':     boarding_balance,
+                'daycare_balance':      daycare_balance,
+                'total_balance':        boarding_balance + daycare_balance,
+                'boarding_count':       boarding_count,
+                'daycare_count':        daycare_count,
+                'days_outstanding':     days_outstanding,
+                'has_custom_boarding':  getattr(c, 'custom_boarding_rate', None) is not None,
+                'has_custom_daycare':   getattr(c, 'custom_daycare_rate', None) is not None,
+                'boarding_rate_eff':    rates['boarding'],
+                'daycare_rate_eff':     rates['daycare'],
             })
 
     open_invoices.sort(key=lambda x: x['total_balance'], reverse=True)

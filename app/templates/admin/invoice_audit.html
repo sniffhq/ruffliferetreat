@@ -118,12 +118,24 @@
                                 {% if inv.boarding_balance > 0 %}
                                 ${{ "%.2f"|format(inv.boarding_balance) }}
                                 <div class="text-muted small">{{ inv.boarding_count }} stay{{ 's' if inv.boarding_count != 1 }}</div>
+                                {% if inv.has_custom_boarding %}
+                                <div class="small mt-1">
+                                  <span class="text-muted">${{ "%.0f"|format(inv.boarding_rate_eff) }}/night</span>
+                                  <span class="badge rounded-pill ms-1" style="background:#B07A8E;font-size:0.65rem;">custom</span>
+                                </div>
+                                {% endif %}
                                 {% else %}—{% endif %}
                             </td>
                             <td class="text-end">
                                 {% if inv.daycare_balance > 0 %}
                                 ${{ "%.2f"|format(inv.daycare_balance) }}
                                 <div class="text-muted small">{{ inv.daycare_count }} session{{ 's' if inv.daycare_count != 1 }}</div>
+                                {% if inv.has_custom_daycare %}
+                                <div class="small mt-1">
+                                  <span class="text-muted">${{ "%.0f"|format(inv.daycare_rate_eff) }}/session</span>
+                                  <span class="badge rounded-pill ms-1" style="background:#B07A8E;font-size:0.65rem;">custom</span>
+                                </div>
+                                {% endif %}
                                 {% else %}—{% endif %}
                             </td>
                             <td class="text-end fw-bold {% if inv.days_outstanding > 14 %}text-danger{% elif inv.days_outstanding > 7 %}text-warning{% endif %}">
