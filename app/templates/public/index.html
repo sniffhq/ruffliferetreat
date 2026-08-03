@@ -2,7 +2,7 @@
 {% block content %}
 <div class="text-center py-5">
     <h1 class="display-3 mb-4">Welcome to Ruff Life Retreat</h1>
-    <p class="lead mb-4">Premium boarding, grooming, and care for your furry family members</p>
+    <p class="lead mb-4">Premium boarding and daycare for your furry family members</p>
     
     <div class="mt-4 mb-5">
         <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-lg me-3">Get Started</a>
@@ -74,26 +74,14 @@
     </div>
     {% endif %}
 
-    <!-- Service Cards - Now Clickable! -->
-    <div class="row mt-5">
+    <!-- Service Cards -->
+    <div class="row mt-5 justify-content-center">
         <div class="col-md-4">
             <a href="{{ url_for('public.boarding') }}" class="service-card-link">
                 <div class="service-card">
                     <i class="fas fa-home fa-4x text-primary mb-3"></i>
                     <h3>Boarding</h3>
                     <p>Safe, comfortable accommodations for your pets</p>
-                    <div class="learn-more">
-                        Learn More <i class="fas fa-arrow-right"></i>
-                    </div>
-                </div>
-            </a>
-        </div>
-        <div class="col-md-4">
-            <a href="{{ url_for('public.grooming') }}" class="service-card-link">
-                <div class="service-card">
-                    <i class="fas fa-cut fa-4x text-primary mb-3"></i>
-                    <h3>Grooming</h3>
-                    <p>Professional grooming services</p>
                     <div class="learn-more">
                         Learn More <i class="fas fa-arrow-right"></i>
                     </div>

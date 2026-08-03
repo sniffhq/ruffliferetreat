@@ -147,42 +147,38 @@
         <div class="col-md-8 col-lg-6">
             <div style="border-radius:20px; overflow:hidden; box-shadow:0 8px 40px rgba(0,0,0,0.1);">
                 <div style="background:#1a1a2e; padding:28px; text-align:center;">
-                    <div style="color:#FFC107; font-size:2.4rem; font-weight:800;">$40<span style="font-size:1rem; font-weight:400; color:rgba(255,193,7,0.7);">/day per pet</span></div>
+                    <div style="color:#FFC107; font-size:2.4rem; font-weight:800;">${{ rates.boarding | int }}<span style="font-size:1rem; font-weight:400; color:rgba(255,193,7,0.7);">/night per pet</span></div>
                     <div style="color:rgba(255,255,255,0.6); font-size:0.9rem;">Flat rate — no size surcharges</div>
                 </div>
                 <div style="background:white; padding:28px;">
                     <div style="display:flex; justify-content:space-between; padding:12px 0;
                                 border-bottom:1px solid #f0f0f0; font-size:0.95rem;">
                         <span><i class="fas fa-paw text-warning me-2"></i>First pet</span>
-                        <strong>$40/night</strong>
+                        <strong>${{ rates.boarding | int }}/night</strong>
                     </div>
                     <div style="display:flex; justify-content:space-between; padding:12px 0;
                                 border-bottom:1px solid #f0f0f0; font-size:0.95rem;">
                         <span><i class="fas fa-paw text-warning me-2"></i>Each additional pet</span>
-                        <strong>$25/night</strong>
+                        <strong>${{ rates.boarding_add | int }}/night</strong>
                     </div>
                     <div style="display:flex; justify-content:space-between; padding:12px 0;
                                 border-bottom:1px solid #f0f0f0; font-size:0.95rem;">
                         <span><i class="fas fa-bath text-warning me-2"></i>Spa Bath + Nail Trim add-on</span>
-                        <strong>$20/pet</strong>
+                        <strong>${{ rates.addon_spa_bath_nails | int }}/pet</strong>
                     </div>
                     <div style="display:flex; justify-content:space-between; padding:12px 0;
                                 border-bottom:1px solid #f0f0f0; font-size:0.95rem;">
                         <span><i class="fas fa-bath text-warning me-2"></i>Spa Bath add-on</span>
-                        <strong>$15/pet</strong>
+                        <strong>${{ rates.addon_spa_bath | int }}/pet</strong>
                     </div>
                     <div style="display:flex; justify-content:space-between; padding:12px 0;
                                 border-bottom:1px solid #f0f0f0; font-size:0.95rem;">
                         <span><i class="fas fa-cut text-warning me-2"></i>Nail Trim add-on</span>
-                        <strong>$10/pet</strong>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; padding:12px 0;
-                                border-bottom:1px solid #f0f0f0; font-size:0.95rem;">
-                        <span><i class="fas fa-gift text-success me-2"></i>7+ night stay</span>
-                        <strong class="text-success">Free Spa Bath</strong>
+                        <strong>${{ rates.addon_nail_trim | int }}/pet</strong>
                     </div>
                     <div class="text-muted small text-center mt-3">
-                        Example: 2 pets for 3 days = $40 + $25 × 3 = <strong>$195</strong><br><span class="text-success">Checkout by 10:00 AM = no charge for that day</span>
+                        Example: 2 pets for 3 nights = ${{ rates.boarding | int }} + ${{ rates.boarding_add | int }} × 3 = <strong>${{ ((rates.boarding + rates.boarding_add) * 3) | int }}</strong><br>
+                        <span class="text-success">Checkout by 10:00 AM = no charge for that day</span>
                     </div>
                     <div class="text-center mt-4">
                         {% if current_user.is_authenticated %}

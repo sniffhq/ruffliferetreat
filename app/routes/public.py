@@ -66,7 +66,9 @@ def index():
 
 @bp.route('/boarding')
 def boarding():
-    return render_template('public/boarding.html')
+    from app.rate_resolver import get_facility_defaults
+    rates = get_facility_defaults()
+    return render_template('public/boarding.html', rates=rates)
 
 @bp.route('/grooming')
 def grooming():
