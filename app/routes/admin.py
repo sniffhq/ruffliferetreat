@@ -1552,9 +1552,12 @@ def invoice_queue():
                         DaycareAttendance.check_in_time >= week_start,
                         DaycareAttendance.check_in_time <= week_end
                     ).count()
-                    rate = enr.special_rate if enr.special_rate else (
-                        rates['daycare'] if wc > 1 else float(current_app.config.get('DAYCARE_RATE_SINGLE', 25.0))
-                    )
+                    _has_dc_custom2 = enr.special_rate or getattr(pet, 'custom_daycare_rate', None) or getattr(c, 'custom_daycare_rate', None)
+                    if _has_dc_custom2:
+                        from app.rate_resolver import get_pet_daycare_rate as _gpdr_b
+                        rate = _gpdr_b(pet, c, enr)
+                    else:
+                        rate = rates['daycare'] if wc > 1 else float(current_app.config.get('DAYCARE_RATE_SINGLE', 25.0))
                     _, addon_cost = _parse_addons_from_notes(att.addons or '')
                     line_amt = rate + addon_cost
                     daycare_total += line_amt
@@ -1661,7 +1664,14 @@ def invoice_audit():
                         DaycareAttendance.check_in_time >= week_start,
                         DaycareAttendance.check_in_time <= week_end
                     ).count()
-                    rate = enr.special_rate if enr.special_rate else (rates['daycare'] if wc > 1 else float(current_app.config.get('DAYCARE_RATE_SINGLE', 25.0)))
+                    # Custom rate (enrollment/pet/customer) takes full priority.
+                    # Single-session premium only applies at the facility default level.
+                    _has_dc_custom = enr.special_rate or getattr(pet, 'custom_daycare_rate', None) or getattr(c, 'custom_daycare_rate', None)
+                    if _has_dc_custom:
+                        from app.rate_resolver import get_pet_daycare_rate as _gpdr_a
+                        rate = _gpdr_a(pet, c, enr)
+                    else:
+                        rate = rates['daycare'] if wc > 1 else float(current_app.config.get('DAYCARE_RATE_SINGLE', 25.0))
                     _, _dc_addon = _parse_addons_from_notes(att.addons or '')
                     daycare_balance += rate + _dc_addon
                     daycare_count   += 1
