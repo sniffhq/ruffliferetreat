@@ -1,11 +1,11 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block title %}Dog Daycare — Ruff Life Retreat{% endblock %}
-{% block main %}
 {% block content %}
 
 <!-- Hero -->
 <div style="background:linear-gradient(135deg, #1a1a2e 0%, #2A1820 60%, #1a1a2e 100%);
-            padding:90px 0 80px; position:relative; overflow:hidden;">
+            padding:90px 0 80px; position:relative; overflow:hidden;
+            width:100vw; margin-left:calc(50% - 50vw); margin-top:-1.5rem;">
     <div style="position:absolute;top:20px;right:80px;font-size:6rem;opacity:0.04;transform:rotate(15deg);">🐾</div>
     <div style="position:absolute;bottom:10px;left:60px;font-size:8rem;opacity:0.04;transform:rotate(-10deg);">🐾</div>
     <div class="container text-center text-white position-relative">
@@ -29,7 +29,7 @@
 </div>
 
 <!-- Stats bar -->
-<div style="background:#D4A853;">
+<div style="background:#D4A853; width:100vw; margin-left:calc(50% - 50vw);">
     <div class="container">
         <div class="row text-center g-0">
             {% for stat, label in [('Mon–Thu','Daycare Days'),('Fridays','Trial Days Only'),('7 AM–3 PM','Operating Hours'),('Size-Grouped','Safe Play')] %}
@@ -206,4 +206,3 @@
 
 
 
-{% endblock main %}

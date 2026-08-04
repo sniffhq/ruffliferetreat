@@ -403,7 +403,6 @@
         </div>
     </nav>
 
-    {% block main %}
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
         <div class="container mt-3">
@@ -419,7 +418,6 @@
     <div class="container mt-4">
         {% block content %}{% endblock %}
     </div>
-    {% endblock main %}
 
     <footer class="bg-dark text-white text-center py-4 mt-5">
         <p class="mb-1">&copy; 2026 Ruff Life Retreat. All rights reserved.</p>
