@@ -87,6 +87,37 @@
         </div>
     </div>
 
+    <!-- Usage chart + run rate -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header fw-bold" style="background:#1B2A4A;color:#fff;">
+            <i class="fas fa-chart-line me-2"></i>Daily Usage — Last 30 Days
+        </div>
+        <div class="card-body">
+            <canvas id="dailyUsageChart" height="100"></canvas>
+            {% if run_rate %}
+            <hr class="my-3">
+            <div class="row text-center g-3">
+                <div class="col-4">
+                    <div class="fw-bold fs-5">${{ '%.4f'|format(run_rate.avg_daily_cost) }}</div>
+                    <div class="text-muted small">Avg Daily Cost ({{ period }}{% if period != 'all' %}d{% endif %} window)</div>
+                </div>
+                <div class="col-4">
+                    <div class="fw-bold fs-5 {% if run_rate.days_left < 14 %}text-danger{% elif run_rate.days_left < 30 %}text-warning{% else %}text-success{% endif %}">
+                        {{ run_rate.days_left | int }} days
+                    </div>
+                    <div class="text-muted small">Estimated Balance Remaining</div>
+                </div>
+                <div class="col-4">
+                    <div class="fw-bold fs-5 {% if run_rate.days_left < 14 %}text-danger{% elif run_rate.days_left < 30 %}text-warning{% else %}text-success{% endif %}">
+                        {{ run_rate.exhausted_date }}
+                    </div>
+                    <div class="text-muted small">Projected Exhaustion Date</div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
     <!-- Category breakdown -->
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-header fw-bold" style="background:#1B2A4A;color:#fff;">
@@ -206,4 +237,59 @@
         "Other" = outbound messages that don't match a known pattern (e.g. staff ad-hoc replies).
     </div>
 </div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+(function () {
+    const labels   = {{ chart_labels | safe }};
+    const outData  = {{ chart_out_data | safe }};
+    const inData   = {{ chart_in_data | safe }};
+
+    // Friendly labels: show only day/month to keep the axis readable
+    const shortLabels = labels.map(d => {
+        const dt = new Date(d + 'T00:00:00');
+        return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    });
+
+    new Chart(document.getElementById('dailyUsageChart'), {
+        type: 'bar',
+        data: {
+            labels: shortLabels,
+            datasets: [
+                {
+                    label: 'Outbound',
+                    data: outData,
+                    backgroundColor: 'rgba(27,42,74,0.8)',
+                    borderRadius: 3,
+                },
+                {
+                    label: 'Inbound',
+                    data: inData,
+                    backgroundColor: 'rgba(176,122,142,0.7)',
+                    borderRadius: 3,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { position: 'top' },
+                tooltip: {
+                    callbacks: {
+                        footer: (items) => {
+                            const total = items.reduce((s, i) => s + i.parsed.y, 0);
+                            return 'Total: ' + total;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { stacked: true, grid: { display: false } },
+                y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }
+            }
+        }
+    });
+})();
+</script>
 {% endblock %}

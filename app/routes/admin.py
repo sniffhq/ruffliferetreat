@@ -5084,11 +5084,47 @@ def sms_report():
     except Exception as e:
         current_app.logger.warning(f'Twilio balance fetch failed: {e}')
 
+    # ── Daily usage chart (always last 30 days) ──────────────────────────────
+    import json as _json
+    from collections import defaultdict
+    chart_since = date.today() - timedelta(days=29)
+    msgs_30 = SmsMessage.query.filter(SmsMessage.created_at >= chart_since).all()
+    daily_out_counts = defaultdict(int)
+    daily_in_counts  = defaultdict(int)
+    for m in msgs_30:
+        day = m.created_at.date().isoformat()
+        if m.direction == 'inbound':
+            daily_in_counts[day] += 1
+        else:
+            daily_out_counts[day] += 1
+
+    chart_labels  = [(chart_since + timedelta(days=i)).isoformat() for i in range(30)]
+    chart_out_data = [daily_out_counts.get(d, 0) for d in chart_labels]
+    chart_in_data  = [daily_in_counts.get(d, 0)  for d in chart_labels]
+
+    # ── Run-rate projection ──────────────────────────────────────────────────
+    run_rate = None
+    if twilio_balance and twilio_costs:
+        # Use the 30-day window for a stable daily cost average
+        period_days = 30 if period == 'all' else int(period)
+        avg_daily_cost = twilio_costs['total'] / max(period_days, 1)
+        if avg_daily_cost > 0:
+            days_left = twilio_balance['amount'] / avg_daily_cost
+            run_rate = {
+                'avg_daily_cost': avg_daily_cost,
+                'days_left':      days_left,
+                'exhausted_date': (date.today() + timedelta(days=days_left)).isoformat(),
+            }
+
     return render_template('admin/sms_report.html',
         rows=rows, total_out=total_out, total_in=total_in,
         period=period, active_category=active_category,
         detail_msgs=detail_msgs, twilio_costs=twilio_costs,
-        twilio_balance=twilio_balance)
+        twilio_balance=twilio_balance,
+        chart_labels=_json.dumps(chart_labels),
+        chart_out_data=_json.dumps(chart_out_data),
+        chart_in_data=_json.dumps(chart_in_data),
+        run_rate=run_rate)
 
 
 @bp.route('/inbox/adhoc', methods=['POST'])
