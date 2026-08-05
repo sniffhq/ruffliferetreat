@@ -70,6 +70,23 @@
     </div>
     {% endif %}
 
+    <!-- Twilio balance -->
+    <div class="row g-3 mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm text-center py-3">
+                {% if twilio_balance %}
+                <div class="fs-4 fw-bold {% if twilio_balance.amount < 10 %}text-danger{% elif twilio_balance.amount < 25 %}text-warning{% else %}text-success{% endif %}">
+                    ${{ '%.2f'|format(twilio_balance.amount) }} {{ twilio_balance.currency }}
+                </div>
+                <div class="text-muted small">Twilio Account Balance</div>
+                {% else %}
+                <div class="fs-4 fw-bold text-muted">—</div>
+                <div class="text-muted small">Twilio Account Balance (unavailable)</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
     <!-- Category breakdown -->
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-header fw-bold" style="background:#1B2A4A;color:#fff;">

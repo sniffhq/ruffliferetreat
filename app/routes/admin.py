@@ -5071,10 +5071,24 @@ def sms_report():
     except Exception as e:
         current_app.logger.warning(f'Twilio usage fetch failed: {e}')
 
+    # ── Twilio account balance ───────────────────────────────────────────────
+    twilio_balance = None
+    try:
+        from twilio.rest import Client as TwilioClient
+        tc = TwilioClient(
+            current_app.config.get('TWILIO_ACCOUNT_SID'),
+            current_app.config.get('TWILIO_AUTH_TOKEN')
+        )
+        bal = tc.api.v2010.accounts(current_app.config.get('TWILIO_ACCOUNT_SID')).balance.fetch()
+        twilio_balance = {'amount': float(bal.balance), 'currency': bal.currency}
+    except Exception as e:
+        current_app.logger.warning(f'Twilio balance fetch failed: {e}')
+
     return render_template('admin/sms_report.html',
         rows=rows, total_out=total_out, total_in=total_in,
         period=period, active_category=active_category,
-        detail_msgs=detail_msgs, twilio_costs=twilio_costs)
+        detail_msgs=detail_msgs, twilio_costs=twilio_costs,
+        twilio_balance=twilio_balance)
 
 
 @bp.route('/inbox/adhoc', methods=['POST'])
