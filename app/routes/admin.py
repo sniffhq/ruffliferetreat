@@ -603,6 +603,8 @@ def daycare_dashboard():
     _walkin_fields = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday', 4: 'friday', 5: 'saturday', 6: 'sunday'}
     daycare_cal_dates       = {}  # date_str -> [pet names]  (Jinja highlighting)
     daycare_cal_detail_data = {}  # date_str -> {pets, is_closed, count}  (JS modal)
+    from app.settings_service import get_setting as _gs_cal
+    _regular_daycare_rate = float(_gs_cal('daycare_rate_regular') or 30)
 
     for _offset in range(14):
         d   = cal_start + timedelta(days=_offset)
@@ -637,6 +639,7 @@ def daycare_dashboard():
                     'breed':         e.pet.breed or 'Dog',
                     'owner':         f'{e.pet.owner.first_name} {e.pet.owner.last_name}',
                     'special_rate':  float(e.special_rate) if e.special_rate else None,
+                    'regular_rate':  _regular_daycare_rate if e.is_walkin else None,
                     'enrollment_id': e.id,
                     'is_checked_in': e.id in checked_in_by_enrollment,
                     'is_walkin':     bool(e.is_walkin),

@@ -527,8 +527,12 @@ function showDaycareDay(ds) {
                     '<span class="text-muted small ms-2">' + p.breed + '</span>';
             if (p.is_walkin) {
                 html += '<span class="badge ms-2" style="background:#f97316;color:#fff;font-size:0.7rem;"><i class="fas fa-calendar-check me-1"></i>Regular Daycare</span>';
+                if (p.regular_rate) {
+                    html += '<span class="badge ms-2" style="background:#FFC107;color:#1a1a2e;font-size:0.7rem;"><i class="fas fa-tag me-1"></i>$' +
+                            parseFloat(p.regular_rate).toFixed(0) + '/day</span>';
+                }
             }
-            if (p.special_rate) {
+            if (!p.is_walkin && p.special_rate) {
                 html += '<span class="badge ms-2" style="background:#FFC107;color:#1a1a2e;font-size:0.7rem;"><i class="fas fa-tag me-1"></i>$' +
                         parseInt(p.special_rate) + '/day</span>';
             }
