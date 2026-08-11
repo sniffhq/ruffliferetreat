@@ -699,7 +699,6 @@ def daycare_dashboard():
                          dc_weeks=dc_weeks,
                          daycare_cal_dates=daycare_cal_dates,
                          daycare_cal_detail=_json.dumps(daycare_cal_detail_data),
-                         walkin_customers_json=walkin_customers_json,
                          pending_daycare_requests=pending_daycare_requests,
                          expected_today=expected_today,
                          now=datetime.now(),
