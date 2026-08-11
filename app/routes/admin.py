@@ -9480,6 +9480,7 @@ _BUSINESS_SETTING_DEFAULTS = {
     'boarding_rate_additional':  '25',
     'daycare_rate_single':       '25',
     'daycare_rate_multi':        '20',
+    'daycare_rate_regular':      '30',
     'addon_spa_bath_nails':      '20',
     'addon_spa_bath':            '15',
     'addon_nail_trim':           '10',
