@@ -623,7 +623,8 @@ def daycare_dashboard():
                        .filter(DaycareEnrollment.enrollment_date == d)
                        .join(Pet, DaycareEnrollment.pet_id == Pet.id)
                        .order_by(Pet.name).all())
-        day_walkins = [e for e in day_walkins if getattr(e, walkin_field)]
+        # Walk-ins are already scoped to a specific date via enrollment_date == d,
+        # so no day-of-week flag check is needed here.
 
         all_day_pets = day_pets + day_walkins
 
@@ -847,6 +848,9 @@ def daycare_visit_approve(appt_id):
             is_walkin=True,
         )
         db.session.add(enrollment)
+    else:
+        # Update enrollment_date so the calendar shows this pet on the correct day
+        enrollment.enrollment_date = appt.appointment_date
 
     db.session.commit()
 
