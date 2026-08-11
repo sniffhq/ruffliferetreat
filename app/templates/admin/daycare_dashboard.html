@@ -144,13 +144,10 @@
                                     <i class="fas fa-check me-1"></i>Approve
                                 </button>
                             </form>
-                            <form method="POST" action="{{ url_for('admin.daycare_visit_deny', appt_id=appt.id) }}"
-                                  style="display:inline;"
-                                  onsubmit="return confirm('Deny this visit request for {{ appt.pet.name }}?');">
-                                <button type="submit" class="btn btn-sm btn-outline-danger">
-                                    <i class="fas fa-times me-1"></i>Deny
-                                </button>
-                            </form>
+                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                    onclick="openDenyModal({{ appt.id }}, '{{ appt.pet.name }}', '{{ appt.user.first_name }} {{ appt.user.last_name }}', '{{ appt.appointment_date.strftime('%A, %b %d, %Y') }}')">
+                                <i class="fas fa-times me-1"></i>Deny
+                            </button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -663,6 +660,50 @@ window.addEventListener('load', function() {
 </div>
 {% endfor %}
 
+
+<!-- Deny Daycare Visit Modal -->
+<div class="modal fade" id="denyVisitModal" tabindex="-1" aria-labelledby="denyVisitModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#1a1a2e;">
+                <h5 class="modal-title text-white" id="denyVisitModalLabel">
+                    <i class="fas fa-times-circle me-2 text-danger"></i>Deny Daycare Request
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" id="denyVisitForm">
+                <div class="modal-body">
+                    <p class="mb-1">You are denying the following request:</p>
+                    <div class="alert alert-light border mb-3 py-2">
+                        <strong id="denyPetName"></strong> &mdash; <span id="denyOwnerName" class="text-muted"></span><br>
+                        <small class="text-muted"><i class="fas fa-calendar me-1"></i><span id="denyDate"></span></small>
+                    </div>
+                    <label class="form-label fw-semibold">Message to customer <span class="text-muted fw-normal">(optional — sent via SMS)</span></label>
+                    <textarea class="form-control" name="reason" id="denyReason" rows="3"
+                              placeholder="e.g. We're fully booked that day. Please try booking another date."></textarea>
+                    <div class="form-text">If left blank, the customer will be asked to call to find another date.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger fw-semibold">
+                        <i class="fas fa-times me-1"></i>Deny Request
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function openDenyModal(apptId, petName, ownerName, date) {
+    document.getElementById('denyPetName').textContent = petName;
+    document.getElementById('denyOwnerName').textContent = ownerName;
+    document.getElementById('denyDate').textContent = date;
+    document.getElementById('denyReason').value = '';
+    document.getElementById('denyVisitForm').action = '/admin/daycare/visit/' + apptId + '/deny';
+    new bootstrap.Modal(document.getElementById('denyVisitModal')).show();
+}
+</script>
 
 {% endblock %}
 

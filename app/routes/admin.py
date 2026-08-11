@@ -872,6 +872,7 @@ def daycare_visit_approve(appt_id):
 def daycare_visit_deny(appt_id):
     """Deny a customer's single-day daycare visit request."""
     appt = Appointment.query.get_or_404(appt_id)
+    reason = request.form.get('reason', '').strip()
     appt.status = 'cancelled'
     db.session.commit()
 
@@ -879,10 +880,11 @@ def daycare_visit_deny(appt_id):
         from app.sms_service import _send
         owner = appt.user
         if owner and owner.phone:
+            reason_clause = f' {reason}' if reason else ' Please call us to find another date.'
             _send(
                 owner.phone,
                 f'Hi {owner.first_name}, unfortunately we aren\'t able to accommodate a daycare visit for {appt.pet.name} '
-                f'on {appt.appointment_date.strftime("%A, %b %d")}. Please call us to find another date. — Ruff Life Retreat',
+                f'on {appt.appointment_date.strftime("%A, %b %d")}.{reason_clause} — Ruff Life Retreat',
                 user_id=owner.id,
             )
     except Exception as e:
