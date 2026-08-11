@@ -2314,63 +2314,6 @@ def ops_dashboard():
                            pending_approvals=pending_approvals)
 
 
-# ── Daycare walk-in ───────────────────────────────────────────────────────────
-
-@bp.route('/daycare/walkin', methods=['POST'])
-@login_required
-@admin_required
-def daycare_walkin():
-    data     = request.get_json(silent=True) or {}
-    pet_id   = data.get('pet_id')
-    action   = data.get('action', 'expected')
-    date_str = data.get('date') or datetime.now().date().isoformat()
-    if not pet_id:
-        return jsonify({'ok': False, 'error': 'Pet is required.'})
-    try:
-        target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-    except ValueError:
-        return jsonify({'ok': False, 'error': 'Invalid date.'})
-    _dc_fields = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday', 4: 'friday', 5: 'saturday', 6: 'sunday'}
-    dow = target_date.weekday()
-    field = _dc_fields[dow]
-    pet   = Pet.query.get(int(pet_id))
-    if not pet:
-        return jsonify({'ok': False, 'error': 'Pet not found.'})
-    enr = DaycareEnrollment.query.filter_by(pet_id=pet.id, is_walkin=True).first()
-    if enr:
-        enr.enrollment_date = target_date  # update to today so dashboard query finds it
-        enr.monday    = (field == 'monday')
-        enr.tuesday   = (field == 'tuesday')
-        enr.wednesday = (field == 'wednesday')
-        enr.thursday  = (field == 'thursday')
-        enr.friday    = (field == 'friday')
-        enr.saturday  = (field == 'saturday')
-        enr.sunday    = (field == 'sunday')
-        enr.active    = False
-    else:
-        enr = DaycareEnrollment(
-            pet_id=pet.id, enrollment_date=target_date, active=False, is_walkin=True,
-            monday=(field=='monday'), tuesday=(field=='tuesday'),
-            wednesday=(field=='wednesday'), thursday=(field=='thursday'), friday=(field=='friday'),
-            saturday=(field=='saturday'), sunday=(field=='sunday'),
-        )
-        db.session.add(enr)
-    db.session.flush()
-    if action == 'checkin':
-        today = datetime.now().date()
-        existing = DaycareAttendance.query.filter(
-            DaycareAttendance.enrollment_id == enr.id,
-            db.func.date(DaycareAttendance.check_in_time) == today,
-            DaycareAttendance.check_out_time.is_(None)
-        ).first()
-        if existing:
-            db.session.rollback()
-            return jsonify({'ok': False, 'error': f'{pet.name} is already checked in today.'})
-        db.session.add(DaycareAttendance(enrollment_id=enr.id, check_in_time=datetime.now()))
-    db.session.commit()
-    return jsonify({'ok': True, 'action': action, 'pet_name': pet.name})
-
-
 # ── OpsNote AJAX ─────────────────────────────────────────────────────────────
 
 @bp.route('/ops/note', methods=['POST'])
