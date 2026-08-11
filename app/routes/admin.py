@@ -2188,7 +2188,8 @@ def ops_dashboard():
                    .join(Pet, DaycareEnrollment.pet_id == Pet.id)
                    .order_by(Pet.name).all())
         for e in walkins:
-            if getattr(e, walkin_field) and e.id not in _checked_in_ids:
+            # Walk-ins are already scoped to today via enrollment_date; no day-of-week flag needed
+            if e.id not in _checked_in_ids:
                 daycare_expected_today.append(e)
 
     # ── Boarding arrivals / departures for selected date ──────────────────────
