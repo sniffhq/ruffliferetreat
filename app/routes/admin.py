@@ -651,6 +651,53 @@ def daycare_dashboard():
         [cal_start + timedelta(days=7 + i) for i in range(7)],
     ]
 
+    # Pending daycare visit requests (from customer portal)
+    from app.models import ServiceType as _ST3
+    _daycare_svc = _ST3.query.filter(_ST3.name.ilike('%daycare%')).first()
+    pending_daycare_requests = []
+    expected_today = []
+    if _daycare_svc:
+        pending_daycare_requests = (Appointment.query
+            .filter_by(service_type_id=_daycare_svc.id, status='pending')
+            .order_by(Appointment.appointment_date.asc())
+            .all())
+
+        # Confirmed daycare visits for today that haven't been checked in yet
+        confirmed_today = (Appointment.query
+            .filter_by(service_type_id=_daycare_svc.id,
+                       status='confirmed',
+                       appointment_date=today)
+            .all())
+        # Only include those without an existing open attendance record today
+        for appt in confirmed_today:
+            walkin_enr = DaycareEnrollment.query.filter_by(
+                pet_id=appt.pet_id, is_walkin=True
+            ).first()
+            if walkin_enr:
+                already_in = DaycareAttendance.query.filter(
+                    DaycareAttendance.enrollment_id == walkin_enr.id,
+                    db.func.date(DaycareAttendance.check_in_time) == today,
+                ).first()
+                if not already_in:
+                    expected_today.append({'appt': appt, 'enrollment': walkin_enr})
+            else:
+                # Enrollment created at approval; include so staff know it's expected
+                expected_today.append({'appt': appt, 'enrollment': None})
+
+    # Walk-in modal data — all active customers with their pets
+    walkin_customers = (User.query
+        .filter_by(is_active=True, is_admin=False)
+        .order_by(User.last_name, User.first_name)
+        .all())
+    walkin_customers_json = _json.dumps([
+        {
+            'id':   c.id,
+            'name': f'{c.first_name} {c.last_name}',
+            'pets': [{'id': p.id, 'name': p.name} for p in c.pets if p.is_active],
+        }
+        for c in walkin_customers if c.pets
+    ])
+
     return render_template('admin/daycare_dashboard.html',
                          enrollments=enrollments,
                          checked_in=checked_in,
@@ -665,6 +712,9 @@ def daycare_dashboard():
                          dc_weeks=dc_weeks,
                          daycare_cal_dates=daycare_cal_dates,
                          daycare_cal_detail=_json.dumps(daycare_cal_detail_data),
+                         walkin_customers_json=walkin_customers_json,
+                         pending_daycare_requests=pending_daycare_requests,
+                         expected_today=expected_today,
                          now=datetime.now(),
                          today=today)
 
@@ -775,6 +825,157 @@ def daycare_checkin(enrollment_id):
     except Exception: pass
     flash(f'{pet_name} checked in at {time_str}.', 'success')
     return redirect(url_for('admin.daycare_dashboard'))
+
+
+@bp.route('/daycare/visit/<int:appt_id>/approve', methods=['POST'])
+@login_required
+@staff_required
+def daycare_visit_approve(appt_id):
+    """Approve a customer's single-day daycare visit request."""
+    appt = Appointment.query.get_or_404(appt_id)
+    appt.status = 'confirmed'
+
+    # Find or create a walk-in enrollment for this pet
+    enrollment = DaycareEnrollment.query.filter_by(
+        pet_id=appt.pet_id, is_walkin=True
+    ).first()
+    if not enrollment:
+        enrollment = DaycareEnrollment(
+            pet_id=appt.pet_id,
+            active=False,
+            is_walkin=True,
+        )
+        db.session.add(enrollment)
+
+    db.session.commit()
+
+    # SMS confirmation to customer
+    try:
+        from app.sms_service import send_sms
+        owner = appt.user
+        if owner and owner.phone and owner.sms_opt_in:
+            send_sms(
+                owner.phone,
+                f'✅ Hi {owner.first_name}, your daycare visit for {appt.pet.name} on '
+                f'{appt.appointment_date.strftime("%A, %b %d")} has been approved! '
+                f'Drop-off is 7–9 AM. — Ruff Life Retreat',
+                user_id=owner.id,
+                category='Daycare Approved',
+            )
+    except Exception as e:
+        current_app.logger.warning(f'SMS failed on daycare visit approval: {e}')
+
+    try:
+        from app.audit_service import audit
+        audit('daycare.visit_approved', 'appointment', appt.id, appt.pet.name,
+              f'Daycare visit for {appt.pet.name} on {appt.appointment_date} approved by {current_user.first_name} {current_user.last_name}')
+    except Exception:
+        pass
+
+    flash(f'Daycare visit for {appt.pet.name} on {appt.appointment_date.strftime("%b %d")} approved.', 'success')
+    return redirect(url_for('admin.daycare_dashboard'))
+
+
+@bp.route('/daycare/visit/<int:appt_id>/deny', methods=['POST'])
+@login_required
+@staff_required
+def daycare_visit_deny(appt_id):
+    """Deny a customer's single-day daycare visit request."""
+    appt = Appointment.query.get_or_404(appt_id)
+    appt.status = 'cancelled'
+    db.session.commit()
+
+    try:
+        from app.sms_service import send_sms
+        owner = appt.user
+        if owner and owner.phone and owner.sms_opt_in:
+            send_sms(
+                owner.phone,
+                f'Hi {owner.first_name}, unfortunately we aren\'t able to accommodate a daycare visit for {appt.pet.name} '
+                f'on {appt.appointment_date.strftime("%A, %b %d")}. Please call us to find another date. — Ruff Life Retreat',
+                user_id=owner.id,
+                category='Daycare Denied',
+            )
+    except Exception as e:
+        current_app.logger.warning(f'SMS failed on daycare visit denial: {e}')
+
+    flash(f'Daycare visit request for {appt.pet.name} on {appt.appointment_date.strftime("%b %d")} denied.', 'warning')
+    return redirect(url_for('admin.daycare_dashboard'))
+
+
+@bp.route('/daycare/walkin', methods=['POST'])
+@login_required
+@staff_required
+def daycare_walkin():
+    """Check in a non-enrolled pet for a one-off walk-in daycare session."""
+    from datetime import date
+    pet_id = request.form.get('pet_id', '').strip()
+    if not pet_id:
+        flash('Please select a pet.', 'warning')
+        return redirect(url_for('admin.daycare_dashboard'))
+
+    pet = Pet.query.get_or_404(int(pet_id))
+    owner = pet.owner
+    check_in_time = datetime.now()
+
+    # Find existing walk-in enrollment for this pet, or create one
+    enrollment = DaycareEnrollment.query.filter_by(
+        pet_id=pet.id, is_walkin=True
+    ).first()
+    if not enrollment:
+        enrollment = DaycareEnrollment(
+            pet_id=pet.id,
+            active=False,
+            is_walkin=True,
+        )
+        db.session.add(enrollment)
+        db.session.flush()
+
+    # Prevent double check-in today
+    existing = DaycareAttendance.query.filter(
+        DaycareAttendance.enrollment_id == enrollment.id,
+        db.func.date(DaycareAttendance.check_in_time) == date.today(),
+        DaycareAttendance.check_out_time.is_(None)
+    ).first()
+    if existing:
+        flash(f'{pet.name} is already checked in.', 'warning')
+        return redirect(url_for('admin.daycare_dashboard'))
+
+    attendance = DaycareAttendance(
+        enrollment_id=enrollment.id,
+        check_in_time=check_in_time,
+    )
+    db.session.add(attendance)
+    db.session.flush()
+    attendance_id = attendance.id
+    db.session.commit()
+
+    # Auto-assign play group
+    try:
+        from app.models import PlayGroup
+        weight = float(pet.weight) if pet.weight else 0
+        size   = 'small' if weight < 25 else ('medium' if weight <= 50 else 'large')
+        temp   = pet.temperament or 'calm'
+        group  = (PlayGroup.query.filter_by(size_category=size, temperament=temp, active=True).first()
+                  or PlayGroup.query.filter_by(size_category=size, temperament='mixed', active=True).first()
+                  or PlayGroup.query.filter_by(size_category=size, active=True).first())
+        if group:
+            DaycareAttendance.query.filter_by(id=attendance_id).update({'play_group_id': group.id})
+            db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Play group assign failed on walk-in check-in: {e}')
+
+    try:
+        from app.audit_service import audit
+        audit('daycare.walkin', 'daycare_attendance', attendance_id, pet.name,
+              f'{pet.name} (walk-in) checked in to daycare at {check_in_time.strftime("%I:%M %p")} by {current_user.first_name} {current_user.last_name}')
+    except Exception:
+        pass
+
+    flash(f'{pet.name} checked in as a walk-in at {check_in_time.strftime("%I:%M %p")}.', 'success')
+    return redirect(url_for('admin.daycare_dashboard'))
+
 
 @bp.route('/daycare/attendance/<int:attendance_id>/checkout', methods=['POST'])
 @login_required
@@ -7026,8 +7227,9 @@ def approve_boarding_request(appt_id):
     )
     db.session.add(booking)
 
-    # Confirm the appointment
+    # Confirm the appointment and clear any re-approval flag
     appt.status = 'confirmed'
+    appt.needs_reapproval = False
     db.session.commit()
 
     # Notify customer via SMS — direct Twilio call bypasses opt-in check

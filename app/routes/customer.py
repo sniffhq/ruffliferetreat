@@ -639,9 +639,25 @@ def book_appointment():
                 flash('Please select at least one pet.', 'danger')
                 return redirect(url_for('customer.book_appointment'))
 
-            # ── DAYCARE WAITLIST PATH ────────────────────────────────────────
+            # ── DAYCARE VISIT REQUEST PATH ───────────────────────────────────
             if service_choice == 'daycare':
-                from app.models import DaycareEnrollment, DaycareWaitlist
+                from app.models import DaycareEnrollment, ServiceType as _ST2
+                daycare_date_str = request.form.get('daycare_date', '').strip()
+                if not daycare_date_str:
+                    flash('Please select a visit date.', 'danger')
+                    return redirect(url_for('customer.book_appointment'))
+
+                try:
+                    daycare_date = datetime.strptime(daycare_date_str, '%Y-%m-%d').date()
+                except ValueError:
+                    flash('Invalid date selected.', 'danger')
+                    return redirect(url_for('customer.book_appointment'))
+
+                daycare_svc = _ST2.query.filter(_ST2.name.ilike('%daycare%')).first()
+                if not daycare_svc:
+                    flash('Daycare service is not configured. Please contact us directly.', 'danger')
+                    return redirect(url_for('customer.book_appointment'))
+
                 selected_ids  = [int(pid) for pid in pet_ids]
                 selected_pets = Pet.query.filter(
                     Pet.id.in_(selected_ids), Pet.user_id == current_user.id
@@ -653,42 +669,37 @@ def book_appointment():
 
                 added = []
                 for pet in selected_pets:
-                    # Already enrolled?
-                    if DaycareEnrollment.query.filter_by(pet_id=pet.id, active=True).first():
-                        flash(f'{pet.name} is already enrolled in daycare!', 'info')
+                    # Already a regular enrolled pet?
+                    if DaycareEnrollment.query.filter_by(pet_id=pet.id, active=True, is_walkin=False).first():
+                        flash(f'{pet.name} is already enrolled in daycare — no need to request a visit separately.', 'info')
                         continue
-                    # Already on waitlist?
-                    already = DaycareWaitlist.query.filter_by(
-                        user_id=current_user.id, pet_name=pet.name
-                    ).first()
-                    if already:
-                        flash(f'{pet.name} is already on the daycare waitlist.', 'info')
+                    # Duplicate request for same pet + date?
+                    dup = Appointment.query.filter_by(
+                        pet_id=pet.id,
+                        service_type_id=daycare_svc.id,
+                        appointment_date=daycare_date,
+                    ).filter(Appointment.status.in_(['pending', 'confirmed'])).first()
+                    if dup:
+                        flash(f'A daycare visit for {pet.name} on {daycare_date.strftime("%b %d")} is already pending or confirmed.', 'info')
                         continue
-                    entry = DaycareWaitlist(
-                        first_name = current_user.first_name,
-                        last_name  = current_user.last_name,
-                        email      = current_user.email or '',
-                        phone      = current_user.phone or '',
-                        pet_name   = pet.name,
-                        breed      = pet.breed or '',
-                        user_id    = current_user.id,
-                        monday    = request.form.get('daycare_monday')    == '1',
-                        tuesday   = request.form.get('daycare_tuesday')   == '1',
-                        wednesday = request.form.get('daycare_wednesday') == '1',
-                        thursday  = request.form.get('daycare_thursday')  == '1',
-                        friday    = request.form.get('daycare_friday')    == '1',
-                        saturday  = request.form.get('daycare_saturday')  == '1',
-                        sunday    = request.form.get('daycare_sunday')    == '1',
+
+                    appt = Appointment(
+                        user_id         = current_user.id,
+                        pet_id          = pet.id,
+                        service_type_id = daycare_svc.id,
+                        appointment_date= daycare_date,
+                        status          = 'pending',
+                        notes           = 'Single-day daycare visit request',
                     )
-                    db.session.add(entry)
+                    db.session.add(appt)
                     added.append(pet.name)
 
                 db.session.commit()
                 if added:
                     names = ', '.join(added)
                     flash(
-                        f'{names} {"has" if len(added) == 1 else "have"} been added to the daycare waitlist! '
-                        f'We\'ll reach out when a spot opens up.',
+                        f'Visit request for {names} on {daycare_date.strftime("%A, %B %d")} has been submitted! '
+                        f'You\'ll receive a confirmation once staff approves it.',
                         'success'
                     )
                 return redirect(url_for('customer.dashboard'))
@@ -841,6 +852,7 @@ def book_appointment():
                            blackout_ranges_json=blackout_ranges_json,
                            future_blocks=future_blocks,
                            today=today,
+                           daycare_min_date=(today + timedelta(days=1)).isoformat(),
                            enrolled_pet_ids=enrolled_pet_ids,
                            daycare_capacity_json=daycare_capacity_json,
                            boarding_enabled=boarding_enabled,

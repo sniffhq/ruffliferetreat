@@ -85,43 +85,18 @@
 
                     <!-- ── DAYCARE SECTION ── -->
                     <div class="col-12" id="daycare-section" style="display:none;">
-                        <div class="alert mb-2" style="background:#e8f4fd; border:1px solid #b8daff;">
-                            <h6 class="fw-bold mb-1"><i class="fas fa-clipboard-list me-2 text-primary"></i>Daycare Request</h6>
+                        <div class="alert mb-3" style="background:#e8f4fd; border:1px solid #b8daff;">
+                            <h6 class="fw-bold mb-1"><i class="fas fa-paw me-2 text-primary"></i>Single-Day Daycare Visit</h6>
                             <p class="mb-0 small">
-                                Select the days you'd like to request for daycare. Our team will review your request and be in touch to confirm your schedule.
+                                Pick the date you'd like to bring your pup in. Staff will review and confirm — you'll hear back once it's approved.
                             </p>
                         </div>
-
-                        <!-- Hidden day inputs — toggled by the calendar widget -->
-                        <input type="hidden" name="daycare_monday"    id="h_dc_monday"    value="">
-                        <input type="hidden" name="daycare_tuesday"   id="h_dc_tuesday"   value="">
-                        <input type="hidden" name="daycare_wednesday" id="h_dc_wednesday" value="">
-                        <input type="hidden" name="daycare_thursday"  id="h_dc_thursday"  value="">
-                        <input type="hidden" name="daycare_friday"    id="h_dc_friday"    value="">
-                        <input type="hidden" name="daycare_saturday"  id="h_dc_saturday"  value="">
-                        <input type="hidden" name="daycare_sunday"    id="h_dc_sunday"    value="">
-
-                        <!-- Calendar widget -->
-                        <div class="mt-2">
-                            <label class="form-label fw-bold">Select Preferred Days <span class="text-danger">*</span></label>
-                            <p class="text-muted small mb-2">Click the days you'd like to attend. Days marked <span class="badge" style="background:#dc3545;font-size:0.7rem;">Full</span> are at capacity and cannot be selected.</p>
-
-                            <!-- Month navigation -->
-                            <div class="d-flex align-items-center gap-2 mb-2">
-                                <button type="button" class="btn btn-sm btn-outline-secondary" id="dc-prev-month">
-                                    <i class="fas fa-chevron-left"></i>
-                                </button>
-                                <span id="dc-month-label" class="fw-bold" style="min-width:140px;text-align:center;"></span>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" id="dc-next-month">
-                                    <i class="fas fa-chevron-right"></i>
-                                </button>
-                            </div>
-
-                            <!-- Calendar grid -->
-                            <div id="dc-calendar" style="font-size:0.85rem;"></div>
-
-                            <!-- Selection summary -->
-                            <div id="dc-summary" class="mt-2 text-muted small"></div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Visit Date <span class="text-danger">*</span></label>
+                            <input type="date" name="daycare_date" id="daycare-date-input"
+                                   class="form-control"
+                                   min="{{ daycare_min_date }}">
+                            <div class="form-text">Daycare runs Monday – Thursday, 7 AM – 3 PM.</div>
                         </div>
                     </div>
 
@@ -615,18 +590,15 @@ document.querySelector('form').addEventListener('submit', function(e) {
         }
     }
 
-    // If daycare selected, require at least one day
+    // If daycare selected, require a visit date
     if (document.getElementById('service_choice').value === 'daycare') {
-        var anyDay = dcSelectedDates.size > 0;
-        if (!anyDay) {
+        var dcDate = document.getElementById('daycare-date-input').value;
+        if (!dcDate) {
             e.preventDefault();
-            alert('Please select at least one preferred day for daycare.');
+            alert('Please select a visit date for daycare.');
             return;
         }
     }
-
-    // Sync calendar selections to hidden inputs before submit
-    dcSyncInputs();
 
     // Validate dates
     if (!validateDates()) {
