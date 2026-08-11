@@ -182,7 +182,7 @@
                         <td class="ps-3 fw-semibold">
                             {{ row.appt.pet.name }}
                             <span class="badge ms-1" style="background:#f97316;color:#fff;font-size:0.7rem;">
-                                <i class="fas fa-walking me-1"></i>Walk-in
+                                <i class="fas fa-calendar-check me-1"></i>Regular Daycare
                             </span>
                         </td>
                         <td>{{ row.appt.user.first_name }} {{ row.appt.user.last_name }}</td>
@@ -230,7 +230,7 @@
                         <tr>
                             <td>
                                 <strong>{{ attendance.enrollment.pet.name }}</strong>
-                                {% if attendance.enrollment.is_walkin %}<span class="badge ms-1" style="background:#f97316;color:#fff;font-size:0.7rem;"><i class="fas fa-walking me-1"></i>Walk-in</span>{% endif %}
+                                {% if attendance.enrollment.is_walkin %}<span class="badge ms-1" style="background:#f97316;color:#fff;font-size:0.7rem;"><i class="fas fa-calendar-check me-1"></i>Regular Daycare</span>{% endif %}
                                 {% if attendance.enrollment.pet.vacc_expiring_soon %}<span class="badge bg-warning text-dark ms-1" title="Vaccination expiring within 60 days"><i class="fas fa-exclamation-triangle"></i></span>{% endif %}
                                 {% if attendance.addons %}<br><span class="badge bg-secondary mt-1" style="font-size:0.75rem;"><i class="fas fa-plus-circle me-1"></i>{{ attendance.addons|replace('Add-ons: ', '') }}</span>{% endif %}
                             </td>
@@ -529,7 +529,7 @@ function showDaycareDay(ds) {
                     '<strong class="fs-6">' + p.name + '</strong>' +
                     '<span class="text-muted small ms-2">' + p.breed + '</span>';
             if (p.is_walkin) {
-                html += '<span class="badge ms-2" style="background:#f97316;color:#fff;font-size:0.7rem;"><i class="fas fa-walking me-1"></i>Walk-in</span>';
+                html += '<span class="badge ms-2" style="background:#f97316;color:#fff;font-size:0.7rem;"><i class="fas fa-calendar-check me-1"></i>Regular Daycare</span>';
             }
             if (p.special_rate) {
                 html += '<span class="badge ms-2" style="background:#FFC107;color:#1a1a2e;font-size:0.7rem;"><i class="fas fa-tag me-1"></i>$' +
