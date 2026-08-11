@@ -842,6 +842,7 @@ def daycare_visit_approve(appt_id):
     if not enrollment:
         enrollment = DaycareEnrollment(
             pet_id=appt.pet_id,
+            enrollment_date=appt.appointment_date,
             active=False,
             is_walkin=True,
         )
@@ -923,6 +924,7 @@ def daycare_walkin():
     if not enrollment:
         enrollment = DaycareEnrollment(
             pet_id=pet.id,
+            enrollment_date=datetime.now().date(),
             active=False,
             is_walkin=True,
         )
