@@ -851,16 +851,15 @@ def daycare_visit_approve(appt_id):
 
     # SMS confirmation to customer
     try:
-        from app.sms_service import send_sms
+        from app.sms_service import _send
         owner = appt.user
-        if owner and owner.phone and owner.sms_opt_in:
-            send_sms(
+        if owner and owner.phone:
+            _send(
                 owner.phone,
                 f'✅ Hi {owner.first_name}, your daycare visit for {appt.pet.name} on '
                 f'{appt.appointment_date.strftime("%A, %b %d")} has been approved! '
                 f'Drop-off is 7–9 AM. — Ruff Life Retreat',
                 user_id=owner.id,
-                category='Daycare Approved',
             )
     except Exception as e:
         current_app.logger.warning(f'SMS failed on daycare visit approval: {e}')
@@ -886,15 +885,14 @@ def daycare_visit_deny(appt_id):
     db.session.commit()
 
     try:
-        from app.sms_service import send_sms
+        from app.sms_service import _send
         owner = appt.user
-        if owner and owner.phone and owner.sms_opt_in:
-            send_sms(
+        if owner and owner.phone:
+            _send(
                 owner.phone,
                 f'Hi {owner.first_name}, unfortunately we aren\'t able to accommodate a daycare visit for {appt.pet.name} '
                 f'on {appt.appointment_date.strftime("%A, %b %d")}. Please call us to find another date. — Ruff Life Retreat',
                 user_id=owner.id,
-                category='Daycare Denied',
             )
     except Exception as e:
         current_app.logger.warning(f'SMS failed on daycare visit denial: {e}')
