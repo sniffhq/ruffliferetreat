@@ -678,21 +678,18 @@ window.addEventListener('load', function() {
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <form method="POST" action="{{ url_for('admin.daycare_walkin') }}">
+                <input type="hidden" id="walkinCustomerId" name="customer_id">
                 <div class="modal-body">
-                    <p class="text-muted small mb-3">Check in a pet that isn't enrolled in daycare for a one-off visit.</p>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Customer</label>
-                        <input type="text" id="walkinCustomerSearch" class="form-control"
-                               placeholder="Type name to search…" autocomplete="off">
-                        <div id="walkinCustomerResults" class="list-group mt-1" style="max-height:200px;overflow-y:auto;display:none;"></div>
-                        <input type="hidden" id="walkinCustomerId" name="customer_id">
-                    </div>
-                    <div class="mb-3" id="walkinPetRow" style="display:none;">
-                        <label class="form-label fw-semibold">Pet</label>
-                        <select class="form-select" name="pet_id" id="walkinPetSelect" required>
-                            <option value="">Select pet…</option>
+                    <p class="text-muted small mb-3">Select the pet checking in today.</p>
+                    <div class="mb-2">
+                        <input type="text" id="walkinPetFilter" class="form-control mb-2"
+                               placeholder="Filter by pet or owner name…" autocomplete="off">
+                        <select class="form-select" name="pet_id" id="walkinPetSelect" size="6" required
+                                style="height:auto;">
+                            <option value="" disabled selected>— select a pet —</option>
                         </select>
                     </div>
+                    <div id="walkinSelectedLabel" class="text-muted small mt-2" style="min-height:1.2em;"></div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -708,75 +705,73 @@ window.addEventListener('load', function() {
 
 <script>
 (function () {
+    // Flatten customers → pets into a single sorted list
     const CUSTOMERS = {{ walkin_customers_json | safe }};
+    const ALL_PETS = [];
+    CUSTOMERS.forEach(function (c) {
+        c.pets.forEach(function (p) {
+            ALL_PETS.push({
+                petId:      p.id,
+                petName:    p.name,
+                customerId: c.id,
+                ownerName:  c.name,
+                label:      p.name + ' — ' + c.name,
+                search:     (p.name + ' ' + c.name).toLowerCase(),
+            });
+        });
+    });
+    ALL_PETS.sort(function (a, b) { return a.petName.localeCompare(b.petName); });
 
-    const searchInput  = document.getElementById('walkinCustomerSearch');
-    const resultsBox   = document.getElementById('walkinCustomerResults');
-    const customerHid  = document.getElementById('walkinCustomerId');
-    const petRow       = document.getElementById('walkinPetRow');
+    const filterInput  = document.getElementById('walkinPetFilter');
     const petSelect    = document.getElementById('walkinPetSelect');
+    const customerHid  = document.getElementById('walkinCustomerId');
+    const selectedLbl  = document.getElementById('walkinSelectedLabel');
     const submitBtn    = document.getElementById('walkinSubmitBtn');
 
-    searchInput.addEventListener('input', function () {
-        const q = this.value.trim().toLowerCase();
-        resultsBox.innerHTML = '';
-        customerHid.value = '';
-        petRow.style.display = 'none';
-        petSelect.innerHTML = '<option value="">Select pet…</option>';
-        submitBtn.disabled = true;
-
-        if (q.length < 1) { resultsBox.style.display = 'none'; return; }
-
-        const matches = CUSTOMERS.filter(c => c.name.toLowerCase().includes(q)).slice(0, 8);
-        if (!matches.length) { resultsBox.style.display = 'none'; return; }
-
-        matches.forEach(c => {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'list-group-item list-group-item-action';
-            btn.textContent = c.name;
-            btn.addEventListener('click', function () {
-                searchInput.value = c.name;
-                customerHid.value = c.id;
-                resultsBox.style.display = 'none';
-
-                petSelect.innerHTML = '<option value="">Select pet…</option>';
-                c.pets.forEach(p => {
-                    const opt = document.createElement('option');
-                    opt.value = p.id;
-                    opt.textContent = p.name;
-                    petSelect.appendChild(opt);
-                });
-                petRow.style.display = 'block';
-                if (c.pets.length === 1) {
-                    petSelect.value = c.pets[0].id;
-                    submitBtn.disabled = false;
-                }
-            });
-            resultsBox.appendChild(btn);
+    function renderOptions(pets) {
+        petSelect.innerHTML = '';
+        if (!pets.length) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.disabled = true;
+            opt.textContent = 'No matches';
+            petSelect.appendChild(opt);
+            return;
+        }
+        pets.forEach(function (p) {
+            const opt = document.createElement('option');
+            opt.value = p.petId;
+            opt.dataset.customerId = p.customerId;
+            opt.textContent = p.label;
+            petSelect.appendChild(opt);
         });
-        resultsBox.style.display = 'block';
+    }
+
+    renderOptions(ALL_PETS);
+
+    filterInput.addEventListener('input', function () {
+        const q = this.value.trim().toLowerCase();
+        const filtered = q ? ALL_PETS.filter(p => p.search.includes(q)) : ALL_PETS;
+        renderOptions(filtered);
+        customerHid.value = '';
+        selectedLbl.textContent = '';
+        submitBtn.disabled = true;
     });
 
     petSelect.addEventListener('change', function () {
+        const opt = this.options[this.selectedIndex];
+        customerHid.value = opt.dataset.customerId || '';
+        selectedLbl.textContent = opt.textContent ? '✔ ' + opt.textContent : '';
         submitBtn.disabled = !this.value;
-    });
-
-    // Close dropdown when clicking outside
-    document.addEventListener('click', function (e) {
-        if (!resultsBox.contains(e.target) && e.target !== searchInput) {
-            resultsBox.style.display = 'none';
-        }
     });
 
     // Reset modal when it closes
     document.getElementById('walkinModal').addEventListener('hidden.bs.modal', function () {
-        searchInput.value = '';
+        filterInput.value = '';
         customerHid.value = '';
-        petRow.style.display = 'none';
-        petSelect.innerHTML = '<option value="">Select pet…</option>';
+        selectedLbl.textContent = '';
         submitBtn.disabled = true;
-        resultsBox.style.display = 'none';
+        renderOptions(ALL_PETS);
     });
 })();
 </script>
