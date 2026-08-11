@@ -5,10 +5,6 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2><i class="fas fa-paw"></i>Daycare Management Dashboard</h2>
         <div class="d-flex gap-2">
-            <button type="button" class="btn btn-warning text-dark fw-semibold"
-                    data-bs-toggle="modal" data-bs-target="#walkinModal">
-                <i class="fas fa-walking me-1"></i>Walk-In Check-In
-            </button>
             <a href="{{ url_for('admin.daycare_enroll') }}" class="btn btn-success">
                 <i class="fas fa-plus"></i> Enroll New Pet
             </a>
@@ -667,114 +663,6 @@ window.addEventListener('load', function() {
 </div>
 {% endfor %}
 
-<!-- Walk-In Check-In Modal -->
-<div class="modal fade" id="walkinModal" tabindex="-1" aria-labelledby="walkinModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header" style="background:#1a1a2e;">
-                <h5 class="modal-title text-white" id="walkinModalLabel">
-                    <i class="fas fa-walking me-2" style="color:#f97316;"></i>Walk-In Check-In
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <form method="POST" action="{{ url_for('admin.daycare_walkin') }}">
-                <input type="hidden" id="walkinCustomerId" name="customer_id">
-                <div class="modal-body">
-                    <p class="text-muted small mb-3">Select the pet checking in today.</p>
-                    <div class="mb-2">
-                        <input type="text" id="walkinPetFilter" class="form-control mb-2"
-                               placeholder="Filter by pet or owner name…" autocomplete="off">
-                        <select class="form-select" name="pet_id" id="walkinPetSelect" size="6" required
-                                style="height:auto;">
-                            <option value="" disabled selected>— select a pet —</option>
-                        </select>
-                    </div>
-                    <div id="walkinSelectedLabel" class="text-muted small mt-2" style="min-height:1.2em;"></div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn text-white fw-semibold" style="background:#f97316;"
-                            id="walkinSubmitBtn" disabled>
-                        <i class="fas fa-sign-in-alt me-1"></i>Check In
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<script>
-(function () {
-    // Flatten customers → pets into a single sorted list
-    const CUSTOMERS = {{ walkin_customers_json | safe }};
-    const ALL_PETS = [];
-    CUSTOMERS.forEach(function (c) {
-        c.pets.forEach(function (p) {
-            ALL_PETS.push({
-                petId:      p.id,
-                petName:    p.name,
-                customerId: c.id,
-                ownerName:  c.name,
-                label:      p.name + ' — ' + c.name,
-                search:     (p.name + ' ' + c.name).toLowerCase(),
-            });
-        });
-    });
-    ALL_PETS.sort(function (a, b) { return a.petName.localeCompare(b.petName); });
-
-    const filterInput  = document.getElementById('walkinPetFilter');
-    const petSelect    = document.getElementById('walkinPetSelect');
-    const customerHid  = document.getElementById('walkinCustomerId');
-    const selectedLbl  = document.getElementById('walkinSelectedLabel');
-    const submitBtn    = document.getElementById('walkinSubmitBtn');
-
-    function renderOptions(pets) {
-        petSelect.innerHTML = '';
-        if (!pets.length) {
-            const opt = document.createElement('option');
-            opt.value = '';
-            opt.disabled = true;
-            opt.textContent = 'No matches';
-            petSelect.appendChild(opt);
-            return;
-        }
-        pets.forEach(function (p) {
-            const opt = document.createElement('option');
-            opt.value = p.petId;
-            opt.dataset.customerId = p.customerId;
-            opt.textContent = p.label;
-            petSelect.appendChild(opt);
-        });
-    }
-
-    renderOptions(ALL_PETS);
-
-    filterInput.addEventListener('input', function () {
-        const q = this.value.trim().toLowerCase();
-        const filtered = q ? ALL_PETS.filter(p => p.search.includes(q)) : ALL_PETS;
-        renderOptions(filtered);
-        customerHid.value = '';
-        selectedLbl.textContent = '';
-        submitBtn.disabled = true;
-    });
-
-    petSelect.addEventListener('change', function () {
-        const opt = this.options[this.selectedIndex];
-        customerHid.value = opt.dataset.customerId || '';
-        selectedLbl.textContent = opt.textContent ? '✔ ' + opt.textContent : '';
-        submitBtn.disabled = !this.value;
-    });
-
-    // Reset modal when it closes
-    document.getElementById('walkinModal').addEventListener('hidden.bs.modal', function () {
-        filterInput.value = '';
-        customerHid.value = '';
-        selectedLbl.textContent = '';
-        submitBtn.disabled = true;
-        renderOptions(ALL_PETS);
-    });
-})();
-</script>
 
 {% endblock %}
 

@@ -685,20 +685,6 @@ def daycare_dashboard():
                 # Enrollment created at approval; include so staff know it's expected
                 expected_today.append({'appt': appt, 'enrollment': None})
 
-    # Walk-in modal data — all active customers with their pets
-    walkin_customers = (User.query
-        .filter_by(is_active=True, is_admin=False)
-        .order_by(User.last_name, User.first_name)
-        .all())
-    walkin_customers_json = _json.dumps([
-        {
-            'id':   c.id,
-            'name': f'{c.first_name} {c.last_name}',
-            'pets': [{'id': p.id, 'name': p.name} for p in c.pets if p.is_active],
-        }
-        for c in walkin_customers if c.pets
-    ])
-
     return render_template('admin/daycare_dashboard.html',
                          enrollments=enrollments,
                          checked_in=checked_in,
@@ -718,6 +704,7 @@ def daycare_dashboard():
                          expected_today=expected_today,
                          now=datetime.now(),
                          today=today)
+
 
 @bp.route('/daycare/enroll', methods=['GET', 'POST'])
 @login_required
@@ -910,7 +897,9 @@ def daycare_visit_deny(appt_id):
 @login_required
 @staff_required
 def daycare_walkin():
-    """Check in a non-enrolled pet for a one-off walk-in daycare session."""
+    """Walk-in check-in removed — all daycare visits must be scheduled and approved."""
+    flash('Walk-in check-ins are no longer available. All daycare visits must be scheduled through the customer portal and approved by staff.', 'warning')
+    return redirect(url_for('admin.daycare_dashboard'))
     from datetime import date
     pet_id = request.form.get('pet_id', '').strip()
     if not pet_id:
