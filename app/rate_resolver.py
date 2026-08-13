@@ -62,6 +62,7 @@ def get_facility_defaults():
         'boarding_add':         add_on,
         'boarding_add_ratio':   add_on / base if base > 0 else 0.625,
         'daycare':              _cfg('DAYCARE_RATE_MULTI',       20.0),
+        'daycare_regular':      _cfg('DAYCARE_RATE_REGULAR',     30.0),
         'addon_spa_bath_nails': _cfg('ADDON_SPA_BATH_NAILS',     20.0),
         'addon_spa_bath':       _cfg('ADDON_SPA_BATH',           15.0),
         'addon_nail_trim':      _cfg('ADDON_NAIL_TRIM',          10.0),
@@ -166,7 +167,9 @@ def get_pet_daycare_rate(pet, customer=None, enrollment=None):
       1. Enrollment special_rate (set per enrollment)
       2. Pet custom_daycare_rate
       3. Customer custom_daycare_rate
-      4. Facility default (multi-day rate)
+      4. Facility default:
+           - Regular daycare (is_walkin=True) → daycare_rate_regular
+           - Recurring enrolled daycare        → daycare_rate_multi
     """
     defaults = get_facility_defaults()
 
@@ -197,6 +200,9 @@ def get_pet_daycare_rate(pet, customer=None, enrollment=None):
         except (TypeError, ValueError):
             pass
 
+    # Facility default — use regular daycare rate for walk-in/portal-approved visits
+    if enrollment and getattr(enrollment, 'is_walkin', False):
+        return defaults['daycare_regular']
     return defaults['daycare']
 
 
