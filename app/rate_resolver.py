@@ -173,7 +173,12 @@ def get_pet_daycare_rate(pet, customer=None, enrollment=None):
     """
     defaults = get_facility_defaults()
 
-    # Enrollment-level override (highest priority for daycare)
+    # Regular daycare (portal-approved / walk-in) always uses the facility rate —
+    # no pet or customer custom rate overrides apply.
+    if enrollment and getattr(enrollment, 'is_walkin', False):
+        return defaults['daycare_regular']
+
+    # Enrollment-level override (highest priority for recurring enrolled daycare)
     if enrollment and enrollment.special_rate:
         try:
             rate = float(enrollment.special_rate)
@@ -200,9 +205,7 @@ def get_pet_daycare_rate(pet, customer=None, enrollment=None):
         except (TypeError, ValueError):
             pass
 
-    # Facility default — use regular daycare rate for walk-in/portal-approved visits
-    if enrollment and getattr(enrollment, 'is_walkin', False):
-        return defaults['daycare_regular']
+    # Facility default for recurring enrolled daycare
     return defaults['daycare']
 
 
