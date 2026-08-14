@@ -39,26 +39,40 @@
         </div>
     </div>
 
-    <!-- Filter Tabs -->
-    <ul class="nav nav-tabs mb-3" id="waiverTabs">
-        <li class="nav-item">
-            <button class="nav-link active" onclick="showTab('all')">
-                All Customers <span class="badge bg-secondary ms-1">{{ total }}</span>
-            </button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link" onclick="showTab('accepted')">
-                <i class="fas fa-check-circle text-success me-1"></i>Accepted
-                <span class="badge bg-success ms-1">{{ accepted|length }}</span>
-            </button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link" onclick="showTab('pending')">
-                <i class="fas fa-exclamation-circle text-danger me-1"></i>Not Accepted
-                <span class="badge bg-danger ms-1">{{ not_accepted|length }}</span>
-            </button>
-        </li>
-    </ul>
+    <!-- Search + Tabs Row -->
+    <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+        <ul class="nav nav-tabs flex-grow-1 mb-0" id="waiverTabs">
+            <li class="nav-item">
+                <button class="nav-link active" onclick="showTab('all', this)">
+                    All Customers <span class="badge bg-secondary ms-1">{{ total }}</span>
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" onclick="showTab('accepted', this)">
+                    <i class="fas fa-check-circle text-success me-1"></i>Accepted
+                    <span class="badge bg-success ms-1">{{ accepted|length }}</span>
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" onclick="showTab('pending', this)">
+                    <i class="fas fa-exclamation-circle text-danger me-1"></i>Not Accepted
+                    <span class="badge bg-danger ms-1">{{ not_accepted|length }}</span>
+                </button>
+            </li>
+        </ul>
+        <div style="min-width:240px;">
+            <div class="input-group input-group-sm">
+                <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
+                <input type="text" id="waiverSearch" class="form-control"
+                       placeholder="Search by name, email, phone…"
+                       oninput="filterTable(this.value)">
+                <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('waiverSearch').value=''; filterTable('');" title="Clear">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="searchCount" class="text-muted small mt-1 text-end" style="display:none;"></div>
+        </div>
+    </div>
 
     <!-- Accepted Table -->
     <div id="tab-accepted" class="tab-content-panel" style="display:none;">
@@ -69,7 +83,7 @@
             </div>
             <div class="card-body p-0">
                 {% if accepted %}
-                <table class="table table-hover mb-0">
+                <table class="table table-hover mb-0" id="table-accepted">
                     <thead class="table-light">
                         <tr>
                             <th>Customer</th>
@@ -89,12 +103,18 @@
                             'private_cremation': 'Private cremation',
                             'communal_cremation': 'Communal cremation'
                         } %}
+                        {% set is_backfill = (c.waiver_accepted_at and c.created_at and
+                            ((c.waiver_accepted_at - c.created_at).total_seconds()|abs) < 5) %}
                         <tr>
                             <td><strong>{{ c.first_name }} {{ c.last_name }}</strong></td>
                             <td class="text-muted small">{{ c.email }}</td>
                             <td class="text-muted small">{{ c.phone or '—' }}</td>
                             <td>
-                                {% if c.waiver_accepted_at %}
+                                {% if is_backfill %}
+                                <span class="badge bg-warning text-dark" title="Marked via migration — no explicit signature on file">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>Backfilled
+                                </span>
+                                {% elif c.waiver_accepted_at %}
                                 <span class="badge bg-success">
                                     <i class="fas fa-check me-1"></i>{{ c.waiver_accepted_at.strftime('%m/%d/%Y') }}
                                 </span>
@@ -125,6 +145,9 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                <div id="no-results-accepted" class="text-center py-4 text-muted" style="display:none;">
+                    No customers match your search.
+                </div>
                 {% else %}
                 <div class="text-center py-4 text-muted">No customers have accepted the waiver yet.</div>
                 {% endif %}
@@ -148,7 +171,7 @@
             {% endif %}
             <div class="card-body p-0">
                 {% if not_accepted %}
-                <table class="table table-hover mb-0">
+                <table class="table table-hover mb-0" id="table-pending">
                     <thead class="table-light">
                         <tr>
                             <th>Customer</th>
@@ -193,6 +216,9 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                <div id="no-results-pending" class="text-center py-4 text-muted" style="display:none;">
+                    No customers match your search.
+                </div>
                 {% else %}
                 <div class="text-center py-4 text-muted">
                     <i class="fas fa-check-circle fa-2x mb-2 d-block text-success opacity-50"></i>
@@ -210,7 +236,7 @@
                 <strong class="text-white"><i class="fas fa-users me-2"></i>All Customers</strong>
             </div>
             <div class="card-body p-0">
-                <table class="table table-hover mb-0">
+                <table class="table table-hover mb-0" id="table-all">
                     <thead class="table-light">
                         <tr>
                             <th>Customer</th>
@@ -224,19 +250,29 @@
                     </thead>
                     <tbody>
                         {% for c in all_customers %}
+                        {% set is_backfill = (c.waiver_accepted_at and c.created_at and
+                            ((c.waiver_accepted_at - c.created_at).total_seconds()|abs) < 5) %}
                         <tr>
                             <td><strong>{{ c.first_name }} {{ c.last_name }}</strong></td>
                             <td class="text-muted small">{{ c.email }}</td>
                             <td class="text-muted small">{{ c.phone or '—' }}</td>
                             <td>
                                 {% if c.waiver_accepted %}
-                                <span class="badge bg-success"><i class="fas fa-check me-1"></i>Accepted</span>
+                                    {% if is_backfill %}
+                                    <span class="badge bg-warning text-dark" title="Marked via migration — no explicit signature on file">
+                                        <i class="fas fa-exclamation-triangle me-1"></i>Backfilled
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-success"><i class="fas fa-check me-1"></i>Accepted</span>
+                                    {% endif %}
                                 {% else %}
                                 <span class="badge bg-danger"><i class="fas fa-times me-1"></i>Not Accepted</span>
                                 {% endif %}
                             </td>
                             <td class="text-muted small">
-                                {% if c.waiver_accepted_at %}
+                                {% if is_backfill %}
+                                <span class="text-warning small"><i class="fas fa-exclamation-triangle me-1"></i>Backfilled</span>
+                                {% elif c.waiver_accepted_at %}
                                 {{ c.waiver_accepted_at.strftime('%m/%d/%Y') }}
                                 {% elif c.waiver_accepted %}
                                 Prior to tracking
@@ -253,17 +289,68 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                <div id="no-results-all" class="text-center py-4 text-muted" style="display:none;">
+                    No customers match your search.
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-function showTab(tab) {
+let currentTab = 'all';
+
+function showTab(tab, btn) {
     document.querySelectorAll('.tab-content-panel').forEach(p => p.style.display = 'none');
     document.getElementById('tab-' + tab).style.display = 'block';
-    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-    event.target.classList.add('active');
+    document.querySelectorAll('#waiverTabs .nav-link').forEach(l => l.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    currentTab = tab;
+    // Re-apply current search to new tab
+    const q = document.getElementById('waiverSearch').value;
+    filterTable(q);
 }
+
+function filterTable(query) {
+    const q = query.trim().toLowerCase();
+    const tableId = 'table-' + currentTab;
+    const table = document.getElementById(tableId);
+    const noResults = document.getElementById('no-results-' + currentTab);
+    const countEl = document.getElementById('searchCount');
+
+    if (!table) return;
+
+    const rows = table.querySelectorAll('tbody tr');
+    let visible = 0;
+
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        const match = !q || text.includes(q);
+        row.style.display = match ? '' : 'none';
+        if (match) visible++;
+    });
+
+    // Show/hide no-results message
+    if (noResults) {
+        noResults.style.display = (q && visible === 0) ? '' : 'none';
+    }
+
+    // Show count when searching
+    if (q) {
+        countEl.textContent = `${visible} of ${rows.length} shown`;
+        countEl.style.display = '';
+    } else {
+        countEl.style.display = 'none';
+    }
+}
+
+// Handle URL hash on load (#pending, #accepted, #all)
+document.addEventListener('DOMContentLoaded', function () {
+    const hash = window.location.hash.replace('#', '');
+    if (['accepted', 'pending', 'all'].includes(hash)) {
+        const btn = document.querySelector(`#waiverTabs .nav-link[onclick*="${hash}"]`);
+        showTab(hash, btn);
+    }
+});
 </script>
 {% endblock %}
