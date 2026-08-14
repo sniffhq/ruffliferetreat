@@ -901,77 +901,88 @@ def daycare_visit_deny(appt_id):
 @login_required
 @staff_required
 def daycare_walkin():
-    """Walk-in check-in removed — all daycare visits must be scheduled and approved."""
-    flash('Walk-in check-ins are no longer available. All daycare visits must be scheduled through the customer portal and approved by staff.', 'warning')
-    return redirect(url_for('admin.daycare_dashboard'))
-    from datetime import date
-    pet_id = request.form.get('pet_id', '').strip()
-    if not pet_id:
-        flash('Please select a pet.', 'warning')
-        return redirect(url_for('admin.daycare_dashboard'))
+    """Staff-side regular daycare add: 'expected' creates enrollment, 'checkin' also checks in immediately."""
+    import json as _json
+    from datetime import date as _date
 
-    pet = Pet.query.get_or_404(int(pet_id))
-    owner = pet.owner
-    check_in_time = datetime.now()
+    try:
+        data    = request.get_json(silent=True) or {}
+        pet_id  = int(data.get('pet_id', 0))
+        action  = data.get('action', 'checkin')   # 'expected' or 'checkin'
+        date_str = data.get('date', '')
+        visit_date = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else _date.today()
+    except Exception as e:
+        return {'ok': False, 'error': str(e)}, 400
 
-    # Find existing walk-in enrollment for this pet, or create one
-    enrollment = DaycareEnrollment.query.filter_by(
-        pet_id=pet.id, is_walkin=True
-    ).first()
+    pet = Pet.query.get(pet_id)
+    if not pet:
+        return {'ok': False, 'error': 'Pet not found'}, 404
+
+    # Find or create walk-in enrollment, always updating enrollment_date to this visit
+    enrollment = DaycareEnrollment.query.filter_by(pet_id=pet.id, is_walkin=True).first()
     if not enrollment:
         enrollment = DaycareEnrollment(
             pet_id=pet.id,
-            enrollment_date=datetime.now().date(),
+            enrollment_date=visit_date,
             active=False,
             is_walkin=True,
         )
         db.session.add(enrollment)
-        db.session.flush()
-
-    # Prevent double check-in today
-    existing = DaycareAttendance.query.filter(
-        DaycareAttendance.enrollment_id == enrollment.id,
-        db.func.date(DaycareAttendance.check_in_time) == date.today(),
-        DaycareAttendance.check_out_time.is_(None)
-    ).first()
-    if existing:
-        flash(f'{pet.name} is already checked in.', 'warning')
-        return redirect(url_for('admin.daycare_dashboard'))
-
-    attendance = DaycareAttendance(
-        enrollment_id=enrollment.id,
-        check_in_time=check_in_time,
-    )
-    db.session.add(attendance)
+    else:
+        enrollment.enrollment_date = visit_date
     db.session.flush()
-    attendance_id = attendance.id
-    db.session.commit()
 
-    # Auto-assign play group
-    try:
-        from app.models import PlayGroup
-        weight = float(pet.weight) if pet.weight else 0
-        size   = 'small' if weight < 25 else ('medium' if weight <= 50 else 'large')
-        temp   = pet.temperament or 'calm'
-        group  = (PlayGroup.query.filter_by(size_category=size, temperament=temp, active=True).first()
-                  or PlayGroup.query.filter_by(size_category=size, temperament='mixed', active=True).first()
-                  or PlayGroup.query.filter_by(size_category=size, active=True).first())
-        if group:
-            DaycareAttendance.query.filter_by(id=attendance_id).update({'play_group_id': group.id})
-            db.session.commit()
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f'Play group assign failed on walk-in check-in: {e}')
+    if action == 'checkin':
+        # Prevent double check-in on the same day
+        existing = DaycareAttendance.query.filter(
+            DaycareAttendance.enrollment_id == enrollment.id,
+            db.func.date(DaycareAttendance.check_in_time) == visit_date,
+            DaycareAttendance.check_out_time.is_(None),
+        ).first()
+        if existing:
+            db.session.rollback()
+            return {'ok': False, 'error': f'{pet.name} is already checked in.'}, 409
 
-    try:
-        from app.audit_service import audit
-        audit('daycare.walkin', 'daycare_attendance', attendance_id, pet.name,
-              f'{pet.name} (walk-in) checked in to daycare at {check_in_time.strftime("%I:%M %p")} by {current_user.first_name} {current_user.last_name}')
-    except Exception:
-        pass
+        check_in_time = datetime.now()
+        attendance = DaycareAttendance(enrollment_id=enrollment.id, check_in_time=check_in_time)
+        db.session.add(attendance)
+        db.session.flush()
+        attendance_id = attendance.id
+        db.session.commit()
 
-    flash(f'{pet.name} checked in as a walk-in at {check_in_time.strftime("%I:%M %p")}.', 'success')
-    return redirect(url_for('admin.daycare_dashboard'))
+        # Auto-assign play group
+        try:
+            from app.models import PlayGroup
+            weight = float(pet.weight) if pet.weight else 0
+            size   = 'small' if weight < 25 else ('medium' if weight <= 50 else 'large')
+            temp   = pet.temperament or 'calm'
+            group  = (PlayGroup.query.filter_by(size_category=size, temperament=temp, active=True).first()
+                      or PlayGroup.query.filter_by(size_category=size, temperament='mixed', active=True).first()
+                      or PlayGroup.query.filter_by(size_category=size, active=True).first())
+            if group:
+                DaycareAttendance.query.filter_by(id=attendance_id).update({'play_group_id': group.id})
+                db.session.commit()
+        except Exception:
+            db.session.rollback()
+
+        try:
+            from app.audit_service import audit
+            audit('daycare.walkin.checkin', 'daycare_attendance', attendance_id, pet.name,
+                  f'{pet.name} checked in (regular daycare) at {check_in_time.strftime("%I:%M %p")} by {current_user.first_name} {current_user.last_name}')
+        except Exception:
+            pass
+
+    else:
+        # 'expected' — enrollment saved, no attendance record yet
+        db.session.commit()
+        try:
+            from app.audit_service import audit
+            audit('daycare.walkin.expected', 'daycare_enrollment', enrollment.id, pet.name,
+                  f'{pet.name} added to expected regular daycare on {visit_date} by {current_user.first_name} {current_user.last_name}')
+        except Exception:
+            pass
+
+    return {'ok': True}
 
 
 @bp.route('/daycare/attendance/<int:attendance_id>/checkout', methods=['POST'])
