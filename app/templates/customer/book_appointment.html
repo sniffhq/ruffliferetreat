@@ -85,18 +85,65 @@
 
                     <!-- ── DAYCARE SECTION ── -->
                     <div class="col-12" id="daycare-section" style="display:none;">
-                        <div class="alert mb-3" style="background:#e8f4fd; border:1px solid #b8daff;">
-                            <h6 class="fw-bold mb-1"><i class="fas fa-paw me-2 text-primary"></i>Single-Day Daycare Visit</h6>
-                            <p class="mb-0 small">
-                                Pick the date you'd like to bring your pup in. Staff will review and confirm — you'll hear back once it's approved.
-                            </p>
+                        <input type="hidden" name="daycare_type" id="daycare_type" value="single">
+
+                        <!-- Daycare type toggle -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Daycare Type</label>
+                            <div class="d-flex gap-2">
+                                <button type="button" id="btn-dc-single"
+                                        class="btn btn-primary flex-fill"
+                                        onclick="selectDaycareType('single')">
+                                    <i class="fas fa-calendar-day me-1"></i>Single Day
+                                </button>
+                                <button type="button" id="btn-dc-multi"
+                                        class="btn btn-outline-primary flex-fill"
+                                        onclick="selectDaycareType('multi')">
+                                    <i class="fas fa-calendar-week me-1"></i>Multi-Day (Recurring)
+                                </button>
+                            </div>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Visit Date <span class="text-danger">*</span></label>
-                            <input type="date" name="daycare_date" id="daycare-date-input"
-                                   class="form-control"
-                                   min="{{ daycare_min_date }}">
-                            <div class="form-text">Daycare runs Monday – Thursday, 7 AM – 3 PM.</div>
+
+                        <!-- Single-day panel -->
+                        <div id="dc-single-panel">
+                            <div class="alert mb-3" style="background:#e8f4fd; border:1px solid #b8daff;">
+                                <h6 class="fw-bold mb-1"><i class="fas fa-paw me-2 text-primary"></i>Single-Day Daycare Visit</h6>
+                                <p class="mb-0 small">
+                                    Pick the date you'd like to bring your pup in. Staff will review and confirm — you'll hear back once it's approved.
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Visit Date <span class="text-danger">*</span></label>
+                                <input type="date" name="daycare_date" id="daycare-date-input"
+                                       class="form-control"
+                                       min="{{ daycare_min_date }}">
+                                <div class="form-text">Daycare runs Monday – Saturday, 7 AM – 3 PM.</div>
+                            </div>
+                        </div>
+
+                        <!-- Multi-day panel -->
+                        <div id="dc-multi-panel" style="display:none;">
+                            <div class="alert mb-3" style="background:#fff8e1; border:1px solid #ffe082;">
+                                <h6 class="fw-bold mb-1"><i class="fas fa-calendar-week me-2 text-warning"></i>Multi-Day Recurring Daycare</h6>
+                                <p class="mb-0 small">
+                                    Select the days your pup will attend each week. We'll add you to our recurring daycare waitlist and reach out to confirm availability.
+                                </p>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Preferred Days <span class="text-danger">*</span></label>
+                                <div class="d-flex flex-wrap gap-2 mt-1">
+                                    {% for day in ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'] %}
+                                    <div class="form-check form-check-inline m-0">
+                                        <input class="form-check-input dc-day-check" type="checkbox"
+                                               name="dc_days" value="{{ day.lower() }}"
+                                               id="dc-day-{{ day.lower() }}">
+                                        <label class="form-check-label btn btn-sm btn-outline-secondary dc-day-label"
+                                               for="dc-day-{{ day.lower() }}">{{ day }}</label>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                <div class="form-text mt-2">Select at least one day.</div>
+                            </div>
                         </div>
                     </div>
 
@@ -294,6 +341,47 @@ function selectService(choice) {
         });
     }
 }
+
+function selectDaycareType(type) {
+    document.getElementById('daycare_type').value = type;
+    var singlePanel = document.getElementById('dc-single-panel');
+    var multiPanel  = document.getElementById('dc-multi-panel');
+    var btnSingle   = document.getElementById('btn-dc-single');
+    var btnMulti    = document.getElementById('btn-dc-multi');
+    var submitLabel = document.getElementById('submit-label');
+    var footerHint  = document.getElementById('footer-hint');
+
+    if (type === 'multi') {
+        singlePanel.style.display = 'none';
+        multiPanel.style.display  = 'block';
+        btnSingle.classList.remove('btn-primary');
+        btnSingle.classList.add('btn-outline-primary');
+        btnMulti.classList.remove('btn-outline-primary');
+        btnMulti.classList.add('btn-primary');
+        submitLabel.textContent = 'Join Waitlist';
+        footerHint.innerHTML = '<i class="fas fa-calendar-week me-1"></i>We\'ll reach out once a recurring spot opens';
+    } else {
+        singlePanel.style.display = 'block';
+        multiPanel.style.display  = 'none';
+        btnMulti.classList.remove('btn-primary');
+        btnMulti.classList.add('btn-outline-primary');
+        btnSingle.classList.remove('btn-outline-primary');
+        btnSingle.classList.add('btn-primary');
+        submitLabel.textContent = 'Book Now';
+        footerHint.innerHTML = '<i class="fas fa-clipboard-list me-1"></i>Our team will confirm your daycare schedule';
+    }
+}
+
+// Style day checkboxes as toggle buttons
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('dc-day-check')) {
+        var label = document.querySelector('label[for="' + e.target.id + '"]');
+        if (label) {
+            label.classList.toggle('btn-primary', e.target.checked);
+            label.classList.toggle('btn-outline-secondary', !e.target.checked);
+        }
+    }
+});
 
 // Initialise on load — boarding is default unless ?service=daycare is in the URL
 document.addEventListener('DOMContentLoaded', function() {
@@ -590,13 +678,23 @@ document.querySelector('form').addEventListener('submit', function(e) {
         }
     }
 
-    // If daycare selected, require a visit date
+    // If daycare selected, validate based on type
     if (document.getElementById('service_choice').value === 'daycare') {
-        var dcDate = document.getElementById('daycare-date-input').value;
-        if (!dcDate) {
-            e.preventDefault();
-            alert('Please select a visit date for daycare.');
-            return;
+        var dcType = document.getElementById('daycare_type').value;
+        if (dcType === 'single') {
+            var dcDate = document.getElementById('daycare-date-input').value;
+            if (!dcDate) {
+                e.preventDefault();
+                alert('Please select a visit date for daycare.');
+                return;
+            }
+        } else {
+            var checkedDays = document.querySelectorAll('.dc-day-check:checked');
+            if (checkedDays.length === 0) {
+                e.preventDefault();
+                alert('Please select at least one preferred day for recurring daycare.');
+                return;
+            }
         }
     }
 

@@ -641,7 +641,58 @@ def book_appointment():
 
             # ── DAYCARE VISIT REQUEST PATH ───────────────────────────────────
             if service_choice == 'daycare':
-                from app.models import DaycareEnrollment, ServiceType as _ST2
+                from app.models import DaycareEnrollment, DaycareWaitlist, ServiceType as _ST2
+                daycare_type = request.form.get('daycare_type', 'single')
+
+                selected_ids  = [int(pid) for pid in pet_ids]
+                selected_pets = Pet.query.filter(
+                    Pet.id.in_(selected_ids), Pet.user_id == current_user.id
+                ).all()
+                if len(selected_pets) != len(set(selected_ids)):
+                    flash('One or more selected pets could not be found on your account.', 'danger')
+                    return redirect(url_for('customer.book_appointment'))
+
+                # ── Multi-day: add to recurring waitlist ─────────────────────
+                if daycare_type == 'multi':
+                    dc_days = request.form.getlist('dc_days')
+                    valid_days = {'monday','tuesday','wednesday','thursday','friday','saturday'}
+                    chosen = [d for d in dc_days if d in valid_days]
+                    if not chosen:
+                        flash('Please select at least one preferred day.', 'danger')
+                        return redirect(url_for('customer.book_appointment'))
+
+                    added = []
+                    for pet in selected_pets:
+                        entry = DaycareWaitlist(
+                            first_name = current_user.first_name,
+                            last_name  = current_user.last_name,
+                            email      = current_user.email,
+                            phone      = current_user.phone or '',
+                            pet_name   = pet.name,
+                            breed      = pet.breed or '',
+                            user_id    = current_user.id,
+                            monday     = 'monday'    in chosen,
+                            tuesday    = 'tuesday'   in chosen,
+                            wednesday  = 'wednesday' in chosen,
+                            thursday   = 'thursday'  in chosen,
+                            friday     = 'friday'    in chosen,
+                            saturday   = 'saturday'  in chosen,
+                        )
+                        db.session.add(entry)
+                        added.append(pet.name)
+
+                    db.session.commit()
+                    if added:
+                        day_labels = [d.capitalize() for d in ['monday','tuesday','wednesday','thursday','friday','saturday'] if d in chosen]
+                        names = ', '.join(added)
+                        flash(
+                            f'{names} has been added to our recurring daycare waitlist for '
+                            f'{", ".join(day_labels)}. We\'ll reach out once a spot opens!',
+                            'success'
+                        )
+                    return redirect(url_for('customer.dashboard'))
+
+                # ── Single-day: visit request ────────────────────────────────
                 daycare_date_str = request.form.get('daycare_date', '').strip()
                 if not daycare_date_str:
                     flash('Please select a visit date.', 'danger')
@@ -656,15 +707,6 @@ def book_appointment():
                 daycare_svc = _ST2.query.filter(_ST2.name.ilike('%daycare%')).first()
                 if not daycare_svc:
                     flash('Daycare service is not configured. Please contact us directly.', 'danger')
-                    return redirect(url_for('customer.book_appointment'))
-
-                selected_ids  = [int(pid) for pid in pet_ids]
-                selected_pets = Pet.query.filter(
-                    Pet.id.in_(selected_ids), Pet.user_id == current_user.id
-                ).all()
-
-                if len(selected_pets) != len(set(selected_ids)):
-                    flash('One or more selected pets could not be found on your account.', 'danger')
                     return redirect(url_for('customer.book_appointment'))
 
                 added = []
