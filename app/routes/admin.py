@@ -3308,6 +3308,12 @@ def update_customer_rates(customer_id):
         customer.custom_addon_nail_trim          = None
         customer.custom_rate_note                = None
         db.session.commit()
+        try:
+            from app.audit_service import audit
+            cname = f'{customer.first_name} {customer.last_name}'
+            audit('customer.rates_cleared', 'customer', customer_id, cname,
+                  f'Custom rates cleared for {cname} by {current_user.first_name} {current_user.last_name}')
+        except Exception: pass
         flash('Custom rates cleared — facility defaults will be used.', 'info')
         return redirect(url_for('admin.customer_detail', customer_id=customer_id))
 
@@ -3330,6 +3336,12 @@ def update_customer_rates(customer_id):
     customer.custom_rate_note                = request.form.get('custom_rate_note', '').strip() or None
 
     db.session.commit()
+    try:
+        from app.audit_service import audit
+        cname = f'{customer.first_name} {customer.last_name}'
+        audit('customer.rates_updated', 'customer', customer_id, cname,
+              f'Custom rates updated for {cname} by {current_user.first_name} {current_user.last_name}')
+    except Exception: pass
     flash(f'Custom rates saved for {customer.first_name} {customer.last_name}.', 'success')
     return redirect(url_for('admin.customer_detail', customer_id=customer_id))
 
@@ -3609,6 +3621,12 @@ def upload_customer_photo(customer_id):
     )
     db.session.add(rec)
     db.session.commit()
+    try:
+        from app.audit_service import audit
+        cname = f'{customer.first_name} {customer.last_name}'
+        audit('customer_photo.uploaded', 'customer', customer_id, cname,
+              f'Photo uploaded for {cname} by {current_user.first_name} {current_user.last_name}')
+    except Exception: pass
     flash('Photo uploaded successfully.', 'success')
     return redirect(url_for('admin.customer_detail', customer_id=customer_id))
 
@@ -5014,6 +5032,13 @@ def update_daycare_schedule(customer_id):
         enrollment.saturday  = bool(request.form.get(f'{prefix}saturday'))
         enrollment.sunday    = bool(request.form.get(f'{prefix}sunday'))
     db.session.commit()
+    try:
+        from app.audit_service import audit
+        customer = User.query.get(customer_id)
+        cname = f'{customer.first_name} {customer.last_name}' if customer else f'Customer #{customer_id}'
+        audit('customer.daycare_schedule_updated', 'customer', customer_id, cname,
+              f'Daycare schedule updated for {cname} by {current_user.first_name} {current_user.last_name}')
+    except Exception: pass
     flash('Daycare schedule updated.', 'success')
     return redirect(url_for('admin.customer_detail', customer_id=customer_id))
 
@@ -5607,7 +5632,11 @@ def upload_pet_photo(pet_id):
     photo.save(os.path.join(upload_dir, filename))
     pet.photo_path = filename
     db.session.commit()
-
+    try:
+        from app.audit_service import audit
+        audit('pet.photo_uploaded', 'pet', pet_id, pet.name,
+              f'Photo updated for {pet.name} by {current_user.first_name} {current_user.last_name}')
+    except Exception: pass
     flash(f'Photo updated for {pet.name}.', 'success')
     return redirect(url_for('admin.pet_detail', pet_id=pet_id))
 
@@ -8547,6 +8576,12 @@ def apply_promo_to_customer(customer_id):
         return redirect(url_for('admin.customer_detail', customer_id=customer_id))
 
     apply_promo_code(code, customer, base_amt, db)
+    try:
+        from app.audit_service import audit
+        cname = f'{customer.first_name} {customer.last_name}'
+        audit('customer.promo_applied', 'customer', customer_id, cname,
+              f'Promo code "{code.code}" applied to {cname} by {current_user.first_name} {current_user.last_name}')
+    except Exception: pass
     flash(f'Promo code {code.code} applied — {code.display_value()}.', 'success')
     return redirect(url_for('admin.customer_detail', customer_id=customer_id))
 
@@ -8568,6 +8603,12 @@ def apply_loyalty_credit_route(customer_id, credit_id):
         flash('This credit has already been applied.', 'warning')
         return redirect(url_for('admin.customer_detail', customer_id=customer_id))
     apply_loyalty_credit(credit, customer, db)
+    try:
+        from app.audit_service import audit
+        cname = f'{customer.first_name} {customer.last_name}'
+        audit('customer.loyalty_credit_applied', 'customer', customer_id, cname,
+              f'Loyalty credit of ${float(credit.amount):.2f} applied to {cname} by {current_user.first_name} {current_user.last_name}')
+    except Exception: pass
     flash(f'Loyalty credit of ${float(credit.amount):.2f} applied to invoice adjustments.', 'success')
     return redirect(url_for('admin.customer_detail', customer_id=customer_id))
 
@@ -8712,6 +8753,12 @@ def send_waiver_reminder_sms(customer_id):
         )
         db.session.add(log)
         db.session.commit()
+        try:
+            from app.audit_service import audit
+            cname = f'{customer.first_name} {customer.last_name}'
+            audit('customer.waiver_reminder_sent', 'customer', customer_id, cname,
+                  f'Waiver reminder SMS sent to {cname} by {current_user.first_name} {current_user.last_name}')
+        except Exception: pass
         flash(f'Waiver reminder sent to {customer.first_name} {customer.last_name}.', 'success')
     except Exception as e:
         current_app.logger.error(f'Waiver reminder SMS failed for customer {customer_id}: {e}')
@@ -9320,6 +9367,12 @@ def send_balance_reminder(customer_id):
         )
         db.session.add(log)
         db.session.commit()
+        try:
+            from app.audit_service import audit
+            cname = f'{customer.first_name} {customer.last_name}'
+            audit('customer.balance_reminder_sent', 'customer', customer_id, cname,
+                  f'Balance reminder SMS sent to {cname} (${total:.2f} outstanding) by {current_user.first_name} {current_user.last_name}')
+        except Exception: pass
         flash(f'Balance reminder sent to {customer.first_name} for ${total:.2f}.', 'success')
     except Exception as e:
         current_app.logger.error(f'Balance reminder SMS failed: {e}')
@@ -9337,6 +9390,12 @@ def customer_waiver_reset(customer_id):
     customer.waiver_accepted    = False
     customer.waiver_accepted_at = None
     db.session.commit()
+    try:
+        from app.audit_service import audit
+        cname = f'{customer.first_name} {customer.last_name}'
+        audit('customer.waiver_reset', 'customer', customer_id, cname,
+              f'Waiver acceptance reset for {cname} by {current_user.first_name} {current_user.last_name}')
+    except Exception: pass
     flash(f'Waiver acceptance cleared for {customer.first_name} {customer.last_name}. '
           'They will need to re-sign the next time they log in.', 'success')
     return redirect(url_for('admin.customer_detail', customer_id=customer_id))
@@ -9352,6 +9411,12 @@ def customer_waiver_accept(customer_id):
     customer.waiver_accepted    = True
     customer.waiver_accepted_at = _dt.now()
     db.session.commit()
+    try:
+        from app.audit_service import audit
+        cname = f'{customer.first_name} {customer.last_name}'
+        audit('customer.waiver_accepted', 'customer', customer_id, cname,
+              f'Waiver manually marked accepted for {cname} by {current_user.first_name} {current_user.last_name}')
+    except Exception: pass
     flash(f'Waiver marked as accepted for {customer.first_name} {customer.last_name}.', 'success')
     return redirect(url_for('admin.customer_detail', customer_id=customer_id))
 
