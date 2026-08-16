@@ -3463,6 +3463,8 @@ def create_customer():
         flash('Password must be at least 6 characters.', 'danger')
         return redirect(url_for('admin.customers'))
 
+    waiver_collected = request.form.get('waiver_accepted') == '1'
+
     user = User(
         first_name              = first_name,
         last_name               = last_name,
@@ -3478,7 +3480,9 @@ def create_customer():
         sms_opt_in              = sms_opt_in,
         role                    = 'customer',
         is_active               = True,
-        onboarding_complete     = True
+        onboarding_complete     = True,
+        waiver_accepted         = waiver_collected,
+        waiver_accepted_at      = datetime.now() if waiver_collected else None,
     )
     user.set_password(password)
     db.session.add(user)

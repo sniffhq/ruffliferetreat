@@ -162,11 +162,15 @@ def register():
         )
         user.set_password(password)
 
-        # Save waiver acceptance if signed during registration
-        if request.form.get('waiver_accepted') == '1':
-            from datetime import datetime
-            user.waiver_accepted    = True
-            user.waiver_accepted_at = datetime.now()
+        # Enforce waiver acceptance — must be checked to proceed
+        if request.form.get('waiver_accepted') != '1':
+            flash('You must read and accept the waiver to create an account.', 'danger')
+            return redirect(url_for('auth.register'))
+
+        # Save waiver acceptance
+        from datetime import datetime
+        user.waiver_accepted    = True
+        user.waiver_accepted_at = datetime.now()
 
         # Save SMS opt-in
         if request.form.get('sms_opt_in') == '1':
@@ -174,7 +178,16 @@ def register():
 
         db.session.add(user)
         db.session.commit()
-        
+
+        # Audit log — self-registration
+        try:
+            from app.audit_service import audit
+            audit('customer.registered', 'customer', user.id,
+                  f'{user.first_name} {user.last_name}',
+                  f'Customer {user.first_name} {user.last_name} self-registered via portal')
+        except Exception:
+            pass
+
         # Send welcome email
         from app.mail_service import send_welcome_email
         try:
