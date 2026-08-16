@@ -94,8 +94,17 @@ def is_bot_submission(request, form_loaded_at):
 
     # 3b. Mixed-case randomness — alternating caps mid-word (e.g. "BlOzFhfe", "waePYUjo")
     #     Real names capitalise only the first letter.
+    #     Exception: Mc/Mac/O' prefixes are legitimate (McEwen, MacDonald, O'Brien).
     mixed_caps = re.compile(r'[a-z][A-Z]|[A-Z][a-z][A-Z]')
-    if mixed_caps.search(first_name[1:]) or mixed_caps.search(last_name[1:]):
+    def _strip_name_prefix(name):
+        """Remove legitimate prefixes before mixed-case check."""
+        for prefix in ("Mac", "Mc", "O'", "O'"):
+            if name.startswith(prefix):
+                return name[len(prefix):]
+        return name
+    fn_check = _strip_name_prefix(first_name)
+    ln_check = _strip_name_prefix(last_name)
+    if mixed_caps.search(fn_check[1:]) or mixed_caps.search(ln_check[1:]):
         print(f"BOT DETECTED: Mixed-case randomised name '{first_name} {last_name}'")
         return True
 
