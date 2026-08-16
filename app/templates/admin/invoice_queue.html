@@ -68,6 +68,8 @@
 
                     <!-- ── Boarding section ── -->
                     {% if item.boarding_lines %}
+                    {% set inv_lines    = item.boarding_lines | selectattr('invoice_id') | list %}
+                    {% set legacy_lines = item.boarding_lines | rejectattr('invoice_id') | list %}
                     <div class="col-md-6">
                         <div class="p-3 rounded" style="background:#f8f9fa; border:1px solid #e9ecef;">
                             <div class="d-flex align-items-center justify-content-between mb-2">
@@ -86,13 +88,31 @@
                                         <span class="badge bg-secondary ms-1" style="font-size:0.65rem;">{{ line.booking_number }}</span>
                                         {% endif %}
                                         <br><span class="text-muted">{{ line.dates }}</span>
+                                        <br><span class="text-muted" style="font-size:0.75rem;">{{ line.detail }}</span>
                                     </td>
                                     <td class="text-end border-0 py-1 pe-0 text-nowrap">${{ '%.2f'|format(line.amount) }}</td>
                                 </tr>
                                 {% endfor %}
                                 </tbody>
                             </table>
-                            <!-- Mark boarding paid form -->
+                            <!-- New Invoice model — View Invoice button(s) -->
+                            {% if inv_lines %}
+                            <div class="d-flex flex-wrap gap-2 mb-2">
+                                {% for line in inv_lines %}
+                                <a href="{{ url_for('admin.view_invoice', inv_id=line.invoice_id) }}"
+                                   class="btn btn-mauve btn-sm">
+                                    <i class="fas fa-file-invoice me-1"></i> View Invoice
+                                    {% if line.invoice_status == 'draft' %}
+                                    <span class="badge bg-warning text-dark ms-1" style="font-size:0.65rem;">Draft</span>
+                                    {% elif line.invoice_status == 'sent' %}
+                                    <span class="badge bg-info text-dark ms-1" style="font-size:0.65rem;">Sent</span>
+                                    {% endif %}
+                                </a>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            <!-- Legacy — Mark Paid form (only if there are lines without an Invoice record) -->
+                            {% if legacy_lines %}
                             <form method="POST" action="{{ url_for('admin.mark_invoice_paid', customer_id=c.id) }}">
                                 <input type="hidden" name="invoice_type" value="boarding">
                                 <input type="hidden" name="_next_queue" value="1">
@@ -111,6 +131,7 @@
                                     </a>
                                 </div>
                             </form>
+                            {% endif %}
                         </div>
                     </div>
                     {% endif %}

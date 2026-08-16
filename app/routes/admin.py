@@ -1703,11 +1703,37 @@ def invoice_queue():
 
         for pet in sorted(c.pets, key=lambda p: p.name):
             # ── Unpaid completed boardings ────────────────────────────────
+            # Include boardings with no payment_id (legacy) OR those with an
+            # Invoice record that is not yet paid/void (new system).
             boardings = Boarding.query.filter_by(
                 pet_id=pet.id, status='completed'
-            ).filter(Boarding.payment_id == None).order_by(Boarding.check_out_date.asc()).all()
+            ).order_by(Boarding.check_out_date.asc()).all()
 
             for b in boardings:
+                # New Invoice model takes priority
+                if b.invoice:
+                    if b.invoice.status in ('paid', 'void'):
+                        continue  # already settled
+                    # Draft or sent invoice — show with link
+                    line_amt = b.invoice.total
+                    boarding_total += line_amt
+                    boarding_lines.append({
+                        'pet':            pet.name,
+                        'dates':          f'{b.check_in_date.strftime("%b %d")} – {b.check_out_date.strftime("%b %d, %Y")}',
+                        'detail':         f'Invoice #{b.invoice.invoice_number} · {b.invoice.status.capitalize()}',
+                        'amount':         line_amt,
+                        'booking_number': b.booking_number or '',
+                        'invoice_id':     b.invoice.id,
+                        'invoice_status': b.invoice.status,
+                    })
+                    if oldest_date is None or b.check_out_date < oldest_date:
+                        oldest_date = b.check_out_date
+                    continue
+
+                # Legacy — no Invoice record; skip if already paid via old payment_id
+                if b.payment_id is not None:
+                    continue
+
                 days = _boarding_days(b)
                 siblings = Boarding.query.filter_by(
                     user_id=c.id,
@@ -1734,11 +1760,13 @@ def invoice_queue():
                 line_amt = rate * days + addon_cost
                 boarding_total += line_amt
                 boarding_lines.append({
-                    'pet':    pet.name,
-                    'dates':  f'{b.check_in_date.strftime("%b %d")} – {b.check_out_date.strftime("%b %d, %Y")}',
-                    'detail': f'{days} night{"s" if days != 1 else ""} @ ${rate:.0f}' + (f' + ${addon_cost:.0f} add-ons' if addon_cost else ''),
-                    'amount': line_amt,
+                    'pet':            pet.name,
+                    'dates':          f'{b.check_in_date.strftime("%b %d")} – {b.check_out_date.strftime("%b %d, %Y")}',
+                    'detail':         f'{days} night{"s" if days != 1 else ""} @ ${rate:.0f}' + (f' + ${addon_cost:.0f} add-ons' if addon_cost else ''),
+                    'amount':         line_amt,
                     'booking_number': b.booking_number or '',
+                    'invoice_id':     None,
+                    'invoice_status': None,
                 })
                 if oldest_date is None or b.check_out_date < oldest_date:
                     oldest_date = b.check_out_date
