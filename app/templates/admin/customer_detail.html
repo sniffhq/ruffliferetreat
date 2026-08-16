@@ -366,6 +366,7 @@
                 </thead>
                 <tbody>
                     {% for p in customer.payments|sort(attribute='payment_date', reverse=True) %}
+                    {% if p.status == 'void' %}{% else %}
                     <tr>
                         <td>{{ p.payment_date.strftime('%b %d, %Y') }}</td>
                         <td>{{ p.service_type or '—' }}</td>
@@ -374,6 +375,8 @@
                         <td>
                             {% if p.status == 'paid' %}
                                 <span class="badge bg-success">Paid</span>
+                            {% elif p.status == 'void' %}
+                                <span class="badge bg-secondary">Void</span>
                             {% else %}
                                 <span class="badge bg-warning text-dark">Outstanding</span>
                             {% endif %}
@@ -399,6 +402,7 @@
                             </form>
                         </td>
                     </tr>
+                    {% endif %}
                     {% endfor %}
                 </tbody>
                 <tfoot class="table-light">
