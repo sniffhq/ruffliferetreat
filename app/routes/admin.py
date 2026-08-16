@@ -10396,11 +10396,33 @@ def _generate_boarding_invoice(booking, generated_by_id=None):
         except Exception:
             pass
 
+    # Price add-ons from configured rates (not the label string) so changes
+    # in Business Settings are reflected on new invoices.
+    rates = get_rates(customer)
+    ADDON_RATE_MAP = {
+        'spa bath + nail': ('addon_spa_bath_nails', 'Spa Bath + Nail Trim'),
+        'spa bath':        ('addon_spa_bath',       'Spa Bath'),
+        'nail trim':       ('addon_nail_trim',       'Nail Trim'),
+        'nail':            ('addon_nail_trim',       'Nail Trim'),
+    }
     for addon_name in addons:
-        addon_price = _parse_addon_price(addon_name)
+        n = addon_name.lower()
+        matched_key = None
+        matched_label = addon_name
+        # Longest match first so "spa bath + nail" wins over "spa bath"
+        for kw, (rate_key, clean_label) in ADDON_RATE_MAP.items():
+            if kw in n:
+                matched_key   = rate_key
+                matched_label = clean_label
+                break
+        if matched_key:
+            addon_price = rates.get(matched_key, 0.0)
+        else:
+            addon_price = _parse_addon_price(addon_name)  # unknown addon — fall back
         if addon_price:
+            price_tag    = f'${addon_price:.0f}' if addon_price == int(addon_price) else f'${addon_price:.2f}'
             line_items.append({
-                'description': addon_name,
+                'description': f'{matched_label} ({price_tag})',
                 'detail':      '',
                 'amount':      addon_price,
                 'type':        'addon',

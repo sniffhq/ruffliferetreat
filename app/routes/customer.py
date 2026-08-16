@@ -567,6 +567,21 @@ def book_appointment():
     addon_spa_bath       = _toggle('portal_addon_spa_bath')
     addon_nail_trim      = _toggle('portal_addon_nail_trim')
 
+    def _get_addon_rates():
+        try:
+            sbn = float(_gs('addon_spa_bath_nails') or 20.0)
+        except (ValueError, TypeError):
+            sbn = 20.0
+        try:
+            sb = float(_gs('addon_spa_bath') or 15.0)
+        except (ValueError, TypeError):
+            sb = 15.0
+        try:
+            nt = float(_gs('addon_nail_trim') or 10.0)
+        except (ValueError, TypeError):
+            nt = 10.0
+        return {'addon_spa_bath_nails': sbn, 'addon_spa_bath': sb, 'addon_nail_trim': nt}
+
     # Advance booking window
     try:
         booking_min = int(_gs('booking_min_advance_days') or 1)
@@ -904,7 +919,8 @@ def book_appointment():
                            addon_spa_bath_nails=addon_spa_bath_nails,
                            addon_spa_bath=addon_spa_bath,
                            addon_nail_trim=addon_nail_trim,
-                           addon_blackout_ranges_json=addon_blackout_ranges_json)
+                           addon_blackout_ranges_json=addon_blackout_ranges_json,
+                           addon_rates=_get_addon_rates())
 
 @bp.route('/available-times')
 @login_required

@@ -224,7 +224,7 @@
                                        onchange="updatePricing()">
                                 <label class="form-check-label" for="addon_spa_bath_nails">
                                     <strong>Spa Bath + Nail Trim</strong>
-                                    <span class="badge bg-warning text-dark ms-2">$30/pet</span>
+                                    <span class="badge bg-warning text-dark ms-2">${{ addon_rates.addon_spa_bath_nails | int }}/pet</span>
                                     <span class="text-muted small d-block">Full spa bath and nail trim on the last day of stay</span>
                                 </label>
                             </div>
@@ -236,7 +236,7 @@
                                        onchange="updatePricing()">
                                 <label class="form-check-label" for="addon_spa_bath">
                                     <strong>Spa Bath</strong>
-                                    <span class="badge bg-warning text-dark ms-2">$30/pet</span>
+                                    <span class="badge bg-warning text-dark ms-2">${{ addon_rates.addon_spa_bath | int }}/pet</span>
                                     <span class="text-muted small d-block">Full spa bath on the last day of stay</span>
                                 </label>
                             </div>
@@ -248,7 +248,7 @@
                                        onchange="updatePricing()">
                                 <label class="form-check-label" for="addon_nail_trim">
                                     <strong>Nail Trim</strong>
-                                    <span class="badge bg-warning text-dark ms-2">$20/pet</span>
+                                    <span class="badge bg-warning text-dark ms-2">${{ addon_rates.addon_nail_trim | int }}/pet</span>
                                     <span class="text-muted small d-block">Nail trim only on the last day of stay</span>
                                 </label>
                             </div>
@@ -447,7 +447,7 @@ function validateDates() {
 }
 
 // ── Pricing ─────────────────────────────────────────────────────────────────
-var ADDON_PRICES = { spa_bath_nails: 20, spa_bath: 15, nail_trim: 10 };
+var ADDON_PRICES = { spa_bath_nails: {{ addon_rates.addon_spa_bath_nails }}, spa_bath: {{ addon_rates.addon_spa_bath }}, nail_trim: {{ addon_rates.addon_nail_trim }} };
 var ADDON_LABELS = { spa_bath_nails: 'Spa Bath + Nail Trim', spa_bath: 'Spa Bath', nail_trim: 'Nail Trim' };
 
 function getCheckinDate()  { return document.getElementById('checkin-date').value; }
