@@ -34,11 +34,39 @@
     </div>
     {% else %}
 
+    <!-- Search bar -->
+    <div class="mb-3 d-flex align-items-center gap-2">
+        <div class="input-group" style="max-width:380px;">
+            <span class="input-group-text bg-white border-end-0">
+                <i class="fas fa-search text-muted" style="font-size:0.85rem;"></i>
+            </span>
+            <input type="text" id="iq-search" class="form-control border-start-0 ps-0"
+                   placeholder="Search by customer or pet name…"
+                   autocomplete="off">
+            <button type="button" class="btn btn-outline-secondary" id="iq-clear"
+                    style="display:none;" title="Clear search">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <span id="iq-count" class="text-muted small"></span>
+    </div>
+
+    <!-- No-results state -->
+    <div id="iq-no-results" class="text-center py-5" style="display:none;">
+        <i class="fas fa-search fa-3x mb-3 opacity-25"></i>
+        <p class="text-muted">No results match your search.</p>
+    </div>
+
     <!-- Queue cards -->
-    <div class="row g-3">
+    <div class="row g-3" id="iq-cards">
     {% for item in queue %}
     {% set c = item.customer %}
-    <div class="col-12" id="queue-card-{{ c.id }}">
+    {# Build searchable string: customer name + all pet names #}
+    {% set pet_names = [] %}
+    {% for line in item.boarding_lines %}{% if pet_names.append(line.pet) %}{% endif %}{% endfor %}
+    {% for line in item.daycare_lines %}{% if pet_names.append(line.pet) %}{% endif %}{% endfor %}
+    <div class="col-12 iq-card" id="queue-card-{{ c.id }}"
+         data-search="{{ (c.first_name ~ ' ' ~ c.last_name ~ ' ' ~ pet_names|join(' '))|lower }}">
         <div class="card shadow-sm border-0" style="border-left: 4px solid {% if item.days_outstanding > 30 %}#dc3545{% elif item.days_outstanding > 14 %}#fd7e14{% else %}#B07A8E{% endif %} !important; border-left-width:4px !important;">
             <div class="card-body p-4">
 
@@ -216,8 +244,46 @@
         </div><!-- /card -->
     </div>
     {% endfor %}
-    </div><!-- /row -->
+    </div><!-- /row #iq-cards -->
 
     {% endif %}
 </div>
+
+{% if queue %}
+<script>
+(function () {
+    var input    = document.getElementById('iq-search');
+    var clearBtn = document.getElementById('iq-clear');
+    var countEl  = document.getElementById('iq-count');
+    var noRes    = document.getElementById('iq-no-results');
+    var cards    = document.querySelectorAll('.iq-card');
+    var total    = cards.length;
+
+    function filter() {
+        var q = input.value.trim().toLowerCase();
+        clearBtn.style.display = q ? '' : 'none';
+        var shown = 0;
+        cards.forEach(function (card) {
+            var match = !q || card.dataset.search.indexOf(q) !== -1;
+            card.style.display = match ? '' : 'none';
+            if (match) shown++;
+        });
+        if (q) {
+            countEl.textContent = shown + ' of ' + total + ' shown';
+            noRes.style.display = shown === 0 ? '' : 'none';
+        } else {
+            countEl.textContent = '';
+            noRes.style.display = 'none';
+        }
+    }
+
+    input.addEventListener('input', filter);
+    clearBtn.addEventListener('click', function () {
+        input.value = '';
+        filter();
+        input.focus();
+    });
+})();
+</script>
+{% endif %}
 {% endblock %}
