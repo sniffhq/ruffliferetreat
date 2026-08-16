@@ -2680,6 +2680,41 @@ def complete_boarding(booking_id):
               f'Boarding completed for {booking.pet.name} by {current_user.first_name} {current_user.last_name}')
     except Exception: pass
 
+    # Last-chance add-on sync: if special_notes has no Add-ons: line, pull from
+    # the linked appointment before the invoice snapshot is taken.  This covers
+    # the case where (a) staff changed the check-in date during approval and the
+    # date-filtered invoice fallback would miss them, or (b) the carry-over at
+    # approval silently failed for any reason.
+    try:
+        if not booking.special_notes or 'Add-ons:' not in (booking.special_notes or ''):
+            from app.models import Appointment as _LA, ServiceType as _LST
+            import re as _lre
+            _lsvc = _LST.query.filter(_LST.name.ilike('%boarding%')).first()
+            if _lsvc:
+                # Try exact date match first; fall back to most recent for this pet
+                _la = (
+                    _LA.query.filter_by(
+                        pet_id=booking.pet_id, user_id=booking.user_id,
+                        service_type_id=_lsvc.id,
+                        appointment_date=booking.check_in_date,
+                    ).order_by(_LA.id.desc()).first()
+                    or
+                    _LA.query.filter_by(
+                        pet_id=booking.pet_id, user_id=booking.user_id,
+                        service_type_id=_lsvc.id,
+                    ).order_by(_LA.id.desc()).first()
+                )
+                if _la and _la.notes and 'Add-ons:' in _la.notes:
+                    _lm = _lre.search(r'Add-ons:\s*(.+)', _la.notes)
+                    if _lm and _lm.group(1).strip():
+                        _base = (booking.special_notes or '').rstrip()
+                        booking.special_notes = (
+                            (_base + '\nAdd-ons: ' + _lm.group(1).strip()).lstrip('\n')
+                        )
+                        db.session.flush()
+    except Exception as _sync_e:
+        current_app.logger.warning(f'Add-on pre-invoice sync failed for boarding {booking_id}: {_sync_e}')
+
     # Auto-generate snapshot invoice
     try:
         invoice = _generate_boarding_invoice(booking, generated_by_id=current_user.id)
@@ -10325,19 +10360,37 @@ def _generate_boarding_invoice(booking, generated_by_id=None):
         'type':   'boarding',
     })
 
-    # Add-ons — prefer special_notes; fall back to appointment notes
+    # Add-ons — prefer special_notes; fall back to appointment notes.
+    # Do NOT fall back if special_notes has an explicit empty 'Add-ons: ' marker,
+    # which means staff intentionally cleared them on the boarding detail page.
     addons, _ = _parse_addons_from_notes(booking.special_notes or '', structured_only=True)
-    if not addons:
+    _addons_explicitly_cleared = (
+        booking.special_notes and
+        'Add-ons:' in booking.special_notes and
+        not addons
+    )
+    if not addons and not _addons_explicitly_cleared:
         try:
             from app.models import Appointment as _Appt, ServiceType as _ST
             _svc = _ST.query.filter(_ST.name.ilike('%boarding%')).first()
             if _svc:
-                _a = _Appt.query.filter_by(
-                    pet_id          = pet.id,
-                    user_id         = customer.id,
-                    service_type_id = _svc.id,
-                    appointment_date= booking.check_in_date,
-                ).order_by(_Appt.id.desc()).first()
+                # Try exact date match first (happy path), then fall back to
+                # most recent boarding appointment for this pet — handles cases
+                # where staff changed the check-in date during approval.
+                _a = (
+                    _Appt.query.filter_by(
+                        pet_id          = pet.id,
+                        user_id         = customer.id,
+                        service_type_id = _svc.id,
+                        appointment_date= booking.check_in_date,
+                    ).order_by(_Appt.id.desc()).first()
+                    or
+                    _Appt.query.filter_by(
+                        pet_id          = pet.id,
+                        user_id         = customer.id,
+                        service_type_id = _svc.id,
+                    ).order_by(_Appt.id.desc()).first()
+                )
                 if _a and _a.notes:
                     addons, _ = _parse_addons_from_notes(_a.notes)
         except Exception:
