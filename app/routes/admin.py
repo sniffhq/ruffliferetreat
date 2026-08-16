@@ -4468,6 +4468,13 @@ def send_invoice_sms(customer_id):
                 pet_id=pet.id, status='completed'
             ).filter(Boarding.payment_id == None).all()
             for b in boardings:
+                # Skip boardings already tracked by the new Invoice model —
+                # those are invoiced via the Invoice system, not legacy payments.
+                try:
+                    if b.invoice:
+                        continue
+                except Exception:
+                    pass
                 days     = _boarding_days(b)
                 siblings = Boarding.query.filter_by(
                     user_id=customer.id,
