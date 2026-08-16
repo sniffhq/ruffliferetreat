@@ -109,16 +109,19 @@
                                 </div>
                             </div>
 
-                            <div class="form-check p-3 rounded" style="background:#fff8f5; border:1px solid #B07A8E;">
+                            <div class="form-check p-3 rounded" id="waiver-check-wrap" style="background:#fff8f5; border:1px solid #B07A8E;">
                                 <input class="form-check-input" type="checkbox"
                                        name="waiver_accepted" id="waiver_accepted"
-                                       value="1" required>
+                                       value="1">
                                 <label class="form-check-label fw-bold" for="waiver_accepted"
                                        style="color:#1a1a2e; font-size:0.9rem;">
                                     I have read, understood, and agree to all terms of the Ruff Life Retreat
                                     Doggy Daycare &amp; Boarding Waiver. I confirm this serves as my
                                     electronic signature.
                                 </label>
+                            </div>
+                            <div id="waiver-error" class="text-danger small mt-1" style="display:none;">
+                                <i class="fas fa-exclamation-circle me-1"></i>You must accept the waiver to create an account.
                             </div>
 
                         </div>
@@ -137,5 +140,30 @@ document.getElementById('waiver_date').value =
     new Date().toLocaleDateString('en-US', {
         year: 'numeric', month: 'long', day: 'numeric'
     });
+
+// Enforce waiver checkbox on all browsers (iOS Safari ignores `required` on checkboxes)
+document.querySelector('form').addEventListener('submit', function(e) {
+    var cb  = document.getElementById('waiver_accepted');
+    var err = document.getElementById('waiver-error');
+    var wrap = document.getElementById('waiver-check-wrap');
+    if (!cb.checked) {
+        e.preventDefault();
+        err.style.display = 'block';
+        wrap.style.border = '2px solid #dc3545';
+        cb.focus();
+        wrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+        err.style.display = 'none';
+        wrap.style.border = '1px solid #B07A8E';
+    }
+});
+
+// Clear error as soon as they check the box
+document.getElementById('waiver_accepted').addEventListener('change', function() {
+    if (this.checked) {
+        document.getElementById('waiver-error').style.display = 'none';
+        document.getElementById('waiver-check-wrap').style.border = '1px solid #B07A8E';
+    }
+});
 </script>
 {% endblock %}
