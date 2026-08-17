@@ -279,7 +279,9 @@ def view_invoice(token):
             pet_sections.append({'pet': pet, 'lines': lines, 'subtotal': subtotal})
 
     payments          = Payment.query.filter_by(customer_id=customer.id).order_by(Payment.payment_date.desc()).all()
-    total_paid        = sum(p.amount for p in payments if p.status == 'paid')
+    # All boardings on this invoice have payment_id=None (unpaid).
+    # Prior-stay payments belong to different boardings and must not be credited here.
+    total_paid        = 0.0
     total_outstanding = sum(s['subtotal'] for s in pet_sections)
     true_balance      = max(0.0, total_outstanding - total_paid)
 
