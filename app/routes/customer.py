@@ -989,25 +989,29 @@ def available_times():
             slots.append({'time': time_str, 'display': display})
             cur += 15
 
-    # Find already-taken slots on this date
+    # Find already-taken slots on this date.
+    # A slot is unavailable if ANY boarding — drop-off OR pick-up — claims it,
+    # since staff can only handle one arrival/departure at a time.
+    # Same household (same user_id) may share a slot — they arrive/depart together.
     taken = set()
-    if slot_type == 'checkin':
-        bookings = Boarding.query.filter_by(
-            check_in_date=target_date, status='active'
-        ).all()
-        for b in bookings:
-            if b.check_in_time:
-                # Normalise to HH:MM
-                t = str(b.check_in_time)[:5]
-                taken.add(t)
-    else:
-        bookings = Boarding.query.filter_by(
-            check_out_date=target_date, status='active'
-        ).all()
-        for b in bookings:
-            if b.check_out_time:
-                t = str(b.check_out_time)[:5]
-                taken.add(t)
+
+    # Check-ins on this date (all other households)
+    for b in Boarding.query.filter(
+        Boarding.check_in_date == target_date,
+        Boarding.status.in_(['active', 'pending']),
+        Boarding.user_id != current_user.id,
+    ).all():
+        if b.check_in_time:
+            taken.add(str(b.check_in_time)[:5])
+
+    # Check-outs on this date (all other households)
+    for b in Boarding.query.filter(
+        Boarding.check_out_date == target_date,
+        Boarding.status.in_(['active', 'pending']),
+        Boarding.user_id != current_user.id,
+    ).all():
+        if b.check_out_time:
+            taken.add(str(b.check_out_time)[:5])
 
     # Return only available slots, marking taken ones so UI can show them
     result = [
