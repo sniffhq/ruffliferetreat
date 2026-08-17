@@ -10320,7 +10320,7 @@ def _generate_boarding_invoice(booking, generated_by_id=None):
     Returns the Invoice object (not yet committed — caller must commit).
     """
     from app.models import Invoice, InvoiceAdjustment
-    from app.rate_resolver import get_pet_boarding_rate
+    from app.rate_resolver import get_pet_boarding_rate, get_rates
     import json
 
     # Idempotent — return existing invoice if already generated
