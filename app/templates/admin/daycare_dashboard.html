@@ -207,10 +207,15 @@
     <!-- Missed Checkouts (pets from previous days never checked out) -->
     {% if missed_checkouts %}
     <div class="card mb-4 border-danger">
-        <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+        <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center"
+             style="cursor:pointer;" data-bs-toggle="collapse" data-bs-target="#missedCheckoutsBody" aria-expanded="true">
             <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Missed Checkouts ({{ missed_checkouts|length }})</h5>
-            <span class="badge bg-white text-danger">Action Required</span>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-white text-danger">Action Required</span>
+                <i class="fas fa-chevron-up" id="missedCheckoutsChevron"></i>
+            </div>
         </div>
+        <div class="collapse show" id="missedCheckoutsBody">
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-sm table-hover mb-0">
@@ -245,7 +250,16 @@
                 </table>
             </div>
         </div>
+        </div><!-- /.collapse -->
     </div>
+    <script>
+        document.getElementById('missedCheckoutsBody')?.addEventListener('hide.bs.collapse', function() {
+            document.getElementById('missedCheckoutsChevron').classList.replace('fa-chevron-up', 'fa-chevron-down');
+        });
+        document.getElementById('missedCheckoutsBody')?.addEventListener('show.bs.collapse', function() {
+            document.getElementById('missedCheckoutsChevron').classList.replace('fa-chevron-down', 'fa-chevron-up');
+        });
+    </script>
     {% endif %}
 
     <!-- Currently Checked In -->
