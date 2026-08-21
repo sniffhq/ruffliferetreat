@@ -15,10 +15,17 @@ depends_on = None
 
 
 def upgrade():
+    from sqlalchemy import inspect, engine_from_config
+    from alembic import context as _ctx
+    bind = op.get_bind()
+    existing = [c['name'] for c in inspect(bind).get_columns('daycare_attendance')]
     with op.batch_alter_table('daycare_attendance', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('waived', sa.Boolean(), nullable=False, server_default='0'))
-        batch_op.add_column(sa.Column('waived_by', sa.String(length=100), nullable=True))
-        batch_op.add_column(sa.Column('waived_at', sa.DateTime(), nullable=True))
+        if 'waived' not in existing:
+            batch_op.add_column(sa.Column('waived', sa.Boolean(), nullable=False, server_default='0'))
+        if 'waived_by' not in existing:
+            batch_op.add_column(sa.Column('waived_by', sa.String(length=100), nullable=True))
+        if 'waived_at' not in existing:
+            batch_op.add_column(sa.Column('waived_at', sa.DateTime(), nullable=True))
 
 
 def downgrade():
