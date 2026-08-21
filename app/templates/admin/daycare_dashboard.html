@@ -204,6 +204,51 @@
     </div>
     {% endif %}
 
+    <!-- Missed Checkouts (pets from previous days never checked out) -->
+    {% if missed_checkouts %}
+    <div class="card mb-4 border-danger">
+        <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Missed Checkouts ({{ missed_checkouts|length }})</h5>
+            <span class="badge bg-white text-danger">Action Required</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Pet</th>
+                            <th>Owner</th>
+                            <th>Checked In</th>
+                            <th>Date</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for att in missed_checkouts %}
+                        <tr>
+                            <td><strong>{{ att.enrollment.pet.name }}</strong></td>
+                            <td>{{ att.enrollment.pet.owner.first_name }} {{ att.enrollment.pet.owner.last_name }}</td>
+                            <td>{{ att.check_in_time.strftime('%I:%M %p') }}</td>
+                            <td>{{ att.check_in_time.strftime('%b %d, %Y') }}</td>
+                            <td>
+                                <form method="POST" action="{{ url_for('admin.daycare_checkout', attendance_id=att.id) }}"
+                                      style="display:inline;"
+                                      onsubmit="return confirm('Check out {{ att.enrollment.pet.name }} now? This will generate their invoice.');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-sm btn-danger">
+                                        <i class="fas fa-sign-out-alt me-1"></i>Check Out
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Currently Checked In -->
     <div class="card mb-4">
         <div class="card-header bg-primary text-white">

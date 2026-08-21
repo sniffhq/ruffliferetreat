@@ -541,6 +541,13 @@ def daycare_dashboard():
     checked_in       = [a for a in all_today if a.check_out_time is None]
     todays_attendance = [a for a in all_today if a.check_out_time is not None]
 
+    # Pets checked in on a PREVIOUS day and never checked out (missed checkouts)
+    missed_checkouts = DaycareAttendance.query.filter(
+        DaycareAttendance.check_out_time == None,
+        DaycareAttendance.check_in_time < datetime.combine(today, datetime.min.time()),
+        DaycareAttendance.waived != True,
+    ).order_by(DaycareAttendance.check_in_time.asc()).all()
+
     # Map enrollment_id -> attendance_id for pets currently checked in
     # Used by the admin Check Out button in the enrollments table
     checked_in_by_enrollment = {
@@ -704,6 +711,7 @@ def daycare_dashboard():
                          daycare_cal_detail=_json.dumps(daycare_cal_detail_data),
                          pending_daycare_requests=pending_daycare_requests,
                          expected_today=expected_today,
+                         missed_checkouts=missed_checkouts,
                          now=datetime.now(),
                          today=today)
 
