@@ -10,7 +10,7 @@ from flask import current_app
 
 logger = logging.getLogger(__name__)
 
-MODEL = 'llama-3.3-70b-versatile'
+MODEL = 'llama-3.1-70b-versatile'
 
 # ── System prompts ────────────────────────────────────────────────────────────
 

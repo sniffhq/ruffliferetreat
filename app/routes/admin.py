@@ -10616,6 +10616,7 @@ def send_invoice_new(inv_id):
     try:
         from twilio.rest import Client
         from app.settings_service import sms_enabled as _sms_ok, get_business_setting as _biz
+        from app.sms_service import _normalize_phone
         if not _sms_ok('sms_invoice'):
             flash(f'Invoice recorded — SMS is currently disabled.', 'info')
             return redirect(url_for('admin.view_invoice', inv_id=inv_id))
