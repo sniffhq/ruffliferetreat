@@ -9769,12 +9769,18 @@ def business_settings():
             set_setting(key, val, user_id=current_user.id)
 
         # Boarding hours — serialize per-day form fields to JSON
-        for slot in ('dropoff', 'pickup'):
+        _SLOT_DEFAULTS = {
+            'dropoff': ('07:00', '18:00'),
+            'pickup':  ('07:00', '18:00'),
+            'lunch':   ('12:00', '13:30'),
+        }
+        for slot in ('dropoff', 'pickup', 'lunch'):
+            o_def, c_def = _SLOT_DEFAULTS[slot]
             hours = {}
             for day in _BOARDING_DAYS:
                 hours[day] = {
-                    'open':   request.form.get(f'boarding_{slot}_{day}_open', '07:00') or '07:00',
-                    'close':  request.form.get(f'boarding_{slot}_{day}_close', '18:00') or '18:00',
+                    'open':   request.form.get(f'boarding_{slot}_{day}_open', o_def) or o_def,
+                    'close':  request.form.get(f'boarding_{slot}_{day}_close', c_def) or c_def,
                     'closed': bool(request.form.get(f'boarding_{slot}_{day}_closed')),
                 }
             set_setting(f'boarding_{slot}_hours', _json.dumps(hours), user_id=current_user.id)
@@ -9820,9 +9826,16 @@ def business_settings():
         pickup_hours = _json.loads(raw) if raw and raw != '{}' else {}
     except Exception:
         pickup_hours = {}
+    try:
+        raw = get_setting('boarding_lunch_hours')
+        lunch_hours = _json.loads(raw) if raw and raw != '{}' else {}
+    except Exception:
+        lunch_hours = {}
+    _LUNCH_DEFAULT = {'open': '12:00', 'close': '13:30', 'closed': False}
     for day in _BOARDING_DAYS:
         dropoff_hours.setdefault(day, dict(_DROPOFF_DEFAULTS[day]))
         pickup_hours.setdefault(day, dict(_PICKUP_DEFAULTS[day]))
+        lunch_hours.setdefault(day, dict(_LUNCH_DEFAULT))
 
     settings = {key: _biz_setting(key) for key in _BUSINESS_SETTING_DEFAULTS}
     blackouts = BlackoutDate.query.order_by(BlackoutDate.start_date).all()
@@ -9830,6 +9843,7 @@ def business_settings():
     return render_template('admin/business_settings.html', settings=settings, blackouts=blackouts,
                            addon_blackouts=addon_blackouts,
                            dropoff_hours=dropoff_hours, pickup_hours=pickup_hours,
+                           lunch_hours=lunch_hours,
                            boarding_days=_BOARDING_DAYS)
 
 

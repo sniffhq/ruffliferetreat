@@ -989,6 +989,22 @@ def available_times():
             slots.append({'time': time_str, 'display': display})
             cur += 15
 
+    # Remove lunch break slots
+    try:
+        from app.settings_service import get_setting as _gs_lunch
+        import json as _json_lunch
+        lunch_raw = _gs_lunch('boarding_lunch_hours')
+        if lunch_raw and lunch_raw != '{}':
+            lunch_cfg = _json_lunch.loads(lunch_raw)
+            lunch_day = lunch_cfg.get(day_name, {})
+            if not lunch_day.get('closed', True):  # 'closed' here means "No Break"
+                l_open  = lunch_day.get('open', '')
+                l_close = lunch_day.get('close', '')
+                if l_open and l_close:
+                    slots = [s for s in slots if not (l_open <= s['time'] < l_close)]
+    except Exception:
+        pass
+
     # Find already-taken slots on this date.
     # A slot is unavailable if ANY boarding — drop-off OR pick-up — claims it,
     # since staff can only handle one arrival/departure at a time.
