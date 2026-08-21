@@ -234,7 +234,6 @@
                                 <form method="POST" action="{{ url_for('admin.daycare_checkout', attendance_id=att.id) }}"
                                       style="display:inline;"
                                       onsubmit="return confirm('Check out {{ att.enrollment.pet.name }} now? This will generate their invoice.');">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-sm btn-danger">
                                         <i class="fas fa-sign-out-alt me-1"></i>Check Out
                                     </button>
