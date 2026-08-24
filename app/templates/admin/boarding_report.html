@@ -101,9 +101,9 @@
               {% set ns.current_date = row.boarding.check_out_date %}
               {% set ns.date_subtotal = 0.0 %}
               {% set ns.date_count = 0 %}
-              <tr style="background:#1a1a2e;">
-                <td colspan="9" class="ps-4 py-2 border-0 fw-semibold" style="color:white; font-size:0.8rem;">
-                  <i class="fas fa-calendar-day me-2" style="color:#C17B8F;"></i>
+              <tr style="background:#C17B8F;">
+                <td colspan="9" class="ps-4 py-2 border-0 fw-semibold" style="color:white; font-size:0.82rem; letter-spacing:.3px;">
+                  <i class="fas fa-calendar-day me-2" style="opacity:0.8;"></i>
                   {{ row.boarding.check_out_date.strftime('%A, %B') }} {{ row.boarding.check_out_date.day }}, {{ row.boarding.check_out_date.year }}
                 </td>
               </tr>
