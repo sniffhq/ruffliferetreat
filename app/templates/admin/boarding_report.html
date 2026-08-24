@@ -101,8 +101,9 @@
               {% set ns.current_date = row.boarding.check_out_date %}
               {% set ns.date_subtotal = 0.0 %}
               {% set ns.date_count = 0 %}
-              <tr style="background:#1a1a2e;">
-                <td colspan="9" class="ps-4 py-2 border-0 fw-bold" style="color:white; font-size:0.85rem; letter-spacing:.4px;">
+              <tr>
+                <td colspan="9" class="ps-4 py-2 fw-bold"
+                    style="background:#1a1a2e !important; color:white !important; font-size:0.85rem; letter-spacing:.4px; border:none !important;">
                   <i class="fas fa-calendar-day me-2" style="color:#C17B8F;"></i>
                   {{ row.boarding.check_out_date.strftime('%A, %B') }} {{ row.boarding.check_out_date.day }}, {{ row.boarding.check_out_date.year }}
                 </td>
@@ -190,16 +191,18 @@
         </tbody>
 
         <tfoot>
-          <tr style="background:#1a1a2e;">
-            <td colspan="7" class="ps-4 py-3 border-0 fw-bold" style="color:white;">
+          <tr>
+            <td colspan="7" class="ps-4 py-3 fw-bold"
+                style="background:#1a1a2e !important; color:white !important; border:none !important;">
               Total Revenue
               <span class="ms-2 fw-normal small" style="color:#adb5bd;">
                 {{ rows|length }} stay{{ 's' if rows|length != 1 else '' }}
                 &middot; {{ rows|selectattr('inv_status','eq','paid')|list|length }} paid
               </span>
             </td>
-            <td class="border-0"></td>
-            <td class="text-end pe-4 py-3 border-0 fw-bold" style="color:white; font-size:1.15rem;">
+            <td style="background:#1a1a2e !important; border:none !important;"></td>
+            <td class="text-end pe-4 py-3 fw-bold"
+                style="background:#1a1a2e !important; color:white !important; font-size:1.15rem; border:none !important;">
               ${{ '%.2f'|format(revenue_total) }}
             </td>
           </tr>
