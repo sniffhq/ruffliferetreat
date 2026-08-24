@@ -345,6 +345,20 @@
                         </a>
                     </li>
 
+                    <!-- Checkout Queue slide-out trigger -->
+                    <li class="nav-item">
+                        <button class="nav-link px-3 py-2 rounded border-0 bg-transparent position-relative"
+                                type="button"
+                                data-bs-toggle="offcanvas" data-bs-target="#checkoutQueuePanel"
+                                title="Today's Checkout Queue"
+                                style="font-size:0.875rem; color:rgba(255,255,255,.55);">
+                            <i class="fas fa-receipt"></i>
+                            <span class="badge bg-warning text-dark rounded-pill position-absolute"
+                                  id="cq-nav-badge"
+                                  style="top:4px; right:2px; font-size:0.6rem; display:none;">0</span>
+                        </button>
+                    </li>
+
                     {% elif current_user.is_authenticated %}
                     <!-- Customer Portal Navigation (left side) -->
                     <li class="nav-item"><a class="nav-link px-3" href="{{ url_for('customer.dashboard') }}" style="font-size:0.875rem;">Dashboard</a></li>
@@ -403,6 +417,28 @@
         </div>
     </nav>
 
+    <!-- ── Checkout Queue Offcanvas ──────────────────────────────────────── -->
+    {% if current_user.is_authenticated and (current_user.is_admin or current_user.role == 'staff') %}
+    <div class="offcanvas offcanvas-end shadow-lg" tabindex="-1" id="checkoutQueuePanel"
+         style="width:360px; max-width:100vw;">
+      <div class="offcanvas-header py-3 px-4" style="background:#1a1a2e; color:white;">
+        <h5 class="offcanvas-title fw-bold mb-0" style="font-size:1rem;">
+          <i class="fas fa-receipt me-2" style="color:#C17B8F;"></i>
+          Checkout Queue &mdash; Today
+          <span id="cq-header-count" class="badge rounded-pill ms-2"
+                style="background:#C17B8F; font-size:0.72rem; vertical-align:middle;"></span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="offcanvas"></button>
+      </div>
+      <div class="offcanvas-body p-0" style="background:#f9f5f0; overflow-y:auto;" id="cq-body">
+        <div class="text-center py-5 text-muted" id="cq-loading">
+          <div class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></div>
+          Loading…
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
         <div class="container mt-3">
@@ -457,6 +493,85 @@
         // Run immediately then every 20 seconds
         pollInbox();
         setInterval(pollInbox, 20000);
+
+        // ── Checkout Queue ─────────────────────────────────────────────
+        (function () {
+            var panel = document.getElementById('checkoutQueuePanel');
+            if (!panel) return;
+
+            function statusBadge(inv_status) {
+                if (inv_status === 'paid')  return '<span class="badge bg-success ms-1" style="font-size:0.6rem;">Paid</span>';
+                if (inv_status === 'void')  return '<span class="badge bg-secondary ms-1" style="font-size:0.6rem;">Void</span>';
+                if (inv_status === 'sent')  return '<span class="badge bg-info text-dark ms-1" style="font-size:0.6rem;">Sent</span>';
+                if (inv_status === 'draft') return '<span class="badge bg-warning text-dark ms-1" style="font-size:0.6rem;">Draft</span>';
+                return '';
+            }
+
+            function renderItem(item) {
+                var isBoarding  = item.type === 'boarding';
+                var typeColor   = isBoarding ? '#D4A853' : '#3DBDB5';
+                var typeLabel   = isBoarding ? '🏨 BOARDING' : '☀️ DAYCARE';
+                var bookBadge   = item.booking_number
+                    ? ' <span class="badge bg-secondary" style="font-size:0.6rem;">' + item.booking_number + '</span>'
+                    : '';
+                return '<div class="border-bottom bg-white px-4 py-3 d-flex align-items-center gap-3">'
+                    + '<div class="flex-grow-1" style="min-width:0;">'
+                    +   '<div class="fw-bold mb-0" style="color:#1a1a2e; font-size:0.95rem;">' + item.pet_name + bookBadge + '</div>'
+                    +   '<div class="text-muted" style="font-size:0.8rem;">' + item.owner_name + '</div>'
+                    +   '<div class="mt-1 d-flex align-items-center gap-1 flex-wrap">'
+                    +     '<span class="badge" style="background:' + typeColor + '; font-size:0.65rem;">' + typeLabel + '</span>'
+                    +     statusBadge(item.inv_status)
+                    +   '</div>'
+                    +   (item.detail ? '<div class="text-muted mt-1" style="font-size:0.78rem;">' + item.detail + '</div>' : '')
+                    + '</div>'
+                    + '<a href="' + item.invoice_url + '" class="btn btn-sm fw-semibold flex-shrink-0"'
+                    +    ' style="background:#C17B8F; color:white; white-space:nowrap; font-size:0.82rem;">Invoice →</a>'
+                    + '</div>';
+            }
+
+            function loadQueue() {
+                var body = document.getElementById('cq-body');
+                body.innerHTML = '<div class="text-center py-5 text-muted">'
+                    + '<div class="spinner-border spinner-border-sm me-2" role="status"></div> Loading…</div>';
+                fetch('/admin/checkout-queue-data')
+                    .then(function(r){ return r.json(); })
+                    .then(function(data) {
+                        var hdr = document.getElementById('cq-header-count');
+                        if (hdr) hdr.textContent = data.count || '';
+                        if (!data.items || !data.items.length) {
+                            body.innerHTML = '<div class="text-center py-5 text-muted">'
+                                + '<i class="fas fa-check-circle fa-3x mb-3 d-block" style="color:#28a745;"></i>'
+                                + '<p class="mb-0">No checkouts today yet.</p></div>';
+                            return;
+                        }
+                        body.innerHTML = data.items.map(renderItem).join('');
+                    })
+                    .catch(function() {
+                        document.getElementById('cq-body').innerHTML =
+                            '<div class="text-center py-4 text-danger"><i class="fas fa-exclamation-circle me-1"></i>Failed to load.</div>';
+                    });
+            }
+
+            function refreshBadge() {
+                fetch('/admin/checkout-queue-data')
+                    .then(function(r){ return r.json(); })
+                    .then(function(data) {
+                        var b = document.getElementById('cq-nav-badge');
+                        if (!b) return;
+                        if (data.count > 0) {
+                            b.textContent = data.count;
+                            b.style.display = 'inline-block';
+                        } else {
+                            b.style.display = 'none';
+                        }
+                    })
+                    .catch(function(){});
+            }
+
+            panel.addEventListener('show.bs.offcanvas', loadQueue);
+            refreshBadge();
+            setInterval(refreshBadge, 60000);
+        })();
     </script>
     {% endif %}
     <!-- ── AI Chat Widget ──────────────────────────────────────────────── -->

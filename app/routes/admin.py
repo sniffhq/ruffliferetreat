@@ -1880,6 +1880,94 @@ def invoice_queue():
     return redirect(url_for('admin.financials'))
 
 
+@bp.route('/checkout-queue-data')
+@login_required
+@staff_required
+def checkout_queue_data():
+    """AJAX — today's boarding + daycare checkouts for the slide-out panel."""
+    from app.models import DaycareAttendance, DaycareEnrollment, Invoice
+    from datetime import date, datetime as _dt
+
+    today      = date.today()
+    today_dt_s = _dt.combine(today, _dt.min.time())
+    today_dt_e = _dt.combine(today, _dt.max.time())
+
+    items = []
+
+    # ── Boarding checkouts today ────────────────────────────────────────
+    boardings = Boarding.query.filter(
+        Boarding.check_out_date == today,
+        Boarding.status == 'completed',
+    ).all()
+
+    from app.models import Pet as _Pet
+    for b in boardings:
+        pet   = _Pet.query.get(b.pet_id)
+        owner = User.query.get(b.user_id)
+        if not pet or not owner:
+            continue
+
+        if b.invoice:
+            invoice_url = url_for('admin.view_invoice', inv_id=b.invoice.id)
+            inv_status  = b.invoice.status
+        else:
+            invoice_url = url_for('admin.customer_invoice', customer_id=b.user_id, type='boarding')
+            inv_status  = 'legacy'
+
+        checkout_display = ''
+        if b.check_out_time:
+            try:
+                checkout_display = datetime.strptime(str(b.check_out_time)[:5], '%H:%M').strftime('%I:%M %p').lstrip('0')
+            except Exception:
+                checkout_display = str(b.check_out_time)
+
+        items.append({
+            'type':           'boarding',
+            'pet_name':       pet.name,
+            'owner_name':     f"{owner.first_name} {owner.last_name}",
+            'detail':         checkout_display,
+            'booking_number': b.booking_number or '',
+            'invoice_url':    invoice_url,
+            'customer_url':   url_for('admin.customer_detail', customer_id=owner.id),
+            'inv_status':     inv_status,
+        })
+
+    # ── Daycare checkouts today ─────────────────────────────────────────
+    daycare_atts = DaycareAttendance.query.filter(
+        DaycareAttendance.check_out_time >= today_dt_s,
+        DaycareAttendance.check_out_time <= today_dt_e,
+        DaycareAttendance.waived == False,
+    ).all()
+
+    for att in daycare_atts:
+        enrollment = att.enrollment
+        if not enrollment:
+            continue
+        pet   = _Pet.query.get(enrollment.pet_id)
+        owner = User.query.get(pet.user_id) if pet else None
+        if not pet or not owner:
+            continue
+
+        checkout_display = att.check_out_time.strftime('%I:%M %p').lstrip('0') if att.check_out_time else '1 session'
+        payment_status   = 'paid' if att.payment_id else 'unpaid'
+
+        items.append({
+            'type':           'daycare',
+            'pet_name':       pet.name,
+            'owner_name':     f"{owner.first_name} {owner.last_name}",
+            'detail':         f"Checked out {checkout_display}",
+            'booking_number': '',
+            'invoice_url':    url_for('admin.customer_invoice', customer_id=owner.id, type='daycare'),
+            'customer_url':   url_for('admin.customer_detail', customer_id=owner.id),
+            'inv_status':     payment_status,
+        })
+
+    # Unpaid first, then alphabetical by owner
+    items.sort(key=lambda x: (x['inv_status'] in ('paid', 'void'), x['owner_name']))
+
+    return jsonify({'count': len(items), 'items': items})
+
+
 @bp.route('/invoices/audit')
 @login_required
 @admin_required
