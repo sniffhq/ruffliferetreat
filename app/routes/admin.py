@@ -1908,8 +1908,10 @@ def checkout_queue_data():
             continue
 
         if b.invoice:
-            invoice_url = url_for('admin.view_invoice', inv_id=b.invoice.id)
             inv_status  = b.invoice.status
+            if inv_status == 'paid':
+                continue  # paid — drop it from the queue
+            invoice_url = url_for('admin.view_invoice', inv_id=b.invoice.id)
         else:
             invoice_url = url_for('admin.customer_invoice', customer_id=b.user_id, type='boarding')
             inv_status  = 'legacy'
@@ -1948,8 +1950,10 @@ def checkout_queue_data():
         if not pet or not owner:
             continue
 
+        if att.payment_id:
+            continue  # already paid — drop it from the queue
+
         checkout_display = att.check_out_time.strftime('%I:%M %p').lstrip('0') if att.check_out_time else '1 session'
-        payment_status   = 'paid' if att.payment_id else 'unpaid'
 
         items.append({
             'type':           'daycare',
@@ -1959,11 +1963,10 @@ def checkout_queue_data():
             'booking_number': '',
             'invoice_url':    url_for('admin.customer_invoice', customer_id=owner.id, type='daycare'),
             'customer_url':   url_for('admin.customer_detail', customer_id=owner.id),
-            'inv_status':     payment_status,
+            'inv_status':     'unpaid',
         })
 
-    # Unpaid first, then alphabetical by owner
-    items.sort(key=lambda x: (x['inv_status'] in ('paid', 'void'), x['owner_name']))
+    items.sort(key=lambda x: x['owner_name'])
 
     return jsonify({'count': len(items), 'items': items})
 
