@@ -59,11 +59,11 @@
     <div class="col-6 col-xl-3">
       <div class="card border-0 shadow-sm h-100">
         <div class="card-body py-3 px-4">
-          <div class="text-muted small text-uppercase mb-1" style="letter-spacing:.5px;">Total Invoices</div>
-          <div class="fw-bold" style="font-size:1.6rem; color:#1a1a2e;">{{ all_invoices|length }}</div>
+          <div class="text-muted small text-uppercase mb-1" style="letter-spacing:.5px;">Total Payments</div>
+          <div class="fw-bold" style="font-size:1.6rem; color:#1a1a2e;">{{ all_payments|length }}</div>
           <div class="text-muted small">
-            {{ all_invoices|selectattr('status','eq','paid')|list|length }} paid &nbsp;·&nbsp;
-            {{ all_invoices|selectattr('status','in',['draft','sent'])|list|length }} open
+            {{ all_payments|selectattr('status','eq','paid')|list|length }} paid &nbsp;·&nbsp;
+            {{ all_payments|selectattr('status','eq','outstanding')|list|length }} outstanding
           </div>
         </div>
       </div>

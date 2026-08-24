@@ -1700,27 +1700,27 @@ def financials():
     today       = date.today()
     month_start = today.replace(day=1)
     year_start  = today.replace(month=1, day=1)
-    _month_dt   = _dt.combine(month_start, _dt.min.time())
-    _year_dt    = _dt.combine(year_start,  _dt.min.time())
 
-    # ── KPI summary ──────────────────────────────────────────────────────
-    revenue_month = float(db.session.query(db.func.sum(Invoice.total)).filter(
-        Invoice.status == 'paid',
-        Invoice.paid_at >= _month_dt,
+    # ── KPI summary — use Payment records as source of truth for revenue.
+    # Payment rows exist for every transaction (legacy + new Invoice system);
+    # Invoice.paid_at only exists for new-system records, so querying it alone
+    # would under-count YTD and this-month totals.
+    revenue_month = float(db.session.query(db.func.sum(Payment.amount)).filter(
+        Payment.status == 'paid',
+        Payment.payment_date >= month_start,
     ).scalar() or 0.0)
 
-    revenue_ytd = float(db.session.query(db.func.sum(Invoice.total)).filter(
-        Invoice.status == 'paid',
-        Invoice.paid_at >= _year_dt,
+    revenue_ytd = float(db.session.query(db.func.sum(Payment.amount)).filter(
+        Payment.status == 'paid',
+        Payment.payment_date >= year_start,
     ).scalar() or 0.0)
 
-    outstanding_total = float(db.session.query(db.func.sum(Invoice.total)).filter(
-        Invoice.status.in_(['draft', 'sent'])
-    ).scalar() or 0.0)
+    # outstanding_total is set after queue is built (uses grand_total so it
+    # includes legacy unpaid boardings not yet on the Invoice model).
 
-    paid_count_month = Invoice.query.filter(
-        Invoice.status == 'paid',
-        Invoice.paid_at >= _month_dt,
+    paid_count_month = Payment.query.filter(
+        Payment.status == 'paid',
+        Payment.payment_date >= month_start,
     ).count()
 
     # ── All invoices (newest first) ───────────────────────────────────────
@@ -1853,6 +1853,10 @@ def financials():
 
     queue.sort(key=lambda x: x['days_outstanding'], reverse=True)
     grand_total = sum(q['total'] for q in queue)
+    # Use queue total as outstanding_total — it includes legacy unpaid boardings
+    # that don't yet have Invoice records, so it's more accurate than the
+    # Invoice-table-only query.
+    outstanding_total = grand_total
 
     return render_template('admin/financials.html',
         revenue_month=revenue_month,
