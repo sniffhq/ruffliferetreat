@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}Boarding Report — Ruff Life Retreat{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+
+  <!-- Header -->
+  <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-4">
+    <div>
+      <h2 class="fw-bold mb-0" style="color:#1a1a2e;">
+        <i class="fas fa-hotel me-2 text-mauve"></i>Boarding Report
+      </h2>
+      <p class="text-muted mb-0 mt-1">Completed stays by checkout date — nights, revenue totals</p>
+    </div>
+    <div class="text-end">
+      <div class="fw-bold" style="font-size:1.5rem; color:#1a1a2e;">${{ '%.2f'|format(revenue_total) }}</div>
+      <div class="text-muted" style="font-size:0.82rem;">
+        revenue &middot; {{ rows|length }} stay{{ 's' if rows|length != 1 else '' }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Date range form -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body py-3 px-4">
+      <form method="GET" class="d-flex align-items-end flex-wrap gap-3">
+        <div>
+          <label class="form-label small fw-semibold text-muted mb-1">Check-out From</label>
+          <input type="date" name="from" class="form-control form-control-sm"
+                 value="{{ date_from.isoformat() }}" style="width:160px;">
+        </div>
+        <div>
+          <label class="form-label small fw-semibold text-muted mb-1">Check-out To</label>
+          <input type="date" name="to" class="form-control form-control-sm"
+                 value="{{ date_to.isoformat() }}" style="width:160px;">
+        </div>
+        <button type="submit" class="btn btn-mauve btn-sm px-4">
+          <i class="fas fa-search me-1"></i> Run Report
+        </button>
+
+        <!-- Quick week navigation -->
+        <div class="ms-auto d-flex gap-2 align-items-center flex-wrap">
+          <a href="?from={{ prev_from.isoformat() }}&to={{ prev_to.isoformat() }}"
+             class="btn btn-outline-secondary btn-sm" title="Previous week">
+            <i class="fas fa-chevron-left"></i>
+          </a>
+          <span class="small text-muted fw-semibold">
+            {{ date_from.strftime('%b') }} {{ date_from.day }} &ndash; {{ date_to.strftime('%b') }} {{ date_to.day }}, {{ date_to.year }}
+          </span>
+          <a href="?from={{ next_from.isoformat() }}&to={{ next_to.isoformat() }}"
+             class="btn btn-outline-secondary btn-sm" title="Next week">
+            <i class="fas fa-chevron-right"></i>
+          </a>
+          <a href="?from={{ today.isoformat() }}&to={{ today.isoformat() }}"
+             class="btn btn-outline-secondary btn-sm ms-1">Today</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {% if not rows %}
+  <div class="text-center py-5 text-muted">
+    <i class="fas fa-bed fa-3x mb-3 opacity-25"></i>
+    <p class="mb-0">No completed boardings found for this date range.</p>
+  </div>
+  {% else %}
+
+  <!-- Report table -->
+  <div class="card border-0 shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead style="background:#f8f9fa; font-size:0.78rem; text-transform:uppercase; letter-spacing:.4px; color:#6c757d;">
+          <tr>
+            <th class="ps-4 py-3 fw-semibold border-0">Pet</th>
+            <th class="py-3 fw-semibold border-0">Owner</th>
+            <th class="py-3 fw-semibold border-0">Booking #</th>
+            <th class="py-3 fw-semibold border-0">Check-In</th>
+            <th class="py-3 fw-semibold border-0">Check-Out</th>
+            <th class="py-3 fw-semibold border-0 text-center">Nights</th>
+            <th class="py-3 fw-semibold border-0">Invoice</th>
+            <th class="py-3 fw-semibold border-0">Status</th>
+            <th class="py-3 fw-semibold border-0 text-end pe-4">Total</th>
+          </tr>
+        </thead>
+        <tbody style="font-size:0.88rem;">
+          {% set ns = namespace(current_date=None, date_subtotal=0.0, date_count=0) %}
+          {% for row in rows %}
+
+            {# When checkout date changes — emit subtotal for previous group, then date header #}
+            {% if row.boarding.check_out_date != ns.current_date %}
+              {% if ns.current_date is not none %}
+              <tr style="background:#f0ebe8; font-size:0.8rem;">
+                <td colspan="8" class="ps-4 py-2 text-muted fst-italic border-0">
+                  {{ ns.current_date.strftime('%A %b') }} {{ ns.current_date.day }}
+                  &mdash; {{ ns.date_count }} stay{{ 's' if ns.date_count != 1 else '' }}
+                </td>
+                <td class="text-end pe-4 py-2 fw-semibold border-0" style="color:#1a1a2e;">
+                  ${{ '%.2f'|format(ns.date_subtotal) }}
+                </td>
+              </tr>
+              {% endif %}
+              {% set ns.current_date = row.boarding.check_out_date %}
+              {% set ns.date_subtotal = 0.0 %}
+              {% set ns.date_count = 0 %}
+              <tr style="background:#1a1a2e;">
+                <td colspan="9" class="ps-4 py-2 border-0 fw-semibold" style="color:white; font-size:0.8rem;">
+                  <i class="fas fa-calendar-day me-2" style="color:#C17B8F;"></i>
+                  {{ row.boarding.check_out_date.strftime('%A, %B') }} {{ row.boarding.check_out_date.day }}, {{ row.boarding.check_out_date.year }}
+                </td>
+              </tr>
+            {% endif %}
+
+            {% if row.inv_status != 'void' %}{% set ns.date_subtotal = ns.date_subtotal + row.amount %}{% endif %}
+            {% set ns.date_count = ns.date_count + 1 %}
+
+          <tr>
+            <td class="ps-4 py-3 border-0">
+              <span class="fw-semibold">{{ row.pet.name }}</span>
+              {% if row.pet.breed %}<br><span class="text-muted" style="font-size:0.78rem;">{{ row.pet.breed }}</span>{% endif %}
+            </td>
+            <td class="py-3 border-0">
+              <a href="{{ url_for('admin.customer_detail', customer_id=row.owner.id) }}"
+                 class="text-decoration-none fw-semibold" style="color:#1a1a2e;">
+                {{ row.owner.first_name }} {{ row.owner.last_name }}
+              </a>
+              <br><span class="text-muted" style="font-size:0.78rem;">{{ row.owner.phone }}</span>
+            </td>
+            <td class="py-3 border-0">
+              {% if row.boarding.booking_number %}
+              <span class="badge bg-secondary" style="font-size:0.72rem;">{{ row.boarding.booking_number }}</span>
+              {% else %}<span class="text-muted small">—</span>{% endif %}
+            </td>
+            <td class="py-3 border-0 text-nowrap">
+              {% if row.boarding.check_in_date %}
+                {{ row.boarding.check_in_date.strftime('%b') }} {{ row.boarding.check_in_date.day }}
+                {% if row.boarding.check_in_time %}
+                <br><span class="text-muted" style="font-size:0.76rem;">{{ row.boarding.check_in_time }}</span>
+                {% endif %}
+              {% else %}—{% endif %}
+            </td>
+            <td class="py-3 border-0 text-nowrap">
+              {% if row.boarding.check_out_date %}
+                {{ row.boarding.check_out_date.strftime('%b') }} {{ row.boarding.check_out_date.day }}
+                {% if row.boarding.check_out_time %}
+                <br><span class="text-muted" style="font-size:0.76rem;">{{ row.boarding.check_out_time }}</span>
+                {% endif %}
+              {% else %}—{% endif %}
+            </td>
+            <td class="py-3 border-0 text-center">
+              <span class="badge rounded-pill" style="background:#E8DCE0; color:#1a1a2e; font-size:0.75rem;">
+                {{ row.nights }}
+              </span>
+            </td>
+            <td class="py-3 border-0">
+              {% if row.inv_number %}
+              <a href="{{ row.inv_url }}" class="text-decoration-none small fw-semibold text-mauve">{{ row.inv_number }}</a>
+              {% else %}
+              <a href="{{ row.inv_url }}" class="text-decoration-none small text-muted">View</a>
+              {% endif %}
+            </td>
+            <td class="py-3 border-0">
+              {% if row.inv_status == 'paid' %}<span class="badge bg-success" style="font-size:0.7rem;">Paid</span>
+              {% elif row.inv_status == 'sent' %}<span class="badge bg-info text-dark" style="font-size:0.7rem;">Sent</span>
+              {% elif row.inv_status == 'draft' %}<span class="badge bg-warning text-dark" style="font-size:0.7rem;">Draft</span>
+              {% elif row.inv_status == 'void' %}<span class="badge bg-secondary" style="font-size:0.7rem;">Void</span>
+              {% else %}<span class="badge" style="background:#ccc; color:#333; font-size:0.7rem;">Legacy</span>
+              {% endif %}
+            </td>
+            <td class="py-3 border-0 text-end pe-4 fw-semibold">
+              {% if row.inv_status == 'void' %}
+              <span class="text-muted text-decoration-line-through">${{ '%.2f'|format(row.amount) }}</span>
+              {% else %}
+              ${{ '%.2f'|format(row.amount) }}
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+
+          {# Final date group subtotal #}
+          {% if ns.current_date is not none %}
+          <tr style="background:#f0ebe8; font-size:0.8rem;">
+            <td colspan="8" class="ps-4 py-2 text-muted fst-italic border-0">
+              {{ ns.current_date.strftime('%A %b') }} {{ ns.current_date.day }}
+              &mdash; {{ ns.date_count }} stay{{ 's' if ns.date_count != 1 else '' }}
+            </td>
+            <td class="text-end pe-4 py-2 fw-semibold border-0" style="color:#1a1a2e;">
+              ${{ '%.2f'|format(ns.date_subtotal) }}
+            </td>
+          </tr>
+          {% endif %}
+        </tbody>
+
+        <tfoot>
+          <tr style="background:#1a1a2e;">
+            <td colspan="7" class="ps-4 py-3 border-0 fw-bold" style="color:white;">
+              Total Revenue
+              <span class="ms-2 fw-normal small" style="color:#adb5bd;">
+                {{ rows|length }} stay{{ 's' if rows|length != 1 else '' }}
+                &middot; {{ rows|selectattr('inv_status','eq','paid')|list|length }} paid
+              </span>
+            </td>
+            <td class="border-0"></td>
+            <td class="text-end pe-4 py-3 border-0 fw-bold" style="color:white; font-size:1.15rem;">
+              ${{ '%.2f'|format(revenue_total) }}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  {% endif %}
+</div>
+{% endblock %}

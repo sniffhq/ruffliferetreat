@@ -9364,6 +9364,101 @@ def audit_log_export():
         headers={'Content-Disposition': 'attachment;filename=rufflife_audit_log.csv'})
 
 
+@bp.route('/reports/boarding')
+@login_required
+@staff_required
+def boarding_report():
+    """
+    Boarding History Report — all completed stays with checkout date in a
+    date range. Shows pet, owner, check-in/out dates, nights, booking number,
+    invoice status, and revenue total for the period.
+    Defaults to the current Mon–Sun week.
+    """
+    from app.models import Invoice, Pet as _Pet
+    from datetime import date, timedelta
+
+    today = date.today()
+    # Default: Monday–Sunday of the current week
+    week_mon  = today - timedelta(days=today.weekday())        # Monday
+    week_sun  = week_mon + timedelta(days=6)                   # Sunday
+
+    # Parse ?from and ?to (YYYY-MM-DD)
+    def _parse(param, fallback):
+        try:
+            return date.fromisoformat(request.args.get(param, '').strip())
+        except ValueError:
+            return fallback
+
+    date_from = _parse('from', week_mon)
+    date_to   = _parse('to',   week_sun)
+    if date_to < date_from:
+        date_to = date_from
+
+    # Prev / next week helpers for quick navigation buttons
+    prev_from = date_from - timedelta(days=7)
+    prev_to   = date_to   - timedelta(days=7)
+    next_from = date_from + timedelta(days=7)
+    next_to   = date_to   + timedelta(days=7)
+
+    # Query completed boardings whose checkout date falls in the range
+    boardings = Boarding.query.filter(
+        Boarding.check_out_date >= date_from,
+        Boarding.check_out_date <= date_to,
+        Boarding.status == 'completed',
+    ).order_by(Boarding.check_out_date.asc(), Boarding.check_in_date.asc()).all()
+
+    rows = []
+    revenue_total = 0.0
+    for b in boardings:
+        pet   = _Pet.query.get(b.pet_id)
+        owner = User.query.get(b.user_id)
+        if not pet or not owner:
+            continue
+
+        nights = (b.check_out_date - b.check_in_date).days if b.check_out_date and b.check_in_date else 0
+
+        if b.invoice:
+            amount     = b.invoice.total
+            inv_status = b.invoice.status
+            inv_number = b.invoice.invoice_number
+            inv_url    = url_for('admin.view_invoice', inv_id=b.invoice.id)
+        else:
+            # Legacy boarding — try to find a matching Payment record
+            from app.models import Payment as _Pay
+            pay = _Pay.query.filter_by(
+                customer_id=b.user_id, service_type='Boarding'
+            ).order_by(_Pay.payment_date.asc()).first()
+            amount     = pay.amount if pay else 0.0
+            inv_status = 'legacy'
+            inv_number = None
+            inv_url    = url_for('admin.customer_invoice', customer_id=b.user_id, type='boarding')
+
+        if inv_status != 'void':
+            revenue_total += amount
+
+        rows.append({
+            'boarding':    b,
+            'pet':         pet,
+            'owner':       owner,
+            'nights':      nights,
+            'amount':      amount,
+            'inv_status':  inv_status,
+            'inv_number':  inv_number,
+            'inv_url':     inv_url,
+        })
+
+    return render_template(
+        'admin/boarding_report.html',
+        rows=rows,
+        date_from=date_from,
+        date_to=date_to,
+        revenue_total=revenue_total,
+        prev_from=prev_from, prev_to=prev_to,
+        next_from=next_from, next_to=next_to,
+        today=today,
+    )
+
+
 @bp.route('/reports/grooming')
 @login_required
 @admin_required
