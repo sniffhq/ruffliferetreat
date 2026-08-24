@@ -1,0 +1,647 @@
+{% extends "base.html" %}
+{% block title %}Financials — Ruff Life Retreat{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+
+  <!-- ── Header ──────────────────────────────────────────────────────────── -->
+  <div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+      <h2 class="fw-bold mb-0" style="color:#1a1a2e;">
+        <i class="fas fa-chart-line me-2 text-mauve"></i>Financials
+      </h2>
+      <p class="text-muted mb-0 mt-1">Revenue, invoices, and payment history</p>
+    </div>
+    <div class="text-end">
+      <div class="fw-bold" style="font-size:1.5rem; color:#1a1a2e;">${{ '%.2f'|format(grand_total) }}</div>
+      <div class="text-muted" style="font-size:0.82rem;">outstanding · {{ queue|length }} customer{{ 's' if queue|length != 1 else '' }}</div>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in messages %}
+  <div class="alert alert-{{ 'success' if cat == 'success' else 'danger' if cat == 'danger' else 'info' }} alert-dismissible fade show" role="alert">
+    {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {% endfor %}
+  {% endwith %}
+
+  <!-- ── KPI cards ────────────────────────────────────────────────────────── -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-xl-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body py-3 px-4">
+          <div class="text-muted small text-uppercase mb-1" style="letter-spacing:.5px;">Revenue This Month</div>
+          <div class="fw-bold" style="font-size:1.6rem; color:#1a1a2e;">${{ '%.2f'|format(revenue_month) }}</div>
+          <div class="text-muted small">{{ paid_count_month }} invoice{{ 's' if paid_count_month != 1 else '' }} paid</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-xl-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body py-3 px-4">
+          <div class="text-muted small text-uppercase mb-1" style="letter-spacing:.5px;">Revenue YTD</div>
+          <div class="fw-bold" style="font-size:1.6rem; color:#1a1a2e;">${{ '%.2f'|format(revenue_ytd) }}</div>
+          <div class="text-muted small">{{ today.year }} year to date</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-xl-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body py-3 px-4">
+          <div class="text-muted small text-uppercase mb-1" style="letter-spacing:.5px;">Outstanding Balance</div>
+          <div class="fw-bold {% if outstanding_total > 0 %}text-warning{% else %}text-success{% endif %}" style="font-size:1.6rem;">
+            ${{ '%.2f'|format(outstanding_total) }}
+          </div>
+          <div class="text-muted small">{{ queue|length }} customer{{ 's' if queue|length != 1 else '' }} with open balances</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-xl-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body py-3 px-4">
+          <div class="text-muted small text-uppercase mb-1" style="letter-spacing:.5px;">Total Invoices</div>
+          <div class="fw-bold" style="font-size:1.6rem; color:#1a1a2e;">{{ all_invoices|length }}</div>
+          <div class="text-muted small">
+            {{ all_invoices|selectattr('status','eq','paid')|list|length }} paid &nbsp;·&nbsp;
+            {{ all_invoices|selectattr('status','in',['draft','sent'])|list|length }} open
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tab nav ──────────────────────────────────────────────────────────── -->
+  <ul class="nav nav-tabs mb-0" id="finTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active fw-semibold" id="tab-queue-btn"
+              data-bs-toggle="tab" data-bs-target="#tab-queue" type="button">
+        <i class="fas fa-exclamation-circle me-1"></i>Open Balances
+        {% if queue %}
+        <span class="badge bg-warning text-dark ms-1">{{ queue|length }}</span>
+        {% endif %}
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link fw-semibold" id="tab-invoices-btn"
+              data-bs-toggle="tab" data-bs-target="#tab-invoices" type="button">
+        <i class="fas fa-file-invoice-dollar me-1"></i>All Invoices
+        <span class="badge bg-secondary ms-1">{{ all_invoices|length }}</span>
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link fw-semibold" id="tab-payments-btn"
+              data-bs-toggle="tab" data-bs-target="#tab-payments" type="button">
+        <i class="fas fa-dollar-sign me-1"></i>Payments
+        <span class="badge bg-secondary ms-1">{{ all_payments|length }}</span>
+      </button>
+    </li>
+  </ul>
+
+  <div class="tab-content border border-top-0 rounded-bottom bg-white p-4 shadow-sm">
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         TAB 1 — Open Balances (existing queue)
+    ═══════════════════════════════════════════════════════════════════ -->
+    <div class="tab-pane fade show active" id="tab-queue" role="tabpanel">
+
+      {% if not queue %}
+      <div class="text-center py-5">
+        <i class="fas fa-check-circle fa-4x mb-3" style="color:#28a745;"></i>
+        <h4 class="fw-bold text-muted">All Clear!</h4>
+        <p class="text-muted">No outstanding invoices right now.</p>
+      </div>
+      {% else %}
+
+      <!-- Search -->
+      <div class="mb-3 d-flex align-items-center gap-2">
+        <div class="input-group" style="max-width:380px;">
+          <span class="input-group-text bg-white border-end-0">
+            <i class="fas fa-search text-muted" style="font-size:0.85rem;"></i>
+          </span>
+          <input type="text" id="iq-search" class="form-control border-start-0 ps-0"
+                 placeholder="Search by customer or pet name…" autocomplete="off">
+          <button type="button" class="btn btn-outline-secondary" id="iq-clear"
+                  style="display:none;" title="Clear search">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <span id="iq-count" class="text-muted small"></span>
+      </div>
+      <div id="iq-no-results" class="text-center py-5" style="display:none;">
+        <i class="fas fa-search fa-3x mb-3 opacity-25"></i>
+        <p class="text-muted">No results match your search.</p>
+      </div>
+
+      <!-- Queue cards -->
+      <div class="row g-3" id="iq-cards">
+      {% for item in queue %}
+      {% set c = item.customer %}
+      {% set pet_names = [] %}
+      {% for line in item.boarding_lines %}{% if pet_names.append(line.pet) %}{% endif %}{% endfor %}
+      {% for line in item.daycare_lines %}{% if pet_names.append(line.pet) %}{% endif %}{% endfor %}
+      <div class="col-12 iq-card" id="queue-card-{{ c.id }}"
+           data-search="{{ (c.first_name ~ ' ' ~ c.last_name ~ ' ' ~ pet_names|join(' '))|lower }}">
+        <div class="card shadow-sm border-0"
+             style="border-left: 4px solid {% if item.days_outstanding > 30 %}#dc3545{% elif item.days_outstanding > 14 %}#fd7e14{% else %}#B07A8E{% endif %} !important; border-left-width:4px !important;">
+          <div class="card-body p-4">
+            <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
+              <div>
+                <h5 class="fw-bold mb-0" style="color:#1a1a2e;">{{ c.first_name }} {{ c.last_name }}</h5>
+                <div class="text-muted" style="font-size:0.82rem;">
+                  {{ c.phone }}
+                  {% if item.days_outstanding > 0 %}
+                  &nbsp;·&nbsp;
+                  <span class="{% if item.days_outstanding > 30 %}text-danger fw-bold{% elif item.days_outstanding > 14 %}text-warning fw-bold{% else %}text-muted{% endif %}">
+                    {{ item.days_outstanding }}d outstanding
+                  </span>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="text-end">
+                <div class="fw-bold" style="font-size:1.25rem; color:#1a1a2e;">${{ '%.2f'|format(item.total) }}</div>
+                <div class="text-muted" style="font-size:0.78rem;">total due</div>
+              </div>
+            </div>
+
+            <div class="row g-3">
+              {% if item.boarding_lines %}
+              {% set inv_lines    = item.boarding_lines | selectattr('invoice_id') | list %}
+              {% set legacy_lines = item.boarding_lines | rejectattr('invoice_id') | list %}
+              <div class="col-md-6">
+                <div class="p-3 rounded" style="background:#f8f9fa; border:1px solid #e9ecef;">
+                  <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="fw-semibold" style="color:#1a1a2e; font-size:0.9rem;">
+                      <i class="fas fa-hotel me-1 text-mauve"></i> Boarding
+                    </span>
+                    <span class="fw-bold text-mauve">${{ '%.2f'|format(item.boarding_total) }}</span>
+                  </div>
+                  <table class="table table-sm mb-3" style="font-size:0.8rem;">
+                    <tbody>
+                    {% for line in item.boarding_lines %}
+                    <tr>
+                      <td class="ps-0 border-0 py-1">
+                        <span class="fw-semibold">{{ line.pet }}</span>
+                        {% if line.booking_number %}<span class="badge bg-secondary ms-1" style="font-size:0.65rem;">{{ line.booking_number }}</span>{% endif %}
+                        <br><span class="text-muted">{{ line.dates }}</span>
+                        <br><span class="text-muted" style="font-size:0.75rem;">{{ line.detail }}</span>
+                      </td>
+                      <td class="text-end border-0 py-1 pe-0 text-nowrap">${{ '%.2f'|format(line.amount) }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                  </table>
+                  {% if inv_lines %}
+                  <div class="d-flex flex-wrap gap-2 mb-2">
+                    {% for line in inv_lines %}
+                    <a href="{{ url_for('admin.view_invoice', inv_id=line.invoice_id) }}"
+                       class="btn btn-mauve btn-sm">
+                      <i class="fas fa-file-invoice me-1"></i>View Invoice
+                      {% if line.invoice_status == 'draft' %}<span class="badge bg-warning text-dark ms-1" style="font-size:0.65rem;">Draft</span>
+                      {% elif line.invoice_status == 'sent' %}<span class="badge bg-info text-dark ms-1" style="font-size:0.65rem;">Sent</span>{% endif %}
+                    </a>
+                    {% endfor %}
+                  </div>
+                  {% endif %}
+                  {% if legacy_lines %}
+                  <form method="POST" action="{{ url_for('admin.mark_invoice_paid', customer_id=c.id) }}">
+                    <input type="hidden" name="invoice_type" value="boarding">
+                    <input type="hidden" name="_next_queue" value="1">
+                    <div class="input-group input-group-sm">
+                      <select name="payment_method" class="form-select" style="max-width:110px;">
+                        <option value="card">Card</option>
+                        <option value="cash">Cash</option>
+                        <option value="zelle">Zelle</option>
+                      </select>
+                      <button type="submit" class="btn btn-mauve btn-sm"><i class="fas fa-check me-1"></i>Mark Paid</button>
+                      <a href="{{ url_for('admin.customer_invoice', customer_id=c.id, type='boarding') }}"
+                         class="btn btn-outline-secondary btn-sm" title="View full invoice"><i class="fas fa-file-invoice"></i></a>
+                    </div>
+                  </form>
+                  {% endif %}
+                </div>
+              </div>
+              {% endif %}
+
+              {% if item.daycare_lines %}
+              <div class="col-md-6">
+                <div class="p-3 rounded" style="background:#f8f9fa; border:1px solid #e9ecef;">
+                  <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="fw-semibold" style="color:#1a1a2e; font-size:0.9rem;">
+                      <i class="fas fa-paw me-1 text-mauve"></i> Daycare
+                    </span>
+                    <span class="fw-bold text-mauve">${{ '%.2f'|format(item.daycare_total) }}</span>
+                  </div>
+                  {% set visible = item.daycare_lines[:5] %}
+                  {% set hidden  = item.daycare_lines[5:] %}
+                  <table class="table table-sm mb-3" style="font-size:0.8rem;">
+                    <tbody>
+                    {% for line in visible %}
+                    <tr>
+                      <td class="ps-0 border-0 py-1">
+                        <span class="fw-semibold">{{ line.pet }}</span>
+                        <br><span class="text-muted">{{ line.date }}</span>
+                      </td>
+                      <td class="text-end border-0 py-1 pe-0">${{ '%.2f'|format(line.amount) }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% if hidden %}
+                    <tr id="dc-extra-{{ c.id }}" style="display:none;">
+                      <td colspan="2" class="ps-0 border-0 py-0">
+                        <table class="table table-sm mb-0" style="font-size:0.8rem;">
+                        {% for line in hidden %}
+                        <tr>
+                          <td class="ps-0 border-0 py-1"><span class="fw-semibold">{{ line.pet }}</span><br><span class="text-muted">{{ line.date }}</span></td>
+                          <td class="text-end border-0 py-1 pe-0">${{ '%.2f'|format(line.amount) }}</td>
+                        </tr>
+                        {% endfor %}
+                        </table>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td colspan="2" class="ps-0 border-0 py-0">
+                        <button type="button" class="btn btn-link btn-sm p-0 text-muted" style="font-size:0.75rem;"
+                                onclick="document.getElementById('dc-extra-{{ c.id }}').style.display='';this.style.display='none';">
+                          + {{ hidden|length }} more session{{ 's' if hidden|length != 1 else '' }}
+                        </button>
+                      </td>
+                    </tr>
+                    {% endif %}
+                    </tbody>
+                  </table>
+                  <form method="POST" action="{{ url_for('admin.mark_invoice_paid', customer_id=c.id) }}">
+                    <input type="hidden" name="invoice_type" value="daycare">
+                    <input type="hidden" name="_next_queue" value="1">
+                    <div class="input-group input-group-sm">
+                      <select name="payment_method" class="form-select" style="max-width:110px;">
+                        <option value="card">Card</option>
+                        <option value="cash">Cash</option>
+                        <option value="zelle">Zelle</option>
+                      </select>
+                      <button type="submit" class="btn btn-mauve btn-sm"><i class="fas fa-check me-1"></i>Mark Paid</button>
+                      <a href="{{ url_for('admin.customer_invoice', customer_id=c.id, type='daycare') }}"
+                         class="btn btn-outline-secondary btn-sm" title="View full invoice"><i class="fas fa-file-invoice"></i></a>
+                    </div>
+                  </form>
+                </div>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+      </div>
+      {% endif %}
+    </div><!-- /tab-queue -->
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         TAB 2 — All Invoices
+    ═══════════════════════════════════════════════════════════════════ -->
+    <div class="tab-pane fade" id="tab-invoices" role="tabpanel">
+
+      <!-- Filter + Search bar -->
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+        <div class="btn-group btn-group-sm" id="inv-status-filter">
+          <button type="button" class="btn btn-dark active" data-filter="all">All</button>
+          <button type="button" class="btn btn-outline-warning" data-filter="outstanding">Outstanding</button>
+          <button type="button" class="btn btn-outline-success" data-filter="paid">Paid</button>
+          <button type="button" class="btn btn-outline-secondary" data-filter="draft">Draft</button>
+          <button type="button" class="btn btn-outline-danger" data-filter="void">Void</button>
+        </div>
+        <div class="input-group input-group-sm ms-auto" style="max-width:300px;">
+          <span class="input-group-text bg-white border-end-0">
+            <i class="fas fa-search text-muted"></i>
+          </span>
+          <input type="text" id="inv-search" class="form-control border-start-0 ps-0"
+                 placeholder="Search customer, invoice #…" autocomplete="off">
+        </div>
+        <span id="inv-count" class="text-muted small text-nowrap"></span>
+      </div>
+
+      {% if not all_invoices %}
+      <div class="text-center py-5 text-muted">
+        <i class="fas fa-file-invoice fa-3x mb-3 opacity-25"></i>
+        <p>No invoices yet.</p>
+      </div>
+      {% else %}
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle" id="inv-table" style="font-size:0.85rem;">
+          <thead class="table-light">
+            <tr>
+              <th>Invoice</th>
+              <th>Customer</th>
+              <th>Service / Pet</th>
+              <th class="text-end">Total</th>
+              <th>Status</th>
+              <th>Generated</th>
+              <th>Sent</th>
+              <th>Paid</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for inv in all_invoices %}
+          {% set status_grp = 'outstanding' if inv.status in ('draft','sent') else inv.status %}
+          <tr class="inv-row"
+              data-status="{{ inv.status }}"
+              data-statusgrp="{{ status_grp }}"
+              data-search="{{ (inv.invoice_number ~ ' ' ~ inv.customer.first_name ~ ' ' ~ inv.customer.last_name)|lower }}">
+            <td>
+              <a href="{{ url_for('admin.view_invoice', inv_id=inv.id) }}"
+                 class="fw-semibold text-decoration-none" style="color:#1a1a2e;">
+                {{ inv.invoice_number }}
+              </a>
+            </td>
+            <td>
+              <a href="{{ url_for('admin.customer_detail', customer_id=inv.customer_id) }}"
+                 class="text-decoration-none text-dark">
+                {{ inv.customer.first_name }} {{ inv.customer.last_name }}
+              </a>
+            </td>
+            <td class="text-muted">
+              {{ inv.service_type | capitalize }}
+              {% if inv.boarding and inv.boarding.pet %}
+                · {{ inv.boarding.pet.name }}
+                {% if inv.boarding.booking_number %}
+                  <span class="badge bg-secondary ms-1" style="font-size:0.65rem;">{{ inv.boarding.booking_number }}</span>
+                {% endif %}
+              {% endif %}
+            </td>
+            <td class="text-end fw-semibold">${{ '%.2f'|format(inv.total) }}</td>
+            <td>
+              <span class="badge bg-{{ inv.status_badge }}">{{ inv.status_label }}</span>
+            </td>
+            <td class="text-muted text-nowrap">
+              {{ inv.generated_at.strftime('%b %d, %Y') if inv.generated_at else '—' }}
+            </td>
+            <td class="text-muted text-nowrap">
+              {{ inv.sent_at.strftime('%b %d') if inv.sent_at else '—' }}
+            </td>
+            <td class="text-muted text-nowrap">
+              {% if inv.paid_at %}
+                {{ inv.paid_at.strftime('%b %d') }}
+                {% if inv.payment_method %}
+                  <span class="badge bg-light text-secondary ms-1" style="font-size:0.65rem;">{{ inv.payment_method }}</span>
+                {% endif %}
+              {% elif inv.voided_at %}
+                <span class="text-danger">Voided {{ inv.voided_at.strftime('%b %d') }}</span>
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <a href="{{ url_for('admin.view_invoice', inv_id=inv.id) }}"
+                 class="btn btn-xs btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
+                View
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div id="inv-no-results" class="text-center py-4 text-muted" style="display:none;">
+        <i class="fas fa-search fa-2x mb-2 opacity-25 d-block"></i>No invoices match your filter.
+      </div>
+      {% endif %}
+    </div><!-- /tab-invoices -->
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         TAB 3 — Payments
+    ═══════════════════════════════════════════════════════════════════ -->
+    <div class="tab-pane fade" id="tab-payments" role="tabpanel">
+
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+        <div class="btn-group btn-group-sm" id="pay-status-filter">
+          <button type="button" class="btn btn-dark active" data-filter="all">All</button>
+          <button type="button" class="btn btn-outline-success" data-filter="paid">Paid</button>
+          <button type="button" class="btn btn-outline-warning" data-filter="outstanding">Outstanding</button>
+        </div>
+        <div class="input-group input-group-sm ms-auto" style="max-width:300px;">
+          <span class="input-group-text bg-white border-end-0">
+            <i class="fas fa-search text-muted"></i>
+          </span>
+          <input type="text" id="pay-search" class="form-control border-start-0 ps-0"
+                 placeholder="Search customer, notes…" autocomplete="off">
+        </div>
+        <span id="pay-count" class="text-muted small text-nowrap"></span>
+      </div>
+
+      {% if not all_payments %}
+      <div class="text-center py-5 text-muted">
+        <i class="fas fa-dollar-sign fa-3x mb-3 opacity-25"></i>
+        <p>No payment records yet.</p>
+      </div>
+      {% else %}
+
+      <!-- Running total of visible rows — updates with filter/search -->
+      <div class="text-end mb-2">
+        <span class="text-muted small">Showing total: </span>
+        <span id="pay-total" class="fw-semibold" style="color:#1a1a2e;">
+          ${{ '%.2f'|format(all_payments | sum(attribute='amount')) }}
+        </span>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle" id="pay-table" style="font-size:0.85rem;">
+          <thead class="table-light">
+            <tr>
+              <th>Date</th>
+              <th>Customer</th>
+              <th class="text-end">Amount</th>
+              <th>Method</th>
+              <th>Service</th>
+              <th>Status</th>
+              <th>Notes</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for p in all_payments %}
+          <tr class="pay-row"
+              data-status="{{ p.status }}"
+              data-amount="{{ p.amount }}"
+              data-search="{{ (p.customer.first_name ~ ' ' ~ p.customer.last_name ~ ' ' ~ (p.notes or '') ~ ' ' ~ (p.payment_method or ''))|lower }}">
+            <td class="text-nowrap text-muted">
+              {{ p.payment_date.strftime('%b %d, %Y') if p.payment_date else '—' }}
+            </td>
+            <td>
+              <a href="{{ url_for('admin.customer_detail', customer_id=p.customer_id) }}"
+                 class="text-decoration-none text-dark">
+                {{ p.customer.first_name }} {{ p.customer.last_name }}
+              </a>
+            </td>
+            <td class="text-end fw-semibold">${{ '%.2f'|format(p.amount) }}</td>
+            <td>
+              {% if p.payment_method %}
+              <span class="badge bg-light text-secondary border">{{ p.payment_method | capitalize }}</span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="text-muted">{{ p.service_type or '—' }}</td>
+            <td>
+              {% if p.status == 'paid' %}
+                <span class="badge bg-success">Paid</span>
+              {% else %}
+                <span class="badge bg-warning text-dark">Outstanding</span>
+              {% endif %}
+            </td>
+            <td class="text-muted" style="max-width:220px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"
+                title="{{ p.notes or '' }}">
+              {{ p.notes or '—' }}
+            </td>
+            <td>
+              <a href="{{ url_for('admin.customer_detail', customer_id=p.customer_id) }}"
+                 class="btn btn-xs btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
+                Profile
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div id="pay-no-results" class="text-center py-4 text-muted" style="display:none;">
+        <i class="fas fa-search fa-2x mb-2 opacity-25 d-block"></i>No payments match your filter.
+      </div>
+      {% endif %}
+    </div><!-- /tab-payments -->
+
+  </div><!-- /tab-content -->
+</div><!-- /container -->
+
+<script>
+// ── Tab persistence via URL hash ──────────────────────────────────────────
+(function () {
+  var hash = window.location.hash;
+  if (hash) {
+    var btn = document.querySelector('[data-bs-target="' + hash + '"]');
+    if (btn) { bootstrap.Tab.getOrCreateInstance(btn).show(); }
+  }
+  document.querySelectorAll('#finTabs button').forEach(function (btn) {
+    btn.addEventListener('shown.bs.tab', function (e) {
+      history.replaceState(null, '', e.target.dataset.bsTarget);
+    });
+  });
+})();
+
+// ── Queue search ──────────────────────────────────────────────────────────
+(function () {
+  var input    = document.getElementById('iq-search');
+  var clearBtn = document.getElementById('iq-clear');
+  var countEl  = document.getElementById('iq-count');
+  var noRes    = document.getElementById('iq-no-results');
+  if (!input) return;
+  var cards = document.querySelectorAll('.iq-card');
+  var total = cards.length;
+  function filter() {
+    var q = input.value.trim().toLowerCase();
+    clearBtn.style.display = q ? '' : 'none';
+    var shown = 0;
+    cards.forEach(function (c) {
+      var match = !q || c.dataset.search.indexOf(q) !== -1;
+      c.style.display = match ? '' : 'none';
+      if (match) shown++;
+    });
+    if (q) { countEl.textContent = shown + ' of ' + total + ' shown'; noRes.style.display = shown === 0 ? '' : 'none'; }
+    else   { countEl.textContent = ''; noRes.style.display = 'none'; }
+  }
+  input.addEventListener('input', filter);
+  clearBtn.addEventListener('click', function () { input.value = ''; filter(); input.focus(); });
+})();
+
+// ── Invoice filter + search ───────────────────────────────────────────────
+(function () {
+  var filterBtns = document.querySelectorAll('#inv-status-filter button');
+  var searchEl   = document.getElementById('inv-search');
+  var countEl    = document.getElementById('inv-count');
+  var noRes      = document.getElementById('inv-no-results');
+  var rows       = document.querySelectorAll('.inv-row');
+  if (!rows.length) return;
+
+  var activeFilter = 'all';
+
+  function applyFilter() {
+    var q = searchEl ? searchEl.value.trim().toLowerCase() : '';
+    var shown = 0;
+    rows.forEach(function (row) {
+      var statusMatch = activeFilter === 'all'
+        || (activeFilter === 'outstanding' && row.dataset.statusgrp === 'outstanding')
+        || row.dataset.status === activeFilter;
+      var searchMatch = !q || row.dataset.search.indexOf(q) !== -1;
+      var vis = statusMatch && searchMatch;
+      row.style.display = vis ? '' : 'none';
+      if (vis) shown++;
+    });
+    if (countEl) countEl.textContent = shown + ' invoice' + (shown !== 1 ? 's' : '');
+    if (noRes)   noRes.style.display = shown === 0 ? '' : 'none';
+  }
+
+  filterBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      filterBtns.forEach(function (b) {
+        b.className = b.className
+          .replace(/btn-dark|btn-outline-\S+/, '')
+          .replace(/\s+/g,' ').trim();
+        b.classList.add(b.dataset.filter === 'all' ? 'btn-outline-secondary'
+          : b.dataset.filter === 'outstanding' ? 'btn-outline-warning'
+          : b.dataset.filter === 'paid'        ? 'btn-outline-success'
+          : b.dataset.filter === 'draft'       ? 'btn-outline-secondary'
+          :                                      'btn-outline-danger');
+      });
+      btn.className = btn.className.replace(/btn-outline-\S+/, '').replace(/\s+/g,' ').trim();
+      btn.classList.add('btn-dark');
+      activeFilter = btn.dataset.filter;
+      applyFilter();
+    });
+  });
+
+  if (searchEl) searchEl.addEventListener('input', applyFilter);
+  applyFilter();
+})();
+
+// ── Payments filter + search ──────────────────────────────────────────────
+(function () {
+  var filterBtns = document.querySelectorAll('#pay-status-filter button');
+  var searchEl   = document.getElementById('pay-search');
+  var countEl    = document.getElementById('pay-count');
+  var totalEl    = document.getElementById('pay-total');
+  var noRes      = document.getElementById('pay-no-results');
+  var rows       = document.querySelectorAll('.pay-row');
+  if (!rows.length) return;
+
+  var activeFilter = 'all';
+
+  function applyFilter() {
+    var q = searchEl ? searchEl.value.trim().toLowerCase() : '';
+    var shown = 0;
+    var runningTotal = 0;
+    rows.forEach(function (row) {
+      var statusMatch = activeFilter === 'all' || row.dataset.status === activeFilter;
+      var searchMatch = !q || row.dataset.search.indexOf(q) !== -1;
+      var vis = statusMatch && searchMatch;
+      row.style.display = vis ? '' : 'none';
+      if (vis) { shown++; runningTotal += parseFloat(row.dataset.amount) || 0; }
+    });
+    if (countEl)   countEl.textContent = shown + ' record' + (shown !== 1 ? 's' : '');
+    if (totalEl)   totalEl.textContent = '$' + runningTotal.toFixed(2);
+    if (noRes)     noRes.style.display = shown === 0 ? '' : 'none';
+  }
+
+  filterBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      filterBtns.forEach(function (b) {
+        b.className = b.className.replace(/btn-dark|btn-outline-\S+/, '').replace(/\s+/g,' ').trim();
+        b.classList.add(b.dataset.filter === 'paid' ? 'btn-outline-success' : b.dataset.filter === 'outstanding' ? 'btn-outline-warning' : 'btn-outline-secondary');
+      });
+      btn.className = btn.className.replace(/btn-outline-\S+/, '').replace(/\s+/g,' ').trim();
+      btn.classList.add('btn-dark');
+      activeFilter = btn.dataset.filter;
+      applyFilter();
+    });
+  });
+
+  if (searchEl) searchEl.addEventListener('input', applyFilter);
+  applyFilter();
+})();
+</script>
+{% endblock %}

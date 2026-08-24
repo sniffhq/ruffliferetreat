@@ -1688,21 +1688,53 @@ def get_available_times():
     return jsonify(slots_data)
 
 
-@bp.route('/invoice-queue')
+@bp.route('/financials')
 @login_required
 @admin_required
-def invoice_queue():
-    """Billing queue — all customers with open balances, mark-paid inline."""
-    from app.models import Payment, Boarding, DaycareAttendance, DaycareEnrollment
+def financials():
+    """Financial hub — KPIs, all invoices, all payments, open balances queue."""
+    from app.models import Invoice, Payment, Boarding, DaycareAttendance, DaycareEnrollment
     from app.rate_resolver import get_rates, get_pet_boarding_rate
-    from datetime import date, timedelta
+    from datetime import date, datetime as _dt, timedelta
 
-    today = date.today()
+    today       = date.today()
+    month_start = today.replace(day=1)
+    year_start  = today.replace(month=1, day=1)
+    _month_dt   = _dt.combine(month_start, _dt.min.time())
+    _year_dt    = _dt.combine(year_start,  _dt.min.time())
+
+    # ── KPI summary ──────────────────────────────────────────────────────
+    revenue_month = float(db.session.query(db.func.sum(Invoice.total)).filter(
+        Invoice.status == 'paid',
+        Invoice.paid_at >= _month_dt,
+    ).scalar() or 0.0)
+
+    revenue_ytd = float(db.session.query(db.func.sum(Invoice.total)).filter(
+        Invoice.status == 'paid',
+        Invoice.paid_at >= _year_dt,
+    ).scalar() or 0.0)
+
+    outstanding_total = float(db.session.query(db.func.sum(Invoice.total)).filter(
+        Invoice.status.in_(['draft', 'sent'])
+    ).scalar() or 0.0)
+
+    paid_count_month = Invoice.query.filter(
+        Invoice.status == 'paid',
+        Invoice.paid_at >= _month_dt,
+    ).count()
+
+    # ── All invoices (newest first) ───────────────────────────────────────
+    all_invoices = Invoice.query.order_by(Invoice.created_at.desc()).all()
+
+    # ── All payments (newest first) ───────────────────────────────────────
+    all_payments = Payment.query.order_by(Payment.created_at.desc()).all()
+
+    # ── Open balances queue ───────────────────────────────────────────────
     queue = []
     customers_with_pets = User.query.filter_by(role='customer', is_active=True).all()
 
     for c in customers_with_pets:
-        rates = get_rates(c)
+        rates           = get_rates(c)
         boarding_lines  = []
         daycare_lines   = []
         boarding_total  = 0.0
@@ -1710,19 +1742,14 @@ def invoice_queue():
         oldest_date     = None
 
         for pet in sorted(c.pets, key=lambda p: p.name):
-            # ── Unpaid completed boardings ────────────────────────────────
-            # Include boardings with no payment_id (legacy) OR those with an
-            # Invoice record that is not yet paid/void (new system).
             boardings = Boarding.query.filter_by(
                 pet_id=pet.id, status='completed'
             ).order_by(Boarding.check_out_date.asc()).all()
 
             for b in boardings:
-                # New Invoice model takes priority
                 if b.invoice:
                     if b.invoice.status in ('paid', 'void'):
-                        continue  # already settled
-                    # Draft or sent invoice — show with link
+                        continue
                     line_amt = b.invoice.total
                     boarding_total += line_amt
                     boarding_lines.append({
@@ -1738,7 +1765,6 @@ def invoice_queue():
                         oldest_date = b.check_out_date
                     continue
 
-                # Legacy — no Invoice record; skip if already paid via old payment_id
                 if b.payment_id is not None:
                     continue
 
@@ -1779,7 +1805,6 @@ def invoice_queue():
                 if oldest_date is None or b.check_out_date < oldest_date:
                     oldest_date = b.check_out_date
 
-            # ── Unpaid daycare sessions ───────────────────────────────────
             for enr in DaycareEnrollment.query.filter_by(pet_id=pet.id).all():
                 atts = DaycareAttendance.query.filter_by(
                     enrollment_id=enr.id
@@ -1817,18 +1842,38 @@ def invoice_queue():
 
         if boarding_total > 0 or daycare_total > 0:
             queue.append({
-                'customer':        c,
-                'boarding_lines':  boarding_lines,
-                'daycare_lines':   daycare_lines,
-                'boarding_total':  boarding_total,
-                'daycare_total':   daycare_total,
-                'total':           boarding_total + daycare_total,
+                'customer':         c,
+                'boarding_lines':   boarding_lines,
+                'daycare_lines':    daycare_lines,
+                'boarding_total':   boarding_total,
+                'daycare_total':    daycare_total,
+                'total':            boarding_total + daycare_total,
                 'days_outstanding': (today - oldest_date).days if oldest_date else 0,
             })
 
     queue.sort(key=lambda x: x['days_outstanding'], reverse=True)
     grand_total = sum(q['total'] for q in queue)
-    return render_template('admin/invoice_queue.html', queue=queue, grand_total=grand_total, today=today)
+
+    return render_template('admin/financials.html',
+        revenue_month=revenue_month,
+        revenue_ytd=revenue_ytd,
+        outstanding_total=outstanding_total,
+        paid_count_month=paid_count_month,
+        all_invoices=all_invoices,
+        all_payments=all_payments,
+        queue=queue,
+        grand_total=grand_total,
+        today=today,
+    )
+
+
+@bp.route('/invoice-queue')
+@login_required
+@admin_required
+def invoice_queue():
+    """Legacy redirect → /financials."""
+    from flask import redirect
+    return redirect(url_for('admin.financials'))
 
 
 @bp.route('/invoices/audit')
