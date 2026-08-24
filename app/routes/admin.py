@@ -4107,6 +4107,14 @@ def customer_invoice(customer_id):
         # and would incorrectly offset the projected balance.
         payments   = []
         total_paid = 0.0
+    elif viewing_payment and viewing_payment.status == 'paid':
+        # Paid receipt view — everything shown on this page was paid under this
+        # payment. Set total_paid = total_outstanding so balance always shows $0.
+        # (Multiple invoices can be tied to a single Payment record with a lower
+        # amount if send_invoice reused the record; we trust the Invoice status.)
+        payments          = [viewing_payment]
+        total_paid        = 0.0  # overwritten after total_outstanding is known
+        _paid_receipt     = True
     else:
         payments   = Payment.query.filter_by(
             customer_id=customer_id,
@@ -4129,6 +4137,11 @@ def customer_invoice(customer_id):
     adj_total         = sum(a.amount for a in custom_lines)
     total_outstanding = sum(s['subtotal'] for s in pet_sections) + adj_total
     grand_total       = total_outstanding
+
+    # Paid receipt — now that we know the total, set total_paid to match so
+    # balance shows $0.  (total_paid was held at 0.0 in the branch above.)
+    if locals().get('_paid_receipt'):
+        total_paid = total_outstanding
 
     return render_template('admin/invoice.html',
         customer=customer,
