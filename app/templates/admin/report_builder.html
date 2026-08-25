@@ -54,7 +54,8 @@
           </div>
           <div class="card-body px-4 py-3">
             {% for svc, col_list in report_columns.items() %}
-            <div class="col-group" id="cols_{{ svc }}" {% if service != svc %}style="display:none;"{% endif %}>
+            {% set is_active = (service == svc) %}
+            <div class="col-group" id="cols_{{ svc }}" {% if not is_active %}style="display:none;"{% endif %}>
               <div class="d-flex gap-2 mb-2">
                 <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 select-all-btn" data-svc="{{ svc }}">All</button>
                 <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 select-none-btn" data-svc="{{ svc }}">None</button>
@@ -64,7 +65,8 @@
                 <input class="form-check-input col-check" type="checkbox" name="cols"
                        id="col_{{ svc }}_{{ col_key }}" value="{{ col_key }}"
                        data-svc="{{ svc }}"
-                       {% if col_key in selected_cols or not ran %}checked{% endif %}>
+                       {% if not is_active %}disabled{% endif %}
+                       {% if col_key in selected_cols or (not ran and is_active) %}checked{% endif %}>
                 <label class="form-check-label small" for="col_{{ svc }}_{{ col_key }}">{{ col_label }}</label>
               </div>
               {% endfor %}
@@ -228,14 +230,25 @@
 </div>
 
 <script>
-// Service radio changes → show matching column + status groups
+// Service radio changes → show/enable matching columns, hide/disable others
 document.querySelectorAll('.svc-radio').forEach(radio => {
   radio.addEventListener('change', function () {
     const svc = this.value;
-    document.querySelectorAll('.col-group').forEach(el => el.style.display = 'none');
+    // Hide + disable all groups
+    document.querySelectorAll('.col-group').forEach(el => {
+      el.style.display = 'none';
+      el.querySelectorAll('.col-check').forEach(cb => cb.disabled = true);
+    });
     document.querySelectorAll('.status-group').forEach(el => el.style.display = 'none');
+    // Show + enable active group
     const cg = document.getElementById('cols_' + svc);
-    if (cg) cg.style.display = '';
+    if (cg) {
+      cg.style.display = '';
+      cg.querySelectorAll('.col-check').forEach(cb => {
+        cb.disabled = false;
+        cb.checked = true; // default all checked when switching service
+      });
+    }
     const sg = document.getElementById('status_' + svc);
     if (sg) sg.style.display = '';
     document.getElementById('save_service').value = svc;
