@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Saved Reports — Ruff Life Retreat{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+
+  <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-4">
+    <div>
+      <h2 class="fw-bold mb-0" style="color:#1a1a2e;">
+        <i class="fas fa-bookmark me-2 text-mauve"></i>Saved Reports
+      </h2>
+      <p class="text-muted mb-0 mt-1">Run or export any saved report. Admins can create new ones in the builder.</p>
+    </div>
+    <a href="{{ url_for('admin.report_builder') }}" class="btn btn-mauve btn-sm px-4">
+      <i class="fas fa-plus me-1"></i> New Report
+    </a>
+  </div>
+
+  {% if not reports %}
+  <div class="text-center py-5 text-muted">
+    <i class="fas fa-bookmark fa-3x mb-3 opacity-25"></i>
+    <p class="mb-1">No saved reports yet.</p>
+    <a href="{{ url_for('admin.report_builder') }}" class="btn btn-mauve btn-sm mt-2">
+      Build your first report
+    </a>
+  </div>
+  {% else %}
+  <div class="card border-0 shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0" style="font-size:0.88rem;">
+        <thead style="background:#f8f9fa; font-size:0.76rem; text-transform:uppercase; letter-spacing:.4px; color:#6c757d;">
+          <tr>
+            <th class="ps-4 py-3 border-0 fw-semibold">Report Name</th>
+            <th class="py-3 border-0 fw-semibold">Data Source</th>
+            <th class="py-3 border-0 fw-semibold">Default Range</th>
+            <th class="py-3 border-0 fw-semibold">Created</th>
+            <th class="py-3 border-0 fw-semibold">Created By</th>
+            <th class="py-3 pe-4 border-0 fw-semibold text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for rpt in reports %}
+          {% set cfg = rpt.get_config() %}
+          <tr>
+            <td class="ps-4 py-3 border-0">
+              <div class="fw-semibold" style="color:#1a1a2e;">{{ rpt.name }}</div>
+              {% if rpt.description %}
+              <div class="text-muted" style="font-size:0.78rem;">{{ rpt.description }}</div>
+              {% endif %}
+            </td>
+            <td class="py-3 border-0">
+              {% set svc = cfg.get('service','') %}
+              {% if svc == 'boarding' %}<span class="badge" style="background:#E8DCE0; color:#1a1a2e;"><i class="fas fa-bed me-1"></i>Boarding</span>
+              {% elif svc == 'daycare' %}<span class="badge" style="background:#d4edda; color:#155724;"><i class="fas fa-paw me-1"></i>Daycare</span>
+              {% elif svc == 'grooming' %}<span class="badge bg-info text-dark"><i class="fas fa-cut me-1"></i>Grooming</span>
+              {% elif svc == 'financials' %}<span class="badge bg-warning text-dark"><i class="fas fa-dollar-sign me-1"></i>Financials</span>
+              {% else %}<span class="badge bg-secondary">{{ svc }}</span>{% endif %}
+              <div class="text-muted mt-1" style="font-size:0.75rem;">
+                {{ cfg.get('columns',[])|length }} column{{ 's' if cfg.get('columns',[])|length != 1 else '' }}
+              </div>
+            </td>
+            <td class="py-3 border-0 text-nowrap text-muted small">
+              {% if cfg.get('default_date_from') and cfg.get('default_date_to') %}
+                {{ cfg.default_date_from }} – {{ cfg.default_date_to }}
+              {% else %}—{% endif %}
+            </td>
+            <td class="py-3 border-0 text-muted small text-nowrap">
+              {% if rpt.created_at %}{{ rpt.created_at.strftime('%b') }} {{ rpt.created_at.day }}, {{ rpt.created_at.year }}{% else %}—{% endif %}
+            </td>
+            <td class="py-3 border-0 text-muted small">
+              {% if rpt.creator %}{{ rpt.creator.first_name }} {{ rpt.creator.last_name }}{% else %}—{% endif %}
+            </td>
+            <td class="py-3 pe-4 border-0 text-end text-nowrap">
+              <!-- Run (with date pickers in offcanvas) -->
+              <a href="{{ url_for('admin.run_saved_report', report_id=rpt.id) }}"
+                 class="btn btn-sm btn-mauve me-1">
+                <i class="fas fa-play me-1"></i>Run
+              </a>
+              <!-- Export CSV -->
+              <a href="{{ url_for('admin.export_saved_report', report_id=rpt.id) }}"
+                 class="btn btn-sm btn-outline-success me-1" title="Export CSV">
+                <i class="fas fa-file-csv"></i>
+              </a>
+              <!-- Delete (admin only) -->
+              {% if current_user.role == 'admin' %}
+              <form method="POST"
+                    action="{{ url_for('admin.delete_saved_report', report_id=rpt.id) }}"
+                    style="display:inline;"
+                    onsubmit="return confirm('Delete report \'{{ rpt.name }}\'?');">
+                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

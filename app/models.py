@@ -1179,3 +1179,28 @@ class Invoice(db.Model):
 
     def __repr__(self):
         return f'<Invoice {self.invoice_number} {self.status}>'
+
+
+class SavedReport(db.Model):
+    """Admin-saved custom report configurations."""
+    __tablename__ = 'saved_report'
+
+    id          = db.Column(db.Integer, primary_key=True)
+    name        = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    config      = db.Column(db.Text, nullable=False, default='{}')  # JSON
+    created_by  = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at  = db.Column(db.DateTime, default=datetime.now)
+    updated_at  = db.Column(db.DateTime, default=datetime.now)
+
+    creator = db.relationship('User', backref=db.backref('saved_reports', lazy=True))
+
+    def get_config(self):
+        import json
+        try:
+            return json.loads(self.config or '{}')
+        except Exception:
+            return {}
+
+    def __repr__(self):
+        return f'<SavedReport {self.name}>'

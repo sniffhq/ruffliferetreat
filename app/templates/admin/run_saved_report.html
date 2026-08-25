@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}{{ rpt.name }} — Ruff Life Retreat{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+
+  <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-4">
+    <div>
+      <h2 class="fw-bold mb-0" style="color:#1a1a2e;">
+        <i class="fas fa-chart-bar me-2 text-mauve"></i>{{ rpt.name }}
+      </h2>
+      {% if rpt.description %}
+      <p class="text-muted mb-0 mt-1">{{ rpt.description }}</p>
+      {% endif %}
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{{ url_for('admin.export_saved_report', report_id=rpt.id, **request.args) }}"
+         class="btn btn-outline-success btn-sm px-3">
+        <i class="fas fa-file-csv me-1"></i> Export CSV
+      </a>
+      <a href="{{ url_for('admin.saved_reports') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="fas fa-bookmark me-1"></i> All Reports
+      </a>
+    </div>
+  </div>
+
+  <!-- Date range selector -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body py-3 px-4">
+      <form method="GET" class="d-flex align-items-end flex-wrap gap-3">
+        <div>
+          <label class="form-label small fw-semibold text-muted mb-1">From</label>
+          <input type="date" name="from" class="form-control form-control-sm"
+                 value="{{ date_from.isoformat() }}" style="width:160px;">
+        </div>
+        <div>
+          <label class="form-label small fw-semibold text-muted mb-1">To</label>
+          <input type="date" name="to" class="form-control form-control-sm"
+                 value="{{ date_to.isoformat() }}" style="width:160px;">
+        </div>
+        <button type="submit" class="btn btn-mauve btn-sm px-4">
+          <i class="fas fa-sync me-1"></i> Refresh
+        </button>
+        <div class="ms-auto text-end">
+          <div class="fw-bold" style="font-size:1.4rem; color:#1a1a2e;">{{ rows|length }}</div>
+          <div class="text-muted" style="font-size:0.8rem;">row{{ 's' if rows|length != 1 else '' }}</div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Results table -->
+  {% set columns = config.get('columns', []) %}
+  {% if not rows %}
+  <div class="text-center py-5 text-muted">
+    <i class="fas fa-inbox fa-3x mb-3 opacity-25"></i>
+    <p class="mb-0">No records found for this date range.</p>
+  </div>
+  {% else %}
+  <div class="card border-0 shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0" style="font-size:0.85rem;">
+        <thead style="background:#f8f9fa; font-size:0.75rem; text-transform:uppercase; letter-spacing:.4px; color:#6c757d;">
+          <tr>
+            {% for col in columns %}
+            <th class="ps-3 py-3 border-0 fw-semibold">{{ col_labels.get(col, col) }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            {% for col in columns %}
+            <td class="ps-3 py-3 border-0">{{ row.get(col, '') }}</td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

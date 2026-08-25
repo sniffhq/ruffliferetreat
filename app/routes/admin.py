@@ -9459,6 +9459,421 @@ def boarding_report():
     )
 
 
+# ---------------------------------------------------------------------------
+# Custom Report Builder
+# ---------------------------------------------------------------------------
+
+# Column definitions for each service — (key, display_label)
+_REPORT_COLUMNS = {
+    'boarding': [
+        ('booking_number', 'Booking #'),
+        ('pet_name', 'Pet Name'),
+        ('pet_breed', 'Breed'),
+        ('owner_name', 'Owner'),
+        ('owner_phone', 'Phone'),
+        ('owner_email', 'Email'),
+        ('check_in_date', 'Check-In Date'),
+        ('check_in_time', 'Check-In Time'),
+        ('check_out_date', 'Check-Out Date'),
+        ('check_out_time', 'Check-Out Time'),
+        ('nights', 'Nights'),
+        ('kennel_number', 'Kennel #'),
+        ('kennel_type', 'Kennel Type'),
+        ('status', 'Status'),
+        ('invoice_number', 'Invoice #'),
+        ('invoice_status', 'Invoice Status'),
+        ('invoice_total', 'Amount'),
+    ],
+    'daycare': [
+        ('date', 'Date'),
+        ('pet_name', 'Pet Name'),
+        ('owner_name', 'Owner'),
+        ('owner_phone', 'Phone'),
+        ('check_in_time', 'Check-In'),
+        ('check_out_time', 'Check-Out'),
+        ('waived', 'Waived'),
+        ('payment_status', 'Paid'),
+        ('addons', 'Add-ons'),
+    ],
+    'grooming': [
+        ('appointment_date', 'Date'),
+        ('pet_name', 'Pet Name'),
+        ('pet_breed', 'Breed'),
+        ('owner_name', 'Owner'),
+        ('owner_phone', 'Phone'),
+        ('service_name', 'Service'),
+        ('base_price', 'Price'),
+        ('status', 'Status'),
+        ('notes', 'Notes'),
+    ],
+    'financials': [
+        ('payment_date', 'Payment Date'),
+        ('customer_name', 'Customer'),
+        ('customer_email', 'Email'),
+        ('amount', 'Amount'),
+        ('service_type', 'Service Type'),
+        ('payment_method', 'Method'),
+        ('status', 'Status'),
+        ('notes', 'Notes'),
+    ],
+}
+
+_REPORT_STATUS_OPTIONS = {
+    'boarding':   ['active', 'completed', 'cancelled'],
+    'daycare':    [],
+    'grooming':   ['pending', 'confirmed', 'checked_in', 'completed', 'cancelled'],
+    'financials': ['paid', 'outstanding'],
+}
+
+
+def _execute_report(config, date_from, date_to):
+    """Run a report config dict and return list-of-dicts rows."""
+    import json as _json
+    from datetime import datetime as _dt
+    service = config.get('service', '')
+    columns = config.get('columns', [])
+    status_filter = config.get('status_filter', [])
+    rows = []
+
+    if service == 'boarding':
+        from app.models import Boarding as _B, Pet as _P, User as _U
+        q = _B.query.filter(
+            _B.check_out_date >= date_from,
+            _B.check_out_date <= date_to,
+        )
+        if status_filter:
+            q = q.filter(_B.status.in_(status_filter))
+        q = q.order_by(_B.check_out_date.asc(), _B.check_in_date.asc())
+        for b in q.all():
+            pet = _P.query.get(b.pet_id)
+            owner = _U.query.get(b.user_id)
+            if not pet or not owner:
+                continue
+            nights = (b.check_out_date - b.check_in_date).days if b.check_out_date and b.check_in_date else 0
+            if b.invoice:
+                inv_num = b.invoice.invoice_number or ''
+                inv_status = b.invoice.status
+                inv_total = f"${b.invoice.total:.2f}"
+            else:
+                inv_num = ''
+                inv_status = 'legacy'
+                inv_total = ''
+            full = {
+                'booking_number': b.booking_number or '',
+                'pet_name': pet.name,
+                'pet_breed': pet.breed or '',
+                'owner_name': f"{owner.first_name} {owner.last_name}",
+                'owner_phone': owner.phone or '',
+                'owner_email': owner.email or '',
+                'check_in_date': b.check_in_date.strftime('%m/%d/%Y') if b.check_in_date else '',
+                'check_in_time': b.check_in_time or '',
+                'check_out_date': b.check_out_date.strftime('%m/%d/%Y') if b.check_out_date else '',
+                'check_out_time': b.check_out_time or '',
+                'nights': str(nights),
+                'kennel_number': b.kennel_number or '',
+                'kennel_type': b.kennel_type or '',
+                'status': b.status,
+                'invoice_number': inv_num,
+                'invoice_status': inv_status,
+                'invoice_total': inv_total,
+            }
+            rows.append({c: full.get(c, '') for c in columns})
+
+    elif service == 'daycare':
+        from app.models import DaycareAttendance as _DA, Pet as _P, User as _U
+        date_from_dt = _dt.combine(date_from, _dt.min.time())
+        date_to_dt = _dt.combine(date_to, _dt.max.time())
+        atts = _DA.query.filter(
+            _DA.check_in_time >= date_from_dt,
+            _DA.check_in_time <= date_to_dt,
+        ).order_by(_DA.check_in_time.asc()).all()
+        for att in atts:
+            enr = att.enrollment
+            if not enr:
+                continue
+            pet = _P.query.get(enr.pet_id)
+            owner = _U.query.get(pet.user_id) if pet else None
+            if not pet or not owner:
+                continue
+            full = {
+                'date': att.check_in_time.strftime('%m/%d/%Y') if att.check_in_time else '',
+                'pet_name': pet.name,
+                'owner_name': f"{owner.first_name} {owner.last_name}",
+                'owner_phone': owner.phone or '',
+                'check_in_time': att.check_in_time.strftime('%I:%M %p') if att.check_in_time else '',
+                'check_out_time': att.check_out_time.strftime('%I:%M %p') if att.check_out_time else '',
+                'waived': 'Yes' if att.waived else 'No',
+                'payment_status': 'Paid' if att.payment_id else 'Unpaid',
+                'addons': att.addons or '',
+            }
+            rows.append({c: full.get(c, '') for c in columns})
+
+    elif service == 'grooming':
+        from app.models import Appointment as _AP, Pet as _P, User as _U
+        q = _AP.query.filter(
+            _AP.appointment_date >= date_from,
+            _AP.appointment_date <= date_to,
+        )
+        if status_filter:
+            q = q.filter(_AP.status.in_(status_filter))
+        q = q.order_by(_AP.appointment_date.asc())
+        for appt in q.all():
+            pet = _P.query.get(appt.pet_id)
+            owner = _U.query.get(appt.user_id)
+            if not pet or not owner:
+                continue
+            st = appt.service_type
+            full = {
+                'appointment_date': appt.appointment_date.strftime('%m/%d/%Y') if appt.appointment_date else '',
+                'pet_name': pet.name,
+                'pet_breed': pet.breed or '',
+                'owner_name': f"{owner.first_name} {owner.last_name}",
+                'owner_phone': owner.phone or '',
+                'service_name': st.name if st else '',
+                'base_price': f"${st.base_price:.2f}" if st and st.base_price else '',
+                'status': appt.status,
+                'notes': appt.notes or '',
+            }
+            rows.append({c: full.get(c, '') for c in columns})
+
+    elif service == 'financials':
+        from app.models import Payment as _Pay, User as _U
+        q = _Pay.query.filter(
+            _Pay.payment_date >= date_from,
+            _Pay.payment_date <= date_to,
+        )
+        if status_filter:
+            q = q.filter(_Pay.status.in_(status_filter))
+        q = q.order_by(_Pay.payment_date.asc())
+        for pay in q.all():
+            owner = _U.query.get(pay.customer_id)
+            full = {
+                'payment_date': pay.payment_date.strftime('%m/%d/%Y') if pay.payment_date else '',
+                'customer_name': f"{owner.first_name} {owner.last_name}" if owner else '',
+                'customer_email': owner.email if owner else '',
+                'amount': f"${pay.amount:.2f}",
+                'service_type': pay.service_type or '',
+                'payment_method': pay.payment_method or '',
+                'status': pay.status,
+                'notes': pay.notes or '',
+            }
+            rows.append({c: full.get(c, '') for c in columns})
+
+    return rows
+
+
+@bp.route('/reports/builder', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def report_builder():
+    """Custom report builder — admin only."""
+    import json as _json
+    from datetime import date, timedelta
+
+    today = date.today()
+    week_mon = today - timedelta(days=today.weekday())
+    week_sun = week_mon + timedelta(days=6)
+
+    # Defaults
+    service = request.args.get('service', 'boarding')
+    date_from_str = request.args.get('from', week_mon.isoformat())
+    date_to_str = request.args.get('to', week_sun.isoformat())
+    selected_cols = request.args.getlist('cols') or [c[0] for c in _REPORT_COLUMNS.get(service, [])]
+    status_filter = request.args.getlist('status_filter')
+
+    try:
+        date_from = date.fromisoformat(date_from_str)
+    except ValueError:
+        date_from = week_mon
+    try:
+        date_to = date.fromisoformat(date_to_str)
+    except ValueError:
+        date_to = week_sun
+
+    rows = []
+    ran = False
+    if request.args.get('run'):
+        ran = True
+        config = {
+            'service': service,
+            'columns': selected_cols,
+            'status_filter': status_filter,
+        }
+        rows = _execute_report(config, date_from, date_to)
+
+    return render_template(
+        'admin/report_builder.html',
+        report_columns=_REPORT_COLUMNS,
+        status_options=_REPORT_STATUS_OPTIONS,
+        service=service,
+        date_from=date_from,
+        date_to=date_to,
+        selected_cols=selected_cols,
+        status_filter=status_filter,
+        rows=rows,
+        ran=ran,
+        today=today,
+    )
+
+
+@bp.route('/reports/builder/save', methods=['POST'])
+@login_required
+@admin_required
+def save_report():
+    """Save a report configuration."""
+    import json as _json
+    from app.models import SavedReport
+    name = request.form.get('name', '').strip()
+    description = request.form.get('description', '').strip()
+    service = request.form.get('service', '')
+    date_from_str = request.form.get('date_from', '')
+    date_to_str = request.form.get('date_to', '')
+    selected_cols = request.form.getlist('cols')
+    status_filter = request.form.getlist('status_filter')
+
+    if not name:
+        flash('Report name is required.', 'danger')
+        return redirect(url_for('admin.report_builder'))
+
+    config = _json.dumps({
+        'service': service,
+        'columns': selected_cols,
+        'status_filter': status_filter,
+        'default_date_from': date_from_str,
+        'default_date_to': date_to_str,
+    })
+
+    rpt = SavedReport(
+        name=name,
+        description=description,
+        config=config,
+        created_by=current_user.id,
+    )
+    db.session.add(rpt)
+    db.session.commit()
+    flash(f'Report "{name}" saved.', 'success')
+    return redirect(url_for('admin.saved_reports'))
+
+
+@bp.route('/reports/saved')
+@login_required
+@staff_required
+def saved_reports():
+    """List all saved reports."""
+    from app.models import SavedReport
+    reports = SavedReport.query.order_by(SavedReport.created_at.desc()).all()
+    return render_template('admin/saved_reports.html', reports=reports)
+
+
+@bp.route('/reports/saved/<int:report_id>/run')
+@login_required
+@staff_required
+def run_saved_report(report_id):
+    """Run a saved report with an optional date override."""
+    import json as _json
+    from app.models import SavedReport
+    from datetime import date
+    rpt = SavedReport.query.get_or_404(report_id)
+    config = rpt.get_config()
+
+    def _parse(param, fallback):
+        try:
+            return date.fromisoformat(request.args.get(param, '').strip())
+        except ValueError:
+            return fallback
+
+    today = date.today()
+    try:
+        default_from = date.fromisoformat(config.get('default_date_from', ''))
+    except ValueError:
+        default_from = today
+    try:
+        default_to = date.fromisoformat(config.get('default_date_to', ''))
+    except ValueError:
+        default_to = today
+
+    date_from = _parse('from', default_from)
+    date_to = _parse('to', default_to)
+
+    rows = _execute_report(config, date_from, date_to)
+    col_labels = {k: v for k, v in _REPORT_COLUMNS.get(config.get('service', ''), [])}
+
+    return render_template(
+        'admin/run_saved_report.html',
+        rpt=rpt,
+        config=config,
+        rows=rows,
+        date_from=date_from,
+        date_to=date_to,
+        col_labels=col_labels,
+        today=today,
+        report_columns=_REPORT_COLUMNS,
+    )
+
+
+@bp.route('/reports/saved/<int:report_id>/export')
+@login_required
+@staff_required
+def export_saved_report(report_id):
+    """Export a saved report as CSV."""
+    import csv, io
+    from app.models import SavedReport
+    from datetime import date
+    rpt = SavedReport.query.get_or_404(report_id)
+    config = rpt.get_config()
+
+    def _parse(param, fallback):
+        try:
+            return date.fromisoformat(request.args.get(param, '').strip())
+        except ValueError:
+            return fallback
+
+    today = date.today()
+    try:
+        default_from = date.fromisoformat(config.get('default_date_from', ''))
+    except ValueError:
+        default_from = today
+    try:
+        default_to = date.fromisoformat(config.get('default_date_to', ''))
+    except ValueError:
+        default_to = today
+
+    date_from = _parse('from', default_from)
+    date_to = _parse('to', default_to)
+
+    rows = _execute_report(config, date_from, date_to)
+    columns = config.get('columns', [])
+    col_labels = {k: v for k, v in _REPORT_COLUMNS.get(config.get('service', ''), [])}
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([col_labels.get(c, c) for c in columns])
+    for row in rows:
+        writer.writerow([row.get(c, '') for c in columns])
+
+    filename = f"{rpt.name.replace(' ', '_')}_{date_from}_{date_to}.csv"
+    from flask import Response
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'},
+    )
+
+
+@bp.route('/reports/saved/<int:report_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def delete_saved_report(report_id):
+    """Delete a saved report."""
+    from app.models import SavedReport
+    rpt = SavedReport.query.get_or_404(report_id)
+    name = rpt.name
+    db.session.delete(rpt)
+    db.session.commit()
+    flash(f'Report "{name}" deleted.', 'success')
+    return redirect(url_for('admin.saved_reports'))
+
+
 @bp.route('/reports/grooming')
 @login_required
 @admin_required

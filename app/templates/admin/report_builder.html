@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+{% block title %}Report Builder — Ruff Life Retreat{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+
+  <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-4">
+    <div>
+      <h2 class="fw-bold mb-0" style="color:#1a1a2e;">
+        <i class="fas fa-tools me-2 text-mauve"></i>Report Builder
+      </h2>
+      <p class="text-muted mb-0 mt-1">Build a custom report, preview results, then save for repeat use.</p>
+    </div>
+    <a href="{{ url_for('admin.saved_reports') }}" class="btn btn-outline-secondary btn-sm">
+      <i class="fas fa-bookmark me-1"></i> Saved Reports
+    </a>
+  </div>
+
+  <form method="GET" id="builderForm">
+    <input type="hidden" name="run" value="1">
+
+    <div class="row g-4">
+
+      <!-- Left: service + columns -->
+      <div class="col-lg-4">
+
+        <!-- Service picker -->
+        <div class="card border-0 shadow-sm mb-3">
+          <div class="card-header py-2 px-4" style="background:#1a1a2e; color:white; font-size:0.8rem; text-transform:uppercase; letter-spacing:.4px;">
+            1 — Data Source
+          </div>
+          <div class="card-body px-4 py-3">
+            {% for svc, label, icon in [
+                ('boarding',   'Boarding',   'fa-bed'),
+                ('daycare',    'Daycare',    'fa-paw'),
+                ('grooming',   'Grooming',   'fa-cut'),
+                ('financials', 'Financials', 'fa-dollar-sign'),
+            ] %}
+            <div class="form-check mb-2">
+              <input class="form-check-input svc-radio" type="radio" name="service"
+                     id="svc_{{ svc }}" value="{{ svc }}"
+                     {% if service == svc %}checked{% endif %}>
+              <label class="form-check-label fw-semibold" for="svc_{{ svc }}">
+                <i class="fas {{ icon }} me-2 text-mauve"></i>{{ label }}
+              </label>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Column picker -->
+        <div class="card border-0 shadow-sm">
+          <div class="card-header py-2 px-4" style="background:#1a1a2e; color:white; font-size:0.8rem; text-transform:uppercase; letter-spacing:.4px;">
+            2 — Columns to Include
+          </div>
+          <div class="card-body px-4 py-3">
+            {% for svc, col_list in report_columns.items() %}
+            <div class="col-group" id="cols_{{ svc }}" {% if service != svc %}style="display:none;"{% endif %}>
+              <div class="d-flex gap-2 mb-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 select-all-btn" data-svc="{{ svc }}">All</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 select-none-btn" data-svc="{{ svc }}">None</button>
+              </div>
+              {% for col_key, col_label in col_list %}
+              <div class="form-check">
+                <input class="form-check-input col-check" type="checkbox" name="cols"
+                       id="col_{{ svc }}_{{ col_key }}" value="{{ col_key }}"
+                       data-svc="{{ svc }}"
+                       {% if col_key in selected_cols or not ran %}checked{% endif %}>
+                <label class="form-check-label small" for="col_{{ svc }}_{{ col_key }}">{{ col_label }}</label>
+              </div>
+              {% endfor %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right: filters + actions -->
+      <div class="col-lg-8">
+
+        <!-- Date range + status -->
+        <div class="card border-0 shadow-sm mb-3">
+          <div class="card-header py-2 px-4" style="background:#1a1a2e; color:white; font-size:0.8rem; text-transform:uppercase; letter-spacing:.4px;">
+            3 — Filters
+          </div>
+          <div class="card-body px-4 py-3">
+            <div class="row g-3 align-items-end">
+              <div class="col-sm-4">
+                <label class="form-label small fw-semibold text-muted mb-1">Date From</label>
+                <input type="date" name="from" class="form-control form-control-sm"
+                       value="{{ date_from.isoformat() }}">
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label small fw-semibold text-muted mb-1">Date To</label>
+                <input type="date" name="to" class="form-control form-control-sm"
+                       value="{{ date_to.isoformat() }}">
+              </div>
+              <div class="col-sm-4">
+                <!-- Status filter (per-service) -->
+                {% for svc, opts in status_options.items() %}
+                {% if opts %}
+                <div class="status-group" id="status_{{ svc }}" {% if service != svc %}style="display:none;"{% endif %}>
+                  <label class="form-label small fw-semibold text-muted mb-1">Status Filter</label>
+                  <div class="d-flex flex-wrap gap-2">
+                    {% for opt in opts %}
+                    <div class="form-check form-check-inline m-0">
+                      <input class="form-check-input" type="checkbox" name="status_filter"
+                             id="sf_{{ svc }}_{{ opt }}" value="{{ opt }}"
+                             {% if opt in status_filter or not ran %}checked{% endif %}>
+                      <label class="form-check-label small" for="sf_{{ svc }}_{{ opt }}">{{ opt|capitalize }}</label>
+                    </div>
+                    {% endfor %}
+                  </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="d-flex gap-2 mb-4">
+          <button type="submit" class="btn btn-mauve px-4">
+            <i class="fas fa-play me-1"></i> Run Report
+          </button>
+          {% if ran %}
+          <button type="button" class="btn btn-outline-secondary px-3"
+                  data-bs-toggle="modal" data-bs-target="#saveModal">
+            <i class="fas fa-bookmark me-1"></i> Save Report
+          </button>
+          <a href="{{ url_for('admin.export_saved_report', report_id=0) }}"
+             id="quickExportBtn" class="btn btn-outline-success px-3" style="display:none;">
+            <i class="fas fa-file-csv me-1"></i> Export CSV
+          </a>
+          {% endif %}
+        </div>
+
+        <!-- Results -->
+        {% if ran %}
+        <div class="card border-0 shadow-sm">
+          <div class="card-header py-2 px-4 d-flex align-items-center justify-content-between"
+               style="background:#f8f9fa; font-size:0.78rem;">
+            <span class="fw-semibold text-muted text-uppercase" style="letter-spacing:.4px;">
+              Results — {{ rows|length }} row{{ 's' if rows|length != 1 else '' }}
+            </span>
+            <span class="text-muted small">
+              {{ date_from.strftime('%b') }} {{ date_from.day }} – {{ date_to.strftime('%b') }} {{ date_to.day }}, {{ date_to.year }}
+            </span>
+          </div>
+
+          {% if not rows %}
+          <div class="text-center py-5 text-muted">
+            <i class="fas fa-inbox fa-2x mb-2 opacity-25"></i>
+            <p class="mb-0 small">No records found for this date range.</p>
+          </div>
+          {% else %}
+          <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0" style="font-size:0.83rem;">
+              <thead style="background:#f0ebe8; font-size:0.75rem; text-transform:uppercase; letter-spacing:.3px; color:#6c757d;">
+                <tr>
+                  {% for col in selected_cols %}
+                  {% set col_label = report_columns[service]|selectattr(0,'equalto',col)|first %}
+                  <th class="py-2 px-3 border-0 fw-semibold">{{ col_label[1] if col_label else col }}</th>
+                  {% endfor %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in rows %}
+                <tr>
+                  {% for col in selected_cols %}
+                  <td class="py-2 px-3 border-0">{{ row.get(col, '') }}</td>
+                  {% endfor %}
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+
+      </div>
+    </div>
+  </form>
+
+</div>
+
+<!-- Save Report Modal -->
+<div class="modal fade" id="saveModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <form method="POST" action="{{ url_for('admin.save_report') }}">
+        <div class="modal-header border-0 pb-0" style="background:#1a1a2e;">
+          <h5 class="modal-title text-white fw-bold">Save Report</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <!-- Hidden fields mirror current form state -->
+          <input type="hidden" name="service" id="save_service" value="{{ service }}">
+          <input type="hidden" name="date_from" id="save_date_from" value="{{ date_from.isoformat() }}">
+          <input type="hidden" name="date_to" id="save_date_to" value="{{ date_to.isoformat() }}">
+          {% for col in selected_cols %}
+          <input type="hidden" name="cols" value="{{ col }}">
+          {% endfor %}
+          {% for sf in status_filter %}
+          <input type="hidden" name="status_filter" value="{{ sf }}">
+          {% endfor %}
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold small">Report Name <span class="text-danger">*</span></label>
+            <input type="text" name="name" class="form-control" placeholder="e.g. Weekly Boarding Revenue"
+                   required autofocus>
+          </div>
+          <div class="mb-2">
+            <label class="form-label fw-semibold small">Description <span class="text-muted">(optional)</span></label>
+            <textarea name="description" class="form-control" rows="2"
+                      placeholder="What does this report show?"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer border-0 pt-0">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-mauve btn-sm px-4">Save Report</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+// Service radio changes → show matching column + status groups
+document.querySelectorAll('.svc-radio').forEach(radio => {
+  radio.addEventListener('change', function () {
+    const svc = this.value;
+    document.querySelectorAll('.col-group').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.status-group').forEach(el => el.style.display = 'none');
+    const cg = document.getElementById('cols_' + svc);
+    if (cg) cg.style.display = '';
+    const sg = document.getElementById('status_' + svc);
+    if (sg) sg.style.display = '';
+    document.getElementById('save_service').value = svc;
+  });
+});
+
+// Select all / none buttons
+document.querySelectorAll('.select-all-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.col-check[data-svc="' + btn.dataset.svc + '"]')
+      .forEach(cb => cb.checked = true);
+  });
+});
+document.querySelectorAll('.select-none-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.col-check[data-svc="' + btn.dataset.svc + '"]')
+      .forEach(cb => cb.checked = false);
+  });
+});
+</script>
+{% endblock %}
