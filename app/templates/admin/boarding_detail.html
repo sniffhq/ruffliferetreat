@@ -398,44 +398,6 @@
                             data-bs-toggle="modal" data-bs-target="#checkoutSurveyModal">
                         <i class="fas fa-sign-out-alt me-1"></i>Check Out &amp; Go to Invoice
                     </button>
-
-                    <!-- Checkout + Survey modal -->
-                    <div class="modal fade" id="checkoutSurveyModal" tabindex="-1" aria-labelledby="checkoutSurveyModalLabel" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered">
-                            <div class="modal-content">
-                                <div class="modal-header" style="background:#1a1a2e;">
-                                    <h5 class="modal-title text-white" id="checkoutSurveyModalLabel">
-                                        <i class="fas fa-sign-out-alt me-2"></i>Check Out {{ booking.pet.name }}
-                                    </h5>
-                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                                </div>
-                                <div class="modal-body text-center py-4">
-                                    <p class="mb-1">Would you like to send a satisfaction survey to</p>
-                                    <p class="fw-bold fs-5 mb-3">{{ booking.pet.owner.first_name }} {{ booking.pet.owner.last_name }}?</p>
-                                    {% if booking.pet.owner.phone %}
-                                    <p class="text-muted small mb-0">Survey will be sent via SMS to {{ booking.pet.owner.phone }}</p>
-                                    {% else %}
-                                    <p class="text-danger small mb-0"><i class="fas fa-exclamation-triangle me-1"></i>No phone number on file — survey unavailable.</p>
-                                    {% endif %}
-                                </div>
-                                <div class="modal-footer justify-content-center gap-2">
-                                    <form method="POST" action="{{ url_for('admin.complete_boarding', booking_id=booking.id) }}">
-                                        <input type="hidden" name="send_survey" value="0">
-                                        <button type="submit" class="btn btn-outline-secondary">
-                                            <i class="fas fa-times me-1"></i>Check Out Only
-                                        </button>
-                                    </form>
-                                    <form method="POST" action="{{ url_for('admin.complete_boarding', booking_id=booking.id) }}">
-                                        <input type="hidden" name="send_survey" value="1">
-                                        <button type="submit" class="btn btn-success"
-                                                {% if not booking.pet.owner.phone %}disabled{% endif %}>
-                                            <i class="fas fa-sms me-1"></i>Check Out + Send Survey
-                                        </button>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                     
                     <form method="POST" action="{{ url_for('admin.cancel_boarding', booking_id=booking.id) }}" class="mb-2">
                         <button type="submit" class="btn btn-warning w-100" onclick="return confirm('Cancel this booking?');">
@@ -461,6 +423,46 @@
         </div>
     </div>
 </div>
+
+<!-- Checkout + Survey modal -->
+{% if booking.status == 'active' %}
+<div class="modal fade" id="checkoutSurveyModal" tabindex="-1" aria-labelledby="checkoutSurveyModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#1a1a2e;">
+                <h5 class="modal-title text-white" id="checkoutSurveyModalLabel">
+                    <i class="fas fa-sign-out-alt me-2"></i>Check Out {{ booking.pet.name }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <p class="mb-1">Would you like to send a satisfaction survey to</p>
+                <p class="fw-bold fs-5 mb-3">{{ booking.pet.owner.first_name }} {{ booking.pet.owner.last_name }}?</p>
+                {% if booking.pet.owner.phone %}
+                <p class="text-muted small mb-0">Survey will be sent via SMS to {{ booking.pet.owner.phone }}</p>
+                {% else %}
+                <p class="text-danger small mb-0"><i class="fas fa-exclamation-triangle me-1"></i>No phone number on file — survey unavailable.</p>
+                {% endif %}
+            </div>
+            <div class="modal-footer justify-content-center gap-2">
+                <form method="POST" action="{{ url_for('admin.complete_boarding', booking_id=booking.id) }}">
+                    <input type="hidden" name="send_survey" value="0">
+                    <button type="submit" class="btn btn-outline-secondary">
+                        <i class="fas fa-times me-1"></i>Check Out Only
+                    </button>
+                </form>
+                <form method="POST" action="{{ url_for('admin.complete_boarding', booking_id=booking.id) }}">
+                    <input type="hidden" name="send_survey" value="1">
+                    <button type="submit" class="btn btn-success"
+                            {% if not booking.pet.owner.phone %}disabled{% endif %}>
+                        <i class="fas fa-sms me-1"></i>Check Out + Send Survey
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- Edit Booking Modal -->
 {% if booking.status == 'active' %}
