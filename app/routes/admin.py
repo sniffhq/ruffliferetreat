@@ -11008,8 +11008,8 @@ def _generate_boarding_invoice(booking, generated_by_id=None):
     from app.rate_resolver import get_pet_boarding_rate, get_rates
     import json
 
-    # Idempotent — return existing invoice if already generated
-    if booking.invoice:
+    # Idempotent — return existing invoice if already generated (skip voided)
+    if booking.invoice and booking.invoice.status != 'void':
         return booking.invoice
 
     customer = booking.user
@@ -11457,6 +11457,9 @@ def void_invoice(inv_id):
         if pay and pay.status == 'outstanding':
             pay.status = 'void'
         invoice.boarding.payment_id = None
+
+    # Detach the voided invoice from the boarding so a new one can be generated
+    invoice.boarding_id = None
 
     db.session.commit()
 
