@@ -350,12 +350,14 @@
 
     <!-- ── UPCOMING / ARRIVING ───────────────────────────────────────────────── -->
     <div class="card shadow-sm mb-4">
-        <div class="card-header bg-success">
+        <div class="card-header bg-success" style="cursor:pointer;"
+             data-bs-toggle="collapse" data-bs-target="#upcomingCollapse" aria-expanded="true">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <strong class="text-white">
                     <i class="fas fa-suitcase me-2"></i>Upcoming Reservations
+                    <i class="fas fa-chevron-up ms-2 upcoming-chevron" style="font-size:0.75rem; transition:transform .2s;"></i>
                 </strong>
-                <div class="d-flex align-items-center gap-2 flex-wrap">
+                <div class="d-flex align-items-center gap-2 flex-wrap" onclick="event.stopPropagation()">
                     <input type="date" id="upcomingFilterFrom" class="form-control form-control-sm"
                            style="max-width:150px; background:#fff;" title="Check-in from">
                     <span class="text-white small">→</span>
@@ -369,6 +371,7 @@
                 </div>
             </div>
         </div>
+        <div class="collapse show" id="upcomingCollapse">
         <div class="card-body p-0">
             {% if upcoming_bookings %}
             <table class="table table-hover mb-0" id="upcomingTable">
@@ -443,6 +446,7 @@
             </div>
             {% endif %}
         </div>
+        </div><!-- /upcomingCollapse -->
     </div>
 
     <!-- ── RECENTLY COMPLETED ─────────────────────────────────────────────── -->
@@ -765,6 +769,15 @@ function initApprovalKennelDropdown(modal) {
     checkInEl.addEventListener('change',  reload);
     checkOutEl.addEventListener('change', reload);
 }
+
+// ── Upcoming section collapse chevron ─────────────────────────────────────
+(function () {
+    const el = document.getElementById('upcomingCollapse');
+    const chevron = document.querySelector('.upcoming-chevron');
+    if (!el || !chevron) return;
+    el.addEventListener('hide.bs.collapse', () => chevron.style.transform = 'rotate(180deg)');
+    el.addEventListener('show.bs.collapse', () => chevron.style.transform = 'rotate(0deg)');
+})();
 
 // ── Upcoming reservations date range filter ────────────────────────────────
 (function () {
