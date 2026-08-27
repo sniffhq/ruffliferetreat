@@ -11016,12 +11016,14 @@ def _generate_boarding_invoice(booking, generated_by_id=None):
     pet      = booking.pet
     days     = _boarding_days(booking)
 
-    # Additional-pet discount check
+    # Additional-pet discount check — include active + completed so that
+    # if pets are checked out separately, sibling detection still works.
     siblings = Boarding.query.filter_by(
         user_id        = booking.user_id,
         check_in_date  = booking.check_in_date,
         check_out_date = booking.check_out_date,
-        status         = 'completed',
+    ).filter(
+        Boarding.status != 'cancelled',
     ).order_by(Boarding.pet_id.asc()).all()
     is_first = (not siblings) or siblings[0].pet_id == pet.id
     rate     = get_pet_boarding_rate(pet, customer, is_additional=not is_first)
