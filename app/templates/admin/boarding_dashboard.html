@@ -418,18 +418,9 @@
                         </td>
                         <td>
                             <a href="{{ url_for('admin.boarding_detail', booking_id=b.id) }}"
-                               class="btn btn-sm btn-outline-primary me-1" title="View">
+                               class="btn btn-sm btn-outline-primary" title="View">
                                 <i class="fas fa-eye"></i>
                             </a>
-                            <form method="POST"
-                                  action="{{ url_for('admin.checkin_boarding', booking_id=b.id) }}"
-                                  class="d-inline">
-                                <button type="submit" class="btn btn-sm btn-warning text-dark fw-bold"
-                                        title="Check In"
-                                        onclick="return confirm('Check in {{ b.pet.name }}?')">
-                                    <i class="fas fa-sign-in-alt me-1"></i>Check In
-                                </button>
-                            </form>
                         </td>
                     </tr>
                     {% endfor %}
@@ -975,7 +966,7 @@ function showDayDetail(ds) {
 
     var html = '';
 
-    function renderSection(title, icon, color, items, timeKey, timeLabel) {
+    function renderSection(title, icon, color, items, timeKey, timeLabel, actionType) {
         if (!items.length) return '';
         var s = '<div class="border-bottom">' +
                 '<div class="px-4 py-2 fw-bold" style="background:#f8f9fa;font-size:0.8rem;text-transform:uppercase;letter-spacing:1px;color:' + color + ';">' +
@@ -1004,16 +995,28 @@ function showDayDetail(ds) {
                 s += '</div>';
             }
             s += '</div>';
-            s += '<a href="/admin/boarding/' + e.id + '" class="btn btn-sm btn-outline-primary ms-3 flex-shrink-0">' +
-                 '<i class="fas fa-eye"></i></a>';
+            // Action buttons
+            s += '<div class="d-flex flex-column gap-1 ms-3 flex-shrink-0">';
+            s += '<a href="/admin/boarding/' + e.id + '" class="btn btn-sm btn-outline-primary"><i class="fas fa-eye"></i></a>';
+            if (actionType === 'checkin' && !e.checked_in) {
+                s += '<form method="POST" action="/admin/boarding/' + e.id + '/checkin">' +
+                     '<button type="submit" class="btn btn-sm btn-success" title="Check In" onclick="return confirm(\'Check in ' + e.name + '?\')">' +
+                     '<i class="fas fa-sign-in-alt"></i></button></form>';
+            } else if (actionType === 'checkin' && e.checked_in) {
+                s += '<span class="badge bg-success py-1 px-2" style="font-size:0.7rem;">Checked In</span>';
+            } else if (actionType === 'checkout' && e.checked_in) {
+                s += '<a href="/admin/boarding/' + e.id + '" class="btn btn-sm btn-danger" title="Go to Check Out">' +
+                     '<i class="fas fa-sign-out-alt"></i></a>';
+            }
+            s += '</div>';
             s += '</div></div>';
         });
         return s;
     }
 
-    html += renderSection('Dropping Off', 'fas fa-sign-in-alt', '#198754', checkIns,  'cin_time',  'Drop-off');
-    html += renderSection('Picking Up',   'fas fa-sign-out-alt','#dc3545', checkOuts, 'cout_time', 'Pick-up');
-    html += renderSection('Currently Boarding', 'fas fa-bed',  '#0d6efd', staying,   null,        null);
+    html += renderSection('Dropping Off',       'fas fa-sign-in-alt',  '#198754', checkIns,  'cin_time',  'Drop-off', 'checkin');
+    html += renderSection('Picking Up',         'fas fa-sign-out-alt', '#dc3545', checkOuts, 'cout_time', 'Pick-up',  'checkout');
+    html += renderSection('Currently Boarding', 'fas fa-bed',          '#0d6efd', staying,   null,        null,       null);
 
     document.getElementById('dayDetailBody').innerHTML = html ||
         '<div class="p-4 text-muted text-center">No details available.</div>';
