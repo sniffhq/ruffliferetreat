@@ -2990,9 +2990,12 @@ def boarding_detail(booking_id):
         flash('Booking details updated.', 'success')
         return redirect(url_for('admin.boarding_dashboard'))
 
-    # Parse add-ons — check special_notes first (staff-added), fall back to appointment notes (legacy)
+    # Parse add-ons — check special_notes first (staff-added), fall back to appointment notes (legacy).
+    # If special_notes contains an explicit "Add-ons:" marker (even empty), staff intentionally set
+    # or cleared add-ons via the checkboxes — do NOT fall back to appointment notes in that case.
     addons, _ = _parse_addons_from_notes(booking.special_notes or '', structured_only=True)
-    if not addons:
+    _addons_explicitly_set = booking.special_notes and 'Add-ons:' in booking.special_notes
+    if not addons and not _addons_explicitly_set:
         try:
             boarding_svc = ServiceType.query.filter(ServiceType.name.ilike('%boarding%')).first()
             if boarding_svc:
