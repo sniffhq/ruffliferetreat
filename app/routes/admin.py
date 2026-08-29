@@ -11190,7 +11190,44 @@ def _generate_boarding_invoice(booking, generated_by_id=None):
 def view_invoice(inv_id):
     from app.models import Invoice
     invoice = Invoice.query.get_or_404(inv_id)
-    return render_template('admin/invoice_view.html', invoice=invoice, items=invoice.items)
+
+    # Collect sibling invoices for the same multi-pet boarding stay.
+    # A sibling is any non-void invoice whose boarding shares the same
+    # customer + check-in + check-out dates as this invoice's boarding.
+    sibling_invoices = []
+    if invoice.boarding:
+        b = invoice.boarding
+        sib_boardings = Boarding.query.filter_by(
+            user_id        = b.user_id,
+            check_in_date  = b.check_in_date,
+            check_out_date = b.check_out_date,
+        ).filter(Boarding.status != 'cancelled').all()
+        for sb in sib_boardings:
+            if sb.invoice and sb.invoice.id != invoice.id and sb.invoice.status != 'void':
+                sibling_invoices.append(sb.invoice)
+
+    # Combined line items (primary first, then siblings sorted by pet name)
+    sibling_invoices.sort(key=lambda i: i.boarding.pet.name if i.boarding else '')
+    all_items    = list(invoice.items)
+    all_pets     = [invoice.boarding.pet] if invoice.boarding else []
+    combined_total = invoice.total
+    for sib in sibling_invoices:
+        all_items      += sib.items
+        combined_total += sib.total
+        if sib.boarding:
+            all_pets.append(sib.boarding.pet)
+
+    sibling_ids = [sib.id for sib in sibling_invoices]
+
+    return render_template(
+        'admin/invoice_view.html',
+        invoice        = invoice,
+        items          = all_items,
+        combined_total = combined_total,
+        sibling_invoices = sibling_invoices,
+        sibling_ids    = sibling_ids,
+        all_pets       = all_pets,
+    )
 
 
 @bp.route('/invoices/<int:inv_id>/edit', methods=['POST'])
@@ -11370,7 +11407,7 @@ def send_invoice_new(inv_id):
 @login_required
 @admin_required
 def pay_invoice(inv_id):
-    """Collect payment and mark invoice as paid."""
+    """Collect payment and mark invoice (and any siblings) as paid."""
     from app.models import Invoice, Payment, SmsMessage
     invoice  = Invoice.query.get_or_404(inv_id)
     customer = invoice.customer
@@ -11383,43 +11420,57 @@ def pay_invoice(inv_id):
         flash('Cannot collect payment on a voided invoice.', 'danger')
         return redirect(url_for('admin.view_invoice', inv_id=inv_id))
 
-    total = invoice.total
-    # Zelle processing fee
+    # Collect all invoices in this stay (primary + siblings passed from the form)
+    sibling_id_strs = request.form.getlist('sibling_ids[]')
+    all_invoices = [invoice]
+    for sid in sibling_id_strs:
+        try:
+            sib = Invoice.query.get(int(sid))
+            if sib and sib.status not in ('paid', 'void') and sib.customer_id == customer.id:
+                all_invoices.append(sib)
+        except (ValueError, TypeError):
+            pass
+
+    combined_total = sum(inv.total for inv in all_invoices)
+    # Zelle processing fee (once, on the combined total)
     if method.lower() == 'zelle':
-        total += 3.00
+        combined_total += 3.00
 
-    # Update existing outstanding Payment or create a new paid one
+    inv_numbers = ', '.join(inv.invoice_number for inv in all_invoices)
+
+    # Reuse an existing outstanding Payment or create a new one
+    existing_pay = None
     if invoice.boarding and invoice.boarding.payment_id:
-        pay = Payment.query.get(invoice.boarding.payment_id)
-        if pay:
-            pay.status         = 'paid'
-            pay.payment_method = method
-            pay.amount         = round(total, 2)
-            pay.payment_date   = datetime.now().date()
-            pay.notes          = (pay.notes or '') + ' — paid'
-        else:
-            pay = None
-    else:
-        pay = None
+        existing_pay = Payment.query.get(invoice.boarding.payment_id)
 
-    if not pay:
+    if existing_pay:
+        existing_pay.status         = 'paid'
+        existing_pay.payment_method = method
+        existing_pay.amount         = round(combined_total, 2)
+        existing_pay.payment_date   = datetime.now().date()
+        existing_pay.notes          = (existing_pay.notes or '') + ' — paid'
+        pay = existing_pay
+    else:
         pay = Payment(
             customer_id    = customer.id,
-            amount         = round(total, 2),
+            amount         = round(combined_total, 2),
             payment_date   = datetime.now().date(),
             payment_method = method,
             service_type   = 'Boarding',
-            notes          = f'Invoice {invoice.invoice_number} paid',
+            notes          = f'Invoice {inv_numbers} paid',
             status         = 'paid',
         )
         db.session.add(pay)
         db.session.flush()
-        if invoice.boarding:
-            invoice.boarding.payment_id = pay.id
 
-    invoice.status         = 'paid'
-    invoice.paid_at        = datetime.now()
-    invoice.payment_method = method
+    # Mark every invoice in the stay as paid and link its boarding to the payment
+    for inv in all_invoices:
+        inv.status         = 'paid'
+        inv.paid_at        = datetime.now()
+        inv.payment_method = method
+        if inv.boarding:
+            inv.boarding.payment_id = pay.id
+
     db.session.commit()
 
     try:

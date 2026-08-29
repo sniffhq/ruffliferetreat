@@ -50,10 +50,8 @@
         <div class="col-sm-6 text-sm-end mt-3 mt-sm-0">
           {% if invoice.boarding %}
             <p class="mb-0 text-muted small">
-              <strong>Pet:</strong> {{ invoice.boarding.pet.name }}
-              {% if invoice.boarding.booking_number %}
-                &nbsp;<span class="badge bg-secondary">{{ invoice.boarding.booking_number }}</span>
-              {% endif %}
+              <strong>Pet{{ 's' if all_pets|length > 1 else '' }}:</strong>
+              {{ all_pets | map(attribute='name') | join(', ') }}
             </p>
             <p class="mb-0 text-muted small">
               <strong>Drop-off:</strong>
@@ -65,6 +63,13 @@
               {{ invoice.boarding.check_out_date.strftime('%b %d, %Y') }}
               at {{ invoice.boarding.check_out_time }}
             </p>
+            {% if sibling_invoices %}
+            <p class="mb-0 text-muted small mt-1">
+              <i class="fas fa-link me-1"></i>
+              {% for sib in sibling_invoices %}{{ sib.invoice_number }}{% if not loop.last %}, {% endif %}{% endfor %}
+              included
+            </p>
+            {% endif %}
           {% endif %}
           <p class="mb-0 text-muted small mt-1">
             <strong>Generated:</strong>
@@ -163,7 +168,7 @@
               <tr class="table-secondary">
                 <td class="fw-bold text-end" colspan="1">Total</td>
                 <td class="fw-bold text-end" id="runningTotal">
-                  ${{ '%.2f' % invoice.total }}
+                  ${{ '%.2f' % combined_total }}
                 </td>
                 <td></td>
               </tr>
@@ -204,7 +209,7 @@
           <tfoot>
             <tr class="table-secondary">
               <td class="fw-bold text-end">Total</td>
-              <td class="fw-bold text-end">${{ '%.2f' % invoice.total }}</td>
+              <td class="fw-bold text-end">${{ '%.2f' % combined_total }}</td>
             </tr>
           </tfoot>
         </table>
@@ -267,14 +272,21 @@
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <form method="POST" action="{{ url_for('admin.pay_invoice', inv_id=invoice.id) }}">
+        {% for sid in sibling_ids %}
+        <input type="hidden" name="sibling_ids[]" value="{{ sid }}">
+        {% endfor %}
         <div class="modal-header" style="background:#1a1a2e;">
           <h5 class="modal-title text-white">Collect Payment</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
           <p class="mb-3">
+            {% if sibling_invoices %}
+            Stay for <strong>{{ all_pets | map(attribute='name') | join(', ') }}</strong> — Total
+            {% else %}
             Invoice <strong>{{ invoice.invoice_number }}</strong> — Total
-            <strong>${{ '%.2f' % invoice.total }}</strong>
+            {% endif %}
+            <strong>${{ '%.2f' % combined_total }}</strong>
           </p>
           <div class="mb-3">
             <label class="form-label fw-semibold">Payment Method</label>

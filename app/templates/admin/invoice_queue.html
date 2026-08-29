@@ -123,10 +123,14 @@
                                 {% endfor %}
                                 </tbody>
                             </table>
-                            <!-- New Invoice model — View Invoice button(s) -->
+                            <!-- One View Invoice button per stay — siblings are combined in the invoice view -->
                             {% if inv_lines %}
                             <div class="d-flex flex-wrap gap-2 mb-2">
+                                {# Group by dates string so multi-pet stays show one button #}
+                                {% set seen_dates = [] %}
                                 {% for line in inv_lines %}
+                                {% if line.dates not in seen_dates %}
+                                {% if seen_dates.append(line.dates) %}{% endif %}
                                 <a href="{{ url_for('admin.view_invoice', inv_id=line.invoice_id) }}"
                                    class="btn btn-mauve btn-sm">
                                     <i class="fas fa-file-invoice me-1"></i> View Invoice
@@ -136,6 +140,7 @@
                                     <span class="badge bg-info text-dark ms-1" style="font-size:0.65rem;">Sent</span>
                                     {% endif %}
                                 </a>
+                                {% endif %}
                                 {% endfor %}
                             </div>
                             {% endif %}
