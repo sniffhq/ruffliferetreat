@@ -1760,7 +1760,6 @@ def financials():
                         'booking_number': b.booking_number or '',
                         'invoice_id':     b.invoice.id,
                         'invoice_status': b.invoice.status,
-                        'stay_key':       f'{b.check_in_date}_{b.check_out_date}',
                     })
                     if oldest_date is None or b.check_out_date < oldest_date:
                         oldest_date = b.check_out_date
