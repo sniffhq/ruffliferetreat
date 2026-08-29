@@ -123,10 +123,14 @@
                                 {% endfor %}
                                 </tbody>
                             </table>
-                            <!-- New Invoice model — View Invoice button(s) -->
+                            <!-- New Invoice model — one View Invoice button per stay -->
                             {% if inv_lines %}
                             <div class="d-flex flex-wrap gap-2 mb-2">
+                                {# Group by stay_key so multi-pet families get one button per stay #}
+                                {% set seen_stays = [] %}
                                 {% for line in inv_lines %}
+                                {% if line.stay_key not in seen_stays %}
+                                {% if seen_stays.append(line.stay_key) %}{% endif %}
                                 <a href="{{ url_for('admin.view_invoice', inv_id=line.invoice_id) }}"
                                    class="btn btn-mauve btn-sm">
                                     <i class="fas fa-file-invoice me-1"></i> View Invoice
@@ -136,6 +140,7 @@
                                     <span class="badge bg-info text-dark ms-1" style="font-size:0.65rem;">Sent</span>
                                     {% endif %}
                                 </a>
+                                {% endif %}
                                 {% endfor %}
                             </div>
                             {% endif %}
