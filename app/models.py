@@ -334,7 +334,11 @@ class Boarding(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now)
     completed_at = db.Column(db.DateTime)
     payment_id   = db.Column(db.Integer, db.ForeignKey('payment.id'), nullable=True)
-    
+    # When a multi-pet stay shares one consolidated invoice, every boarding in the
+    # stay (primary and secondary) stores the invoice id here so the queue can
+    # detect it without joining through Invoice.boarding_id.
+    invoice_id   = db.Column(db.Integer, db.ForeignKey('invoice.id'), nullable=True)
+
     # Relationships
     pet = db.relationship('Pet', backref=db.backref('boarding_reservations', lazy=True))
     user = db.relationship('User', backref=db.backref('boarding_reservations', lazy=True))

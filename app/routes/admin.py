@@ -1747,19 +1747,31 @@ def financials():
             ).order_by(Boarding.check_out_date.asc()).all()
 
             for b in boardings:
-                if b.invoice:
-                    if b.invoice.status in ('paid', 'void'):
+                # Resolve the covering invoice: primary has b.invoice (via Invoice.boarding_id),
+                # secondary pets use b.invoice_id to reference the consolidated invoice.
+                covering_inv = b.invoice
+                if covering_inv is None and b.invoice_id:
+                    from app.models import Invoice as _Inv
+                    covering_inv = _Inv.query.get(b.invoice_id)
+
+                if covering_inv:
+                    if covering_inv.status in ('paid', 'void'):
                         continue
-                    line_amt = b.invoice.total
+                    # Only the PRIMARY boarding adds a line to the queue display;
+                    # secondary boardings are already represented in the combined invoice.
+                    if covering_inv.boarding_id != b.id:
+                        # Secondary pet — covered by the primary's invoice; skip.
+                        continue
+                    line_amt = covering_inv.total
                     boarding_total += line_amt
                     boarding_lines.append({
                         'pet':            pet.name,
                         'dates':          f'{b.check_in_date.strftime("%b %d")} – {b.check_out_date.strftime("%b %d, %Y")}',
-                        'detail':         f'Invoice #{b.invoice.invoice_number} · {b.invoice.status.capitalize()}',
+                        'detail':         f'Invoice #{covering_inv.invoice_number} · {covering_inv.status.capitalize()}',
                         'amount':         line_amt,
                         'booking_number': b.booking_number or '',
-                        'invoice_id':     b.invoice.id,
-                        'invoice_status': b.invoice.status,
+                        'invoice_id':     covering_inv.id,
+                        'invoice_status': covering_inv.status,
                         'stay_key':       f'{b.check_in_date}_{b.check_out_date}',
                     })
                     if oldest_date is None or b.check_out_date < oldest_date:
@@ -11018,92 +11030,64 @@ def reconciliation_sms():
 # INVOICE REVAMP — snapshot-based invoices
 # ============================================================================
 
-def _generate_boarding_invoice(booking, generated_by_id=None):
+def _build_pet_boarding_line_items(sib, siblings, rates, customer):
     """
-    Build a draft Invoice snapshot for a completed boarding.
-    Rates, add-ons, and existing adjustments are captured at this moment
-    and stored as JSON — not recalculated later.
-    Returns the Invoice object (not yet committed — caller must commit).
+    Build the line-item dicts for ONE pet's boarding stay.
+    `siblings` is the full ordered list (by pet_id asc) for the stay, used to
+    determine primary vs additional pricing.
+    Returns a list of dicts (boarding line + add-ons + adjustments).
     """
-    from app.models import Invoice, InvoiceAdjustment
-    from app.rate_resolver import get_pet_boarding_rate, get_rates
-    import json
+    from app.models import InvoiceAdjustment
+    from app.rate_resolver import get_pet_boarding_rate
 
-    # Idempotent — return existing invoice if already generated (skip voided)
-    if booking.invoice and booking.invoice.status != 'void':
-        return booking.invoice
-
-    customer = booking.user
-    pet      = booking.pet
-    days     = _boarding_days(booking)
-
-    # Additional-pet discount check — include active + completed so that
-    # if pets are checked out separately, sibling detection still works.
-    siblings = Boarding.query.filter_by(
-        user_id        = booking.user_id,
-        check_in_date  = booking.check_in_date,
-        check_out_date = booking.check_out_date,
-    ).filter(
-        Boarding.status != 'cancelled',
-    ).order_by(Boarding.pet_id.asc()).all()
+    pet      = sib.pet
+    days     = _boarding_days(sib)
     is_first = (not siblings) or siblings[0].pet_id == pet.id
     rate     = get_pet_boarding_rate(pet, customer, is_additional=not is_first)
 
-    # Detect whether a custom rate was applied (pet-level or customer-level)
-    has_pet_custom     = pet and getattr(pet, 'custom_boarding_rate', None) is not None
-    has_cust_custom    = customer and (
+    has_pet_custom  = pet and getattr(pet, 'custom_boarding_rate', None) is not None
+    has_cust_custom = customer and (
         getattr(customer, 'custom_boarding_rate', None) is not None or
         (not is_first and getattr(customer, 'custom_boarding_rate_additional', None) is not None)
     )
     is_custom_rate = has_pet_custom or has_cust_custom
 
-    line_items = []
-
-    # Base boarding line
-    base_amt   = rate * days
-    rate_label = f'${rate:.2f}'.rstrip('0').rstrip('.')  # e.g. $45 or $42.50
+    base_amt     = rate * days
+    rate_label   = f'${rate:.2f}'.rstrip('0').rstrip('.')
     detail_parts = [f'{days} night{"s" if days != 1 else ""} @ {rate_label}/night']
     if is_custom_rate:
         detail_parts.append('custom rate')
     if not is_first:
         detail_parts.append('additional pet')
-    line_items.append({
-        'description': (f'Boarding — {booking.check_in_date.strftime("%b %d")} '
-                        f'to {booking.check_out_date.strftime("%b %d, %Y")}'),
+
+    # Include pet name in description when there are multiple pets
+    multi = len([s for s in siblings if s.status != 'cancelled']) > 1
+    desc_prefix = f'{pet.name} — ' if multi else ''
+    items = [{
+        'description': (f'{desc_prefix}Boarding — {sib.check_in_date.strftime("%b %d")} '
+                        f'to {sib.check_out_date.strftime("%b %d, %Y")}'),
         'detail': ' · '.join(detail_parts),
         'amount': base_amt,
         'type':   'boarding',
-    })
+        '_pet_id': pet.id,   # internal tag for dedup; stripped before save
+    }]
 
-    # Add-ons — prefer special_notes; fall back to appointment notes.
-    # Do NOT fall back if special_notes has an explicit empty 'Add-ons: ' marker,
-    # which means staff intentionally cleared them on the boarding detail page.
-    addons, _ = _parse_addons_from_notes(booking.special_notes or '', structured_only=True)
-    _addons_explicitly_cleared = (
-        booking.special_notes and
-        'Add-ons:' in booking.special_notes and
-        not addons
-    )
-    if not addons and not _addons_explicitly_cleared:
+    # Add-ons
+    addons, _ = _parse_addons_from_notes(sib.special_notes or '', structured_only=True)
+    _explicitly_cleared = (sib.special_notes and 'Add-ons:' in sib.special_notes and not addons)
+    if not addons and not _explicitly_cleared:
         try:
             from app.models import Appointment as _Appt, ServiceType as _ST
             _svc = _ST.query.filter(_ST.name.ilike('%boarding%')).first()
             if _svc:
-                # Try exact date match first (happy path), then fall back to
-                # most recent boarding appointment for this pet — handles cases
-                # where staff changed the check-in date during approval.
                 _a = (
                     _Appt.query.filter_by(
-                        pet_id          = pet.id,
-                        user_id         = customer.id,
-                        service_type_id = _svc.id,
-                        appointment_date= booking.check_in_date,
+                        pet_id=pet.id, user_id=customer.id,
+                        service_type_id=_svc.id, appointment_date=sib.check_in_date,
                     ).order_by(_Appt.id.desc()).first()
                     or
                     _Appt.query.filter_by(
-                        pet_id          = pet.id,
-                        user_id         = customer.id,
-                        service_type_id = _svc.id,
+                        pet_id=pet.id, user_id=customer.id, service_type_id=_svc.id,
                     ).order_by(_Appt.id.desc()).first()
                 )
                 if _a and _a.notes:
@@ -11111,9 +11095,6 @@ def _generate_boarding_invoice(booking, generated_by_id=None):
         except Exception:
             pass
 
-    # Price add-ons from configured rates (not the label string) so changes
-    # in Business Settings are reflected on new invoices.
-    rates = get_rates(customer)
     ADDON_RATE_MAP = {
         'spa bath + nail': ('addon_spa_bath_nails', 'Spa Bath + Nail Trim'),
         'spa bath':        ('addon_spa_bath',       'Spa Bath'),
@@ -11122,31 +11103,22 @@ def _generate_boarding_invoice(booking, generated_by_id=None):
     }
     for addon_name in addons:
         n = addon_name.lower()
-        matched_key = None
-        matched_label = addon_name
-        # Longest match first so "spa bath + nail" wins over "spa bath"
-        for kw, (rate_key, clean_label) in ADDON_RATE_MAP.items():
+        matched_key, matched_label = None, addon_name
+        for kw, (rk, cl) in ADDON_RATE_MAP.items():
             if kw in n:
-                matched_key   = rate_key
-                matched_label = clean_label
+                matched_key, matched_label = rk, cl
                 break
-        if matched_key:
-            addon_price = rates.get(matched_key, 0.0)
-        else:
-            addon_price = _parse_addon_price(addon_name)  # unknown addon — fall back
+        addon_price = rates.get(matched_key, 0.0) if matched_key else _parse_addon_price(addon_name)
         if addon_price:
-            price_tag    = f'${addon_price:.0f}' if addon_price == int(addon_price) else f'${addon_price:.2f}'
-            line_items.append({
-                'description': f'{matched_label} ({price_tag})',
-                'detail':      '',
-                'amount':      addon_price,
-                'type':        'addon',
-            })
+            tag = f'${addon_price:.0f}' if addon_price == int(addon_price) else f'${addon_price:.2f}'
+            lbl = f'{pet.name} — {matched_label} ({tag})' if multi else f'{matched_label} ({tag})'
+            items.append({'description': lbl, 'detail': '', 'amount': addon_price,
+                          'type': 'addon', '_pet_id': pet.id})
 
-    # Existing InvoiceAdjustment records (discounts / overrides / custom lines)
+    # Adjustments scoped to this boarding
     adjs = InvoiceAdjustment.query.filter_by(customer_id=customer.id).filter(
         db.or_(
-            InvoiceAdjustment.line_key == f'boarding_{booking.id}',
+            InvoiceAdjustment.line_key == f'boarding_{sib.id}',
             db.and_(
                 InvoiceAdjustment.adj_type == 'custom',
                 db.or_(InvoiceAdjustment.service_type == 'boarding',
@@ -11155,17 +11127,89 @@ def _generate_boarding_invoice(booking, generated_by_id=None):
         )
     ).all()
     for adj in adjs:
-        line_items.append({
+        items.append({
             'description': adj.description,
             'detail':      'discount' if adj.amount < 0 else 'additional charge',
             'amount':      adj.amount,
             'type':        'adjustment',
+            '_pet_id':     pet.id,
         })
 
-    subtotal = sum(i['amount'] for i in line_items)
+    return items
+
+
+def _generate_boarding_invoice(booking, generated_by_id=None):
+    """
+    Build (or amend) a single consolidated draft Invoice for a boarding stay.
+    Multi-pet stays produce ONE invoice covering all pets; single-pet stays
+    behave exactly as before.
+    Returns the Invoice object (not yet committed — caller must commit).
+    """
+    from app.models import Invoice
+    from app.rate_resolver import get_rates
+    import json
+
+    customer = booking.user
+
+    # ── All non-cancelled siblings for this stay (ordered by pet_id) ─────────
+    siblings = Boarding.query.filter_by(
+        user_id        = booking.user_id,
+        check_in_date  = booking.check_in_date,
+        check_out_date = booking.check_out_date,
+    ).filter(
+        Boarding.status != 'cancelled',
+    ).order_by(Boarding.pet_id.asc()).all()
+
+    primary = siblings[0] if siblings else booking
+
+    # ── If this booking is a secondary pet, delegate to the primary ───────────
+    if primary.id != booking.id:
+        inv = _generate_boarding_invoice(primary, generated_by_id=generated_by_id)
+        if inv and booking.invoice_id != inv.id:
+            booking.invoice_id = inv.id
+        return inv
+
+    # ── This booking IS the primary ───────────────────────────────────────────
+    rates = get_rates(customer)
+
+    # Completed siblings to include in this invoice
+    completed_sibs = [s for s in siblings if s.status == 'completed']
+
+    # ── Idempotent: primary already has a non-void invoice ────────────────────
+    if booking.invoice and booking.invoice.status != 'void':
+        existing = booking.invoice
+        existing_items = json.loads(existing.line_items or '[]')
+        # Find pet IDs already represented in the invoice
+        existing_pet_ids = {i.get('_pet_id') for i in existing_items}
+        amended = False
+        for sib in completed_sibs:
+            if sib.pet_id in existing_pet_ids:
+                continue   # already in invoice
+            sib_items = _build_pet_boarding_line_items(sib, siblings, rates, customer)
+            existing_items.extend(sib_items)
+            amended = True
+            if sib.invoice_id != existing.id:
+                sib.invoice_id = existing.id
+        if amended:
+            # Strip internal _pet_id tag before persisting
+            clean = [{k: v for k, v in i.items() if k != '_pet_id'} for i in existing_items]
+            existing.line_items = json.dumps(clean)
+            existing.subtotal   = sum(i['amount'] for i in clean)
+            existing.total      = max(0.0, existing.subtotal)
+        booking.invoice_id = existing.id
+        return existing
+
+    # ── Build a fresh combined invoice ────────────────────────────────────────
+    all_items = []
+    for sib in completed_sibs:
+        all_items.extend(_build_pet_boarding_line_items(sib, siblings, rates, customer))
+
+    # Strip internal _pet_id before persisting
+    clean_items = [{k: v for k, v in i.items() if k != '_pet_id'} for i in all_items]
+
+    subtotal = sum(i['amount'] for i in clean_items)
     total    = max(0.0, subtotal)
 
-    # Sequential invoice number
     last    = Invoice.query.order_by(Invoice.id.desc()).first()
     next_n  = (last.id + 1) if last else 1
     inv_num = f'INV-{next_n:04d}'
@@ -11173,15 +11217,20 @@ def _generate_boarding_invoice(booking, generated_by_id=None):
     invoice = Invoice(
         invoice_number = inv_num,
         customer_id    = customer.id,
-        boarding_id    = booking.id,
+        boarding_id    = booking.id,   # primary boarding anchors the invoice
         service_type   = 'boarding',
-        line_items     = json.dumps(line_items),
+        line_items     = json.dumps(clean_items),
         subtotal       = subtotal,
         total          = total,
         status         = 'draft',
         generated_by   = generated_by_id,
     )
     db.session.add(invoice)
+    db.session.flush()   # get invoice.id before linking siblings
+
+    for sib in completed_sibs:
+        sib.invoice_id = invoice.id
+
     return invoice
 
 
