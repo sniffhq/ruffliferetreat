@@ -9641,26 +9641,43 @@ def _execute_report(config, date_from, date_to):
 
     elif service == 'financials':
         from app.models import Payment as _Pay, User as _U
+        from collections import OrderedDict as _OD
         q = _Pay.query.filter(
             _Pay.payment_date >= date_from,
             _Pay.payment_date <= date_to,
         )
         if status_filter:
             q = q.filter(_Pay.status.in_(status_filter))
-        q = q.order_by(_Pay.payment_date.asc())
+        q = q.order_by(_Pay.payment_date.asc(), _Pay.id.asc())
+
+        # Consolidate multiple payments for the same customer / date / service
+        # (e.g. one payment per pet when a family boards multiple pets together)
+        # into a single row so the report shows one financial event per transaction.
+        _seen = _OD()   # key → consolidated dict
         for pay in q.all():
             owner = _U.query.get(pay.customer_id)
-            full = {
-                'payment_date': pay.payment_date.strftime('%m/%d/%Y') if pay.payment_date else '',
-                'customer_name': f"{owner.first_name} {owner.last_name}" if owner else '',
-                'customer_email': owner.email if owner else '',
-                'amount': f"${pay.amount:.2f}",
-                'service_type': pay.service_type or '',
-                'payment_method': pay.payment_method or '',
-                'status': pay.status,
-                'notes': pay.notes or '',
-            }
-            rows.append({c: full.get(c, '') for c in columns})
+            key = (pay.customer_id, str(pay.payment_date), (pay.service_type or '').lower())
+            if key in _seen:
+                # Accumulate amount; append any distinct notes
+                existing = _seen[key]
+                existing['_amount'] += pay.amount or 0.0
+                if pay.notes and pay.notes not in existing['_raw_notes']:
+                    existing['_raw_notes'].append(pay.notes)
+            else:
+                _seen[key] = {
+                    'payment_date': pay.payment_date.strftime('%m/%d/%Y') if pay.payment_date else '',
+                    'customer_name': f"{owner.first_name} {owner.last_name}" if owner else '',
+                    'customer_email': owner.email if owner else '',
+                    '_amount': pay.amount or 0.0,
+                    'service_type': pay.service_type or '',
+                    'payment_method': pay.payment_method or '',
+                    'status': pay.status,
+                    '_raw_notes': [pay.notes] if pay.notes else [],
+                }
+        for consolidated in _seen.values():
+            consolidated['amount'] = f"${consolidated['_amount']:.2f}"
+            consolidated['notes'] = '; '.join(consolidated['_raw_notes'])
+            rows.append({c: consolidated.get(c, '') for c in columns})
 
     return rows
 
