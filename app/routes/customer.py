@@ -268,6 +268,43 @@ def dashboard():
         .order_by(CustomerPhoto.uploaded_at.desc())
         .all())
 
+    # ── Boarding cost estimates for upcoming stays ───────────────────────────
+    try:
+        from app.routes.admin import _boarding_days as _bd, _parse_addons_from_notes as _pan
+        from app.rate_resolver import get_pet_boarding_rate as _gpbr, get_rates as _gr
+        _rates = _gr(current_user)
+
+        # Group by stay dates so siblings share the same primary/additional logic
+        _stay_map = {}
+        for b in upcoming_boarding:
+            _stay_map.setdefault((b.check_in_date, b.check_out_date), []).append(b)
+
+        boarding_estimates = {}
+        for (cin, cout_d), stay_bs in _stay_map.items():
+            stay_bs_sorted = sorted(stay_bs, key=lambda x: x.pet_id)
+            for i, b in enumerate(stay_bs_sorted):
+                is_add = (i > 0)
+                days   = _bd(b)
+                rate   = _gpbr(b.pet, current_user, is_additional=is_add)
+                base   = rate * days
+                addons, _ = _pan(b.special_notes or '', structured_only=True)
+                addon_total = 0.0
+                for a in addons:
+                    n = a.lower()
+                    if 'spa bath' in n and 'nail' in n:
+                        addon_total += float(_rates.get('addon_spa_bath_nails', 0) or 0)
+                    elif 'spa bath' in n or 'bath' in n:
+                        addon_total += float(_rates.get('addon_spa_bath', 0) or 0)
+                    elif 'nail' in n:
+                        addon_total += float(_rates.get('addon_nail_trim', 0) or 0)
+                boarding_estimates[b.id] = {
+                    'days': days, 'nightly': rate, 'base': base,
+                    'addon_total': addon_total, 'total': base + addon_total,
+                    'is_additional': is_add,
+                }
+    except Exception:
+        boarding_estimates = {}
+
     from datetime import timedelta as _td
     return render_template('customer/dashboard.html',
                            timedelta=_td,
@@ -277,6 +314,7 @@ def dashboard():
                            past_appointments=past_appointments,
                            upcoming_boarding=upcoming_boarding,
                            boarding_appt_map=boarding_appt_map,
+                           boarding_estimates=boarding_estimates,
                            past_boarding=past_boarding,
                            enrollments=enrollments,
                            report_cards=report_cards,
@@ -285,6 +323,67 @@ def dashboard():
                            blocked_dates=json.dumps(list(blocked_dates)),
                            customer_photos=customer_photos,
                            today=today)
+
+
+@bp.route('/boarding-estimate')
+@login_required
+def boarding_estimate_calc():
+    """AJAX: return a boarding cost estimate for given dates and pets."""
+    from datetime import date as _date
+    from flask import jsonify
+    from app.rate_resolver import get_pet_boarding_rate as _gpbr, get_rates as _gr
+
+    try:
+        check_in  = _date.fromisoformat(request.args.get('check_in', ''))
+        check_out = _date.fromisoformat(request.args.get('check_out', ''))
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid dates'}), 400
+
+    if check_out <= check_in:
+        return jsonify({'error': 'Check-out must be after check-in'}), 400
+
+    # Selected pet IDs — default to all active pets
+    raw_ids = request.args.getlist('pet_ids')
+    selected_ids = set()
+    for r in raw_ids:
+        try:
+            selected_ids.add(int(r))
+        except (ValueError, TypeError):
+            pass
+
+    all_pets = Pet.query.filter_by(user_id=current_user.id, is_active=True)\
+                        .order_by(Pet.id).all()
+    chosen_pets = [p for p in all_pets if not selected_ids or p.id in selected_ids]
+
+    if not chosen_pets:
+        return jsonify({'error': 'No pets selected'}), 400
+
+    # Nights: base nights + 1 for 5 PM pickup (conservative estimate)
+    base_days = max((check_out - check_in).days, 1)
+    nights    = base_days + 1   # assume standard 5 PM pickup
+
+    _rates = _gr(current_user)
+    lines  = []
+    total  = 0.0
+
+    for i, pet in enumerate(chosen_pets):
+        is_add = (i > 0)
+        rate   = _gpbr(pet, current_user, is_additional=is_add)
+        amt    = rate * nights
+        parts  = [f'{nights} night{"s" if nights != 1 else ""} @ ${rate:.0f}/night']
+        if is_add:
+            parts.append('additional pet rate')
+        lines.append({'pet': pet.name, 'detail': ' · '.join(parts), 'amount': round(amt, 2)})
+        total += amt
+
+    return jsonify({
+        'ok':     True,
+        'lines':  lines,
+        'total':  round(total, 2),
+        'nights': nights,
+        'note':   ('Estimate based on standard 5 PM pickup. '
+                   'Final invoice may differ with early pickup, add-ons, or custom adjustments.'),
+    })
 
 
 @bp.route('/my-photos')

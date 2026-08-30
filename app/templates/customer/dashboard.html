@@ -439,7 +439,7 @@
             <h5 class="fw-bold mb-3" style="color:#1a1a2e;">Upcoming &amp; Active</h5>
             <div class="card shadow-sm mb-4">
                 <div class="card-body p-0">
-                    <table class="table table-hover mb-0">
+                    <table class="table table-hover mb-0" style="font-size:0.88rem;">
                         <thead class="table-light">
                             <tr>
                                 <th>Ref #</th>
@@ -447,10 +447,15 @@
                                 <th>Check-in</th>
                                 <th>Check-out</th>
                                 <th>Status</th>
+                                <th class="text-end">Est. Cost</th>
                             </tr>
                         </thead>
                         <tbody>
+                            {# Group by stay dates to render stay subtotals for multi-pet families #}
+                            {% set stay_seen = [] %}
                             {% for b in upcoming_boarding %}
+                            {% set stay_key = b.check_in_date.isoformat() ~ '_' ~ b.check_out_date.isoformat() %}
+                            {# Before this pet's row, if this is the first pet of a NEW stay, compute siblings for the subtotal row later #}
                             <tr>
                                 <td>
                                     {% if b.booking_number %}
@@ -489,13 +494,152 @@
                                     <span class="badge bg-success">Active</span>
                                     {% endif %}
                                 </td>
+                                <td class="text-end text-nowrap">
+                                    {% if b.id in boarding_estimates %}
+                                    {% set est = boarding_estimates[b.id] %}
+                                    <span class="fw-semibold" style="color:#1a1a2e;">${{ '%.2f'|format(est.total) }}</span>
+                                    <div class="text-muted" style="font-size:0.74rem;">
+                                        {{ est.days }} night{{ 's' if est.days != 1 else '' }} @ ${{ '%.0f'|format(est.nightly) }}
+                                        {% if est.is_additional %}<br>additional pet rate{% endif %}
+                                        {% if est.addon_total > 0 %}<br>+ ${{ '%.0f'|format(est.addon_total) }} add-ons{% endif %}
+                                    </div>
+                                    {% else %}
+                                    <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
                             </tr>
+                            {# Check if this is the LAST pet for this stay — if so, show stay total if multi-pet #}
+                            {% set stay_boardings = upcoming_boarding | selectattr('check_in_date', 'equalto', b.check_in_date) | selectattr('check_out_date', 'equalto', b.check_out_date) | list %}
+                            {% if stay_boardings | length > 1 and loop.last or (stay_boardings | length > 1 and (upcoming_boarding[loop.index] is not defined or (upcoming_boarding[loop.index].check_in_date != b.check_in_date or upcoming_boarding[loop.index].check_out_date != b.check_out_date))) %}
+                            {% set stay_total = namespace(v=0) %}
+                            {% for sb in stay_boardings %}{% if sb.id in boarding_estimates %}{% set stay_total.v = stay_total.v + boarding_estimates[sb.id].total %}{% endif %}{% endfor %}
+                            {% if stay_total.v > 0 %}
+                            <tr class="table-light">
+                                <td colspan="5" class="text-end fw-semibold small text-muted pe-2">
+                                    Stay total ({{ stay_boardings|length }} pets):
+                                </td>
+                                <td class="text-end fw-bold" style="color:#B07A8E;">
+                                    ${{ '%.2f'|format(stay_total.v) }}
+                                </td>
+                            </tr>
+                            {% endif %}
+                            {% endif %}
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
+                <div class="card-footer bg-white border-top-0 px-3 py-2">
+                    <small class="text-muted"><i class="fas fa-info-circle me-1"></i>Estimates assume standard 5 PM pick-up. Final invoice may vary.</small>
+                </div>
             </div>
             {% endif %}
+
+            <!-- ── Rate Calculator ── -->
+            <h5 class="fw-bold mb-3" style="color:#1a1a2e;">
+                <i class="fas fa-calculator me-2 text-mauve"></i>Boarding Rate Calculator
+            </h5>
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <p class="text-muted small mb-3">Get an estimate for any dates before you book.</p>
+                    <div class="row g-3 align-items-end mb-3">
+                        <div class="col-sm-4">
+                            <label class="form-label small fw-semibold">Drop-off Date</label>
+                            <input type="date" id="est-checkin" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label small fw-semibold">Pick-up Date</label>
+                            <input type="date" id="est-checkout" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-sm-4">
+                            <button class="btn btn-mauve btn-sm w-100" id="est-calc-btn">
+                                <i class="fas fa-calculator me-1"></i>Calculate
+                            </button>
+                        </div>
+                    </div>
+                    {% set active_pets = pets | selectattr('is_active') | list %}
+                    {% if active_pets | length > 1 %}
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Pets to include</label>
+                        <div class="d-flex flex-wrap gap-3">
+                            {% for pet in active_pets %}
+                            <div class="form-check">
+                                <input class="form-check-input est-pet-cb" type="checkbox"
+                                       id="est-pet-{{ pet.id }}" value="{{ pet.id }}" checked>
+                                <label class="form-check-label small" for="est-pet-{{ pet.id }}">{{ pet.name }}</label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% else %}
+                    {% for pet in active_pets %}
+                    <input type="hidden" class="est-pet-cb-val" value="{{ pet.id }}">
+                    {% endfor %}
+                    {% endif %}
+
+                    <div id="est-result" style="display:none;">
+                        <hr class="my-3">
+                        <div id="est-lines" class="mb-2"></div>
+                        <div class="d-flex justify-content-between fw-bold border-top pt-2" style="font-size:1rem;">
+                            <span>Estimated Total</span>
+                            <span id="est-total" style="color:#B07A8E;"></span>
+                        </div>
+                        <p id="est-note" class="text-muted small mt-2 mb-0"></p>
+                    </div>
+                    <div id="est-error" class="text-danger small mt-2" style="display:none;"></div>
+                </div>
+            </div>
+
+            <script>
+            document.getElementById('est-calc-btn').addEventListener('click', function () {
+                const ci = document.getElementById('est-checkin').value;
+                const co = document.getElementById('est-checkout').value;
+                if (!ci || !co) {
+                    document.getElementById('est-error').textContent = 'Please select both dates.';
+                    document.getElementById('est-error').style.display = '';
+                    return;
+                }
+                document.getElementById('est-error').style.display = 'none';
+
+                // Collect selected pet IDs
+                const petCbs = document.querySelectorAll('.est-pet-cb:checked');
+                const petVals = document.querySelectorAll('.est-pet-cb-val');
+                const petIds = petCbs.length
+                    ? Array.from(petCbs).map(cb => cb.value)
+                    : Array.from(petVals).map(el => el.value);
+
+                let url = `{{ url_for('customer.boarding_estimate_calc') }}?check_in=${ci}&check_out=${co}`;
+                petIds.forEach(id => { url += `&pet_ids=${id}`; });
+
+                fetch(url)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.error) {
+                            document.getElementById('est-error').textContent = data.error;
+                            document.getElementById('est-error').style.display = '';
+                            document.getElementById('est-result').style.display = 'none';
+                            return;
+                        }
+                        let html = '';
+                        data.lines.forEach(line => {
+                            html += `<div class="d-flex justify-content-between mb-1">
+                                <div>
+                                    <span class="fw-semibold">${line.pet}</span>
+                                    <div class="text-muted" style="font-size:0.8rem;">${line.detail}</div>
+                                </div>
+                                <span class="text-nowrap ms-3 fw-semibold">$${line.amount.toFixed(2)}</span>
+                            </div>`;
+                        });
+                        document.getElementById('est-lines').innerHTML = html;
+                        document.getElementById('est-total').textContent = `$${data.total.toFixed(2)}`;
+                        document.getElementById('est-note').textContent = data.note;
+                        document.getElementById('est-result').style.display = '';
+                    })
+                    .catch(() => {
+                        document.getElementById('est-error').textContent = 'Could not calculate estimate. Please try again.';
+                        document.getElementById('est-error').style.display = '';
+                    });
+            });
+            </script>
 
             {% if past_boarding %}
             <h5 class="fw-bold mb-3 text-muted">Past Stays</h5>
