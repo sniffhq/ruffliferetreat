@@ -11489,7 +11489,7 @@ def pay_invoice(inv_id):
             from_number = current_app.config.get('TWILIO_PHONE_NUMBER')
             business    = _biz('business_name', 'Ruff Life Retreat')
             body        = (f'Hi {customer.first_name}, we received your payment of '
-                           f'${total:.2f} for Invoice {invoice.invoice_number}. '
+                           f'${combined_total:.2f} for Invoice {invoice.invoice_number}. '
                            f'Thank you — {business}!')
             client  = Client(current_app.config.get('TWILIO_ACCOUNT_SID'),
                              current_app.config.get('TWILIO_AUTH_TOKEN'))
@@ -11502,7 +11502,7 @@ def pay_invoice(inv_id):
     except Exception as e:
         current_app.logger.error(f'Receipt SMS failed for invoice {inv_id}: {e}')
 
-    flash(f'Invoice {invoice.invoice_number} marked paid — ${total:.2f} via {method}.', 'success')
+    flash(f'Invoice {invoice.invoice_number} marked paid — ${combined_total:.2f} via {method}.', 'success')
     return redirect(url_for('admin.view_invoice', inv_id=inv_id))
 
 
