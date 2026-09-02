@@ -596,7 +596,19 @@ function showDaycareDay(ds) {
             }
             html += '<div class="text-muted small mt-1"><i class="fas fa-user me-1"></i>' + p.owner + '</div>' +
                     '</div>';
-            if (isToday) {
+            if (p.is_walkin && !p.is_checked_in) {
+                html += '<div class="d-flex gap-2 align-items-center">';
+                if (isToday) {
+                    html += '<form method="POST" action="/admin/daycare/enrollment/' + p.enrollment_id + '/checkin" style="margin:0;">' +
+                            '<button type="submit" class="btn btn-sm btn-success fw-bold">' +
+                            '<i class="fas fa-sign-in-alt me-1"></i>Check In</button></form>';
+                }
+                html += '<form method="POST" action="/admin/daycare/enrollment/' + p.enrollment_id + '/cancel-walkin" style="margin:0;" ' +
+                        'onsubmit="return confirm(\'Remove ' + p.name.replace(/'/g, "\\'") + ' from daycare on this day?\')">' +
+                        '<button type="submit" class="btn btn-sm btn-outline-danger">' +
+                        '<i class="fas fa-times me-1"></i>Remove</button></form>';
+                html += '</div>';
+            } else if (isToday) {
                 if (p.is_checked_in) {
                     html += '<span class="badge bg-success px-3 py-2"><i class="fas fa-check me-1"></i>Checked In</span>';
                 } else {

@@ -877,6 +877,62 @@ def daycare_visit_approve(appt_id):
     return redirect(url_for('admin.daycare_dashboard'))
 
 
+@bp.route('/daycare/enrollment/<int:enrollment_id>/cancel-walkin', methods=['POST'])
+@login_required
+@staff_required
+def cancel_daycare_walkin(enrollment_id):
+    """Cancel an approved walk-in daycare visit — removes the enrollment and cancels the appointment."""
+    enrollment = DaycareEnrollment.query.get_or_404(enrollment_id)
+    if not enrollment.is_walkin:
+        flash('This is not a walk-in enrollment.', 'warning')
+        return redirect(url_for('admin.daycare_dashboard'))
+
+    # Cancel the matching confirmed appointment (if any)
+    from app.models import ServiceType as _ST_cw
+    _daycare_svc = _ST_cw.query.filter(_ST_cw.name.ilike('%daycare%')).first()
+    appt = None
+    if _daycare_svc and enrollment.enrollment_date:
+        appt = Appointment.query.filter_by(
+            pet_id=enrollment.pet_id,
+            service_type_id=_daycare_svc.id,
+            appointment_date=enrollment.enrollment_date,
+            status='confirmed',
+        ).first()
+        if appt:
+            appt.status = 'cancelled'
+
+    pet_name = enrollment.pet.name
+    date_str = enrollment.enrollment_date.strftime('%b %d') if enrollment.enrollment_date else ''
+    db.session.delete(enrollment)
+    db.session.commit()
+
+    # Optional SMS to customer
+    try:
+        if appt:
+            from app.sms_service import _send
+            owner = appt.user
+            if owner and owner.phone:
+                _send(
+                    owner.phone,
+                    f'Hi {owner.first_name}, your daycare visit for {pet_name} on '
+                    f'{appt.appointment_date.strftime("%A, %b %d")} has been cancelled. '
+                    f'Please call us to reschedule. — Ruff Life Retreat',
+                    user_id=owner.id,
+                )
+    except Exception as e:
+        current_app.logger.warning(f'SMS failed on daycare walkin cancel: {e}')
+
+    try:
+        from app.audit_service import audit
+        audit('daycare.walkin_cancelled', 'enrollment', enrollment_id, pet_name,
+              f'Walk-in daycare for {pet_name} on {date_str} cancelled by {current_user.first_name} {current_user.last_name}')
+    except Exception:
+        pass
+
+    flash(f'Daycare visit for {pet_name} on {date_str} has been cancelled.', 'success')
+    return redirect(url_for('admin.daycare_dashboard'))
+
+
 @bp.route('/daycare/visit/<int:appt_id>/deny', methods=['POST'])
 @login_required
 @staff_required
