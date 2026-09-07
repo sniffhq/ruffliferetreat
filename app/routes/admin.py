@@ -9974,59 +9974,45 @@ def grooming_report():
         prep_date = today
     report_date = prep_date + timedelta(days=1)
     
-    # Get all boardings checking out on the selected date (active or completed)
+    # Get all boardings checking out on the selected date.
+    # Include 'reserved' so pets not yet checked in still appear on the grooming list.
     checkouts = (Boarding.query
-        .filter(Boarding.status.in_(['active', 'completed']))
+        .filter(Boarding.status.in_(['reserved', 'active', 'completed']))
         .filter(Boarding.check_out_date == report_date)
         .order_by(Boarding.check_out_time.asc())
         .all())
-    
+
     # For each boarding, find add-ons from associated appointment notes
     grooming_items = []
     _bsvc = ServiceType.query.filter(ServiceType.name.ilike('%boarding%')).first()
-    
+
     for b in checkouts:
         pet      = Pet.query.get(b.pet_id)
         customer = User.query.get(b.user_id)
         if not pet or not customer:
             continue
-        
+
         addons = []
 
-        # Priority 1: special_notes (staff-set via boarding detail checkboxes)
+        # Priority 1: special_notes (staff-set via boarding detail checkboxes).
+        # Use shared parser so behaviour matches the rest of the app.
+        # If special_notes contains an explicit "Add-ons:" marker (even empty),
+        # staff intentionally set (or cleared) add-ons — do NOT fall back to
+        # appointment notes (same guard used by the boarding_detail view).
+        _addons_explicitly_set = b.special_notes and 'Add-ons:' in (b.special_notes or '')
         if b.special_notes:
-            m = re.search(r'Add-ons?:\s*(.+)', b.special_notes, re.IGNORECASE)
-            if m:
-                for item in m.group(1).split(','):
-                    item = item.strip()
-                    if item:
-                        addons.append(item)
+            addons, _ = _parse_addons_from_notes(b.special_notes, structured_only=True)
 
-        # Priority 2: appointment notes (legacy / customer-requested at booking time)
-        if not addons and _bsvc:
+        # Priority 2: appointment notes (legacy / customer-requested at booking time).
+        # Only fall back if special_notes had NO explicit Add-ons: marker at all.
+        if not addons and not _addons_explicitly_set and _bsvc:
             appt = (Appointment.query
                 .filter_by(pet_id=b.pet_id, service_type_id=_bsvc.id)
                 .filter(Appointment.appointment_date == b.check_in_date)
                 .order_by(Appointment.id.desc())
                 .first())
             if appt and appt.notes:
-                m2 = re.search(r'Add-ons?:\s*(.+)', appt.notes, re.IGNORECASE)
-                if m2:
-                    for item in m2.group(1).split(','):
-                        item = item.strip()
-                        if item:
-                            addons.append(item)
-                # freetext fallback for very old bookings
-                if not addons:
-                    n = appt.notes.lower()
-                    has_bath  = any(w in n for w in ['bath', 'bathe', 'wash', 'shampoo', 'spa'])
-                    has_nails = any(w in n for w in ['nail', 'nails', 'trim', 'clip'])
-                    if has_bath and has_nails:
-                        addons.append('Spa Bath + Nail Trim ($30)')
-                    elif has_bath:
-                        addons.append('Spa Bath ($20)')
-                    elif has_nails:
-                        addons.append('Nail Trim ($15)')
+                addons, _ = _parse_addons_from_notes(appt.notes)
 
         grooming_addons = [a for a in addons if any(
             kw in a.lower() for kw in ['bath', 'nail', 'spa', 'groom']
