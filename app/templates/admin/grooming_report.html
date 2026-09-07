@@ -23,13 +23,6 @@
 .addon-spa       { background: #cff4fc; color: #055160; border: 1px solid #0dcaf0; }
 .addon-nail      { background: #d1e7dd; color: #0a3622; border: 1px solid #198754; }
 .addon-other     { background: #e2e3e5; color: #383d41; border: 1px solid #adb5bd; }
-.checklist-box {
-    width: 22px; height: 22px;
-    border: 2px solid #dee2e6;
-    border-radius: 4px;
-    display: inline-block;
-    flex-shrink: 0;
-}
 </style>
 
 <div class="container-fluid mt-3">
@@ -129,9 +122,11 @@
                 </thead>
                 <tbody>
                     {% for item in grooming_items %}
-                    <tr>
+                    <tr class="grooming-row">
                         <td class="text-center align-middle">
-                            <div class="checklist-box"></div>
+                            <input type="checkbox" class="grooming-check form-check-input"
+                                   style="width:20px;height:20px;cursor:pointer;"
+                                   title="Mark as done">
                         </td>
                         <td class="align-middle">
                             <strong>{{ item.pet.name }}</strong>
@@ -255,4 +250,19 @@
     </div>
 
 </div>
+
+<script>
+document.querySelectorAll('.grooming-check').forEach(function(cb) {
+    cb.addEventListener('change', function() {
+        var row = this.closest('tr');
+        if (this.checked) {
+            row.style.opacity = '0.45';
+            row.style.textDecoration = 'line-through';
+        } else {
+            row.style.opacity = '';
+            row.style.textDecoration = '';
+        }
+    });
+});
+</script>
 {% endblock %}
