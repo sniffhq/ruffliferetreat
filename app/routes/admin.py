@@ -9967,11 +9967,13 @@ def grooming_report():
 
     # ?date = the PREP date (day staff are doing grooming).
     # report_date = prep_date + 1  (the actual pickup / checkout day).
+    # Default: prep_date = yesterday so report_date = today.
+    # This way opening the report on the checkout day still shows today's pets.
     date_str = request.args.get('date', '').strip()
     try:
-        prep_date = date.fromisoformat(date_str) if date_str else today
+        prep_date = date.fromisoformat(date_str) if date_str else today - timedelta(days=1)
     except ValueError:
-        prep_date = today
+        prep_date = today - timedelta(days=1)
     report_date = prep_date + timedelta(days=1)
     
     # Get all boardings checking out on the selected date.
