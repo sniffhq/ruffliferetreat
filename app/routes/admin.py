@@ -3051,6 +3051,7 @@ def boarding_detail(booking_id):
     # or cleared add-ons via the checkboxes — do NOT fall back to appointment notes in that case.
     addons, _ = _parse_addons_from_notes(booking.special_notes or '', structured_only=True)
     _addons_explicitly_set = booking.special_notes and 'Add-ons:' in booking.special_notes
+    _addons_from_fallback  = False  # True when add-ons come from a previous appointment, not special_notes
     if not addons and not _addons_explicitly_set:
         try:
             boarding_svc = ServiceType.query.filter(ServiceType.name.ilike('%boarding%')).first()
@@ -3065,6 +3066,7 @@ def boarding_detail(booking_id):
                     m = re.search(r'Add-ons:\s*(.+)', appt.notes)
                     if m:
                         addons = [a.strip() for a in m.group(1).split(',')]
+                        _addons_from_fallback = True  # warn staff to confirm
         except Exception:
             pass
 
@@ -3149,7 +3151,8 @@ def boarding_detail(booking_id):
     return render_template('admin/boarding_detail.html',
         booking=booking, addons=addons, today=today_d,
         invoice_preview=invoice_preview, rates=rates, customer=customer,
-        special_notes_display=special_notes_display)
+        special_notes_display=special_notes_display,
+        addons_from_fallback=_addons_from_fallback)
 
 
 @bp.route('/boarding/<int:booking_id>/addons', methods=['POST'])
@@ -10005,12 +10008,21 @@ def grooming_report():
 
         # Priority 2: appointment notes (legacy / customer-requested at booking time).
         # Only fall back if special_notes had NO explicit Add-ons: marker at all.
+        # Mirrors the same fallback boarding_detail uses: try check_in_date first,
+        # then most-recent appointment for this pet (covers admin-created boardings
+        # that have no appointment record for the exact check-in date).
         if not addons and not _addons_explicitly_set and _bsvc:
             appt = (Appointment.query
                 .filter_by(pet_id=b.pet_id, service_type_id=_bsvc.id)
                 .filter(Appointment.appointment_date == b.check_in_date)
                 .order_by(Appointment.id.desc())
                 .first())
+            if not appt:
+                # No appointment on check-in date — try most recent (same as boarding_detail)
+                appt = (Appointment.query
+                    .filter_by(pet_id=b.pet_id, service_type_id=_bsvc.id)
+                    .order_by(Appointment.id.desc())
+                    .first())
             if appt and appt.notes:
                 addons, _ = _parse_addons_from_notes(appt.notes)
 
