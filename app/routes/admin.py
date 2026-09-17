@@ -3083,11 +3083,11 @@ def boarding_detail(booking_id):
         try:
             from app.models import InvoiceAdjustment
 
-            # Nights: base nights + 1 if pickup after 10 AM; minimum 1 for same-day stays
+            # Nights: base nights + 1 if pickup after 10 AM; minimum 1 for same-day stays.
+            # Same-day stays always bill as 1 night — no late-pickup surcharge.
+            _raw = (booking.check_out_date - booking.check_in_date).days
             cout = str(booking.check_out_time or '17:00')[:5]
-            days = max((booking.check_out_date - booking.check_in_date).days, 1)
-            if cout > '10:00':
-                days += 1
+            days = 1 if _raw == 0 else (_raw if cout <= '10:00' else _raw + 1)
 
             # Is this the first pet for this stay?
             # Use lowest pet_id among siblings as the primary — same logic as invoice_audit
@@ -4445,6 +4445,8 @@ def send_estimate_sms(customer_id):
 
     def _boarding_days(b):
         base = (b.check_out_date - b.check_in_date).days
+        if base == 0:
+            return 1
         cout = str(b.check_out_time or '17:00')[:5]
         return base if cout <= '10:00' else base + 1
 
@@ -5037,6 +5039,8 @@ def reports_dashboard():
 
     def _boarding_days_r(b):
         base = (b.check_out_date - b.check_in_date).days
+        if base == 0:
+            return 1
         cout = str(b.check_out_time or '17:00')[:5]
         return base if cout <= '10:00' else base + 1
 
