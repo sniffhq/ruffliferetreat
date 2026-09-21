@@ -196,7 +196,7 @@ def send_customer_estimate(app, customer_id, boardings):
 
             body = (
                 f"Good morning {customer.first_name}! {pet_str} scheduled "
-                f"to check out today by {cout_fmt}. "
+                f"to check out today at {cout_fmt}. "
                 f"Your estimated balance is ${total:.2f}. "
                 f"View the full breakdown: {link} "
                 f"We look forward to seeing you! {MARKER}"
