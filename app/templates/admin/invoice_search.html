@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Search Invoices — Ruff Life Retreat{% endblock %}
+{% block content %}
+<div class="container-fluid px-4 py-4" style="max-width:1100px;">
+
+    <div class="mb-4">
+        <h2 class="fw-bold mb-0" style="color:#1B2A4A;">
+            <i class="fas fa-search me-2 text-warning"></i>Search Invoices
+        </h2>
+        <div class="text-muted small">Find an invoice by number, customer name, phone, or email</div>
+    </div>
+
+    <form method="GET" class="mb-4">
+        <div class="input-group input-group-lg">
+            <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
+            <input type="text" name="q" value="{{ q }}" class="form-control border-start-0"
+                   placeholder="e.g. INV-0187, Kendall Hall, (540) 238-6376…"
+                   autofocus autocomplete="off">
+            <button type="submit" class="btn btn-mauve px-4">Search</button>
+        </div>
+    </form>
+
+    {% if q %}
+        {% if results %}
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0 align-middle" style="font-size:0.9rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-3">Invoice #</th>
+                            <th>Customer</th>
+                            <th>Pet</th>
+                            <th>Status</th>
+                            <th class="text-end">Total</th>
+                            <th>Generated</th>
+                            <th class="pe-3"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for inv in results %}
+                        <tr>
+                            <td class="ps-3 fw-bold">{{ inv.invoice_number }}</td>
+                            <td>
+                                <a href="{{ url_for('admin.customer_detail', customer_id=inv.customer_id) }}"
+                                   class="text-decoration-none" style="color:#1B2A4A;">
+                                    {{ inv.customer.first_name }} {{ inv.customer.last_name }}
+                                </a>
+                                <div class="text-muted small">{{ inv.customer.phone or inv.customer.email or '—' }}</div>
+                            </td>
+                            <td>{{ inv.boarding.pet.name if inv.boarding and inv.boarding.pet else '—' }}</td>
+                            <td><span class="badge bg-{{ inv.status_badge }}">{{ inv.status_label }}</span></td>
+                            <td class="text-end">${{ "%.2f"|format(inv.total) }}</td>
+                            <td class="text-muted">{{ inv.generated_at.strftime('%b %d, %Y') if inv.generated_at else '—' }}</td>
+                            <td class="pe-3 text-end">
+                                <a href="{{ url_for('admin.view_invoice', inv_id=inv.id) }}"
+                                   class="btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-eye me-1"></i>View
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% if results|length == 100 %}
+        <div class="text-muted small mt-2">Showing the 100 most recent matches — narrow your search for more precise results.</div>
+        {% endif %}
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fas fa-file-invoice fa-3x mb-3 d-block opacity-50"></i>
+            No invoices found for "{{ q }}".
+        </div>
+        {% endif %}
+    {% endif %}
+
+</div>
+{% endblock %}

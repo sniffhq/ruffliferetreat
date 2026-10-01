@@ -11233,6 +11233,49 @@ def _generate_boarding_invoice(booking, generated_by_id=None):
     return invoice
 
 
+@bp.route('/invoices/search')
+@login_required
+@admin_required
+def invoice_search():
+    """Staff lookup — find an invoice by number, customer name, phone, or email."""
+    from app.models import Invoice
+    import re as _re
+
+    q = (request.args.get('q') or '').strip()
+    results = []
+
+    if q:
+        like     = f'%{q}%'
+        num_part = _re.sub(r'[^0-9]', '', q)
+        words    = q.split()
+
+        conditions = [
+            Invoice.invoice_number.ilike(like),
+            User.phone.ilike(like),
+            User.email.ilike(like),
+        ]
+        if num_part:
+            conditions.append(Invoice.invoice_number.ilike(f'%{num_part}%'))
+
+        if len(words) >= 2:
+            # Multi-word query ("Kendall Hall") — match first+last name in either order
+            w1, w2 = f'%{words[0]}%', f'%{words[-1]}%'
+            conditions.append(db.and_(User.first_name.ilike(w1), User.last_name.ilike(w2)))
+            conditions.append(db.and_(User.first_name.ilike(w2), User.last_name.ilike(w1)))
+        else:
+            conditions.append(User.first_name.ilike(like))
+            conditions.append(User.last_name.ilike(like))
+
+        results = (Invoice.query
+            .join(User, Invoice.customer_id == User.id)
+            .filter(db.or_(*conditions))
+            .order_by(Invoice.generated_at.desc())
+            .limit(100)
+            .all())
+
+    return render_template('admin/invoice_search.html', q=q, results=results)
+
+
 @bp.route('/invoices/<int:inv_id>')
 @login_required
 @admin_required
@@ -11536,7 +11579,7 @@ def pay_invoice(inv_id):
     try:
         from app.audit_service import audit
         audit('invoice.paid', 'invoice', invoice.id, invoice.invoice_number,
-              f'Invoice {invoice.invoice_number} ${total:.2f} paid via {method} — logged by {current_user.first_name} {current_user.last_name}')
+              f'Invoice {invoice.invoice_number} ${combined_total:.2f} paid via {method} — logged by {current_user.first_name} {current_user.last_name}')
     except Exception: pass
 
     # Receipt SMS

@@ -11,6 +11,9 @@
             <div class="text-muted small">Centralized billing overview — as of {{ today.strftime('%B %d, %Y') }}</div>
         </div>
         <div class="d-flex gap-2 no-print">
+            <a href="{{ url_for('admin.invoice_search') }}" class="btn btn-mauve btn-sm">
+                <i class="fas fa-search me-1"></i>Search Invoices
+            </a>
             <button onclick="window.print()" class="btn btn-outline-secondary btn-sm">
                 <i class="fas fa-print me-1"></i>Print
             </button>
