@@ -741,6 +741,8 @@ class SupportTicket(db.Model):
     total_minutes           = db.Column(db.Integer, default=0)
     active_session_started  = db.Column(db.DateTime, nullable=True)
     active_session_user_id  = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    jira_key     = db.Column(db.String(20), nullable=True)   # e.g. 'SUPP-42'
+    jira_url     = db.Column(db.String(255), nullable=True)
     submitter = db.relationship('User', foreign_keys=[submitted_by],
                                 backref=db.backref('support_tickets', lazy=True))
     active_worker = db.relationship('User', foreign_keys=[active_session_user_id])

@@ -20,6 +20,13 @@
                 {% if ticket.status == 'working' %}<i class="fas fa-circle-notch fa-spin me-1"></i>{% endif %}
                 {{ ticket.status.replace('_',' ').title() }}
             </span>
+            {% if ticket.jira_key %}
+            <div class="mt-2">
+                <a href="{{ ticket.jira_url }}" target="_blank" rel="noopener" class="badge bg-info text-dark text-decoration-none">
+                    <i class="fab fa-jira me-1"></i>{{ ticket.jira_key }}
+                </a>
+            </div>
+            {% endif %}
         </div>
     </div>
 

@@ -8447,11 +8447,24 @@ def support():
                 current_app.logger.error(f'Support ticket SMS failed: {e}')
 
         try:
+            from app.jira_service import create_support_ticket_issue
+            jira_key, jira_url  = create_support_ticket_issue(ticket)
+            ticket.jira_key = jira_key
+            ticket.jira_url = jira_url
+            db.session.commit()
+        except Exception as e:
+            current_app.logger.error(f'Jira issue creation failed for ticket {ticket.id}: {e}')
+
+        try:
             from app.audit_service import audit
             audit('ticket.created', 'support_ticket', ticket.id, subject,
                   f'Support ticket "{subject}" submitted by {current_user.first_name} {current_user.last_name}')
         except Exception: pass
-        flash(f'Support ticket #{ticket.id} submitted successfully!', 'success')
+
+        if ticket.jira_key:
+            flash(f'Support ticket #{ticket.id} submitted — tracked as {ticket.jira_key}.', 'success')
+        else:
+            flash(f'Support ticket #{ticket.id} submitted successfully!', 'success')
         return redirect(url_for('admin.support'))
 
     # ── GET ───────────────────────────────────────────────────────────────────
