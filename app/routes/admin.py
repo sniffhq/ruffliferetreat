@@ -11255,14 +11255,24 @@ def view_invoice(inv_id):
             if sb.invoice and sb.invoice.id != invoice.id and sb.invoice.status != 'void':
                 sibling_invoices.append(sb.invoice)
 
-    # Combined line items (primary first, then siblings sorted by pet name)
+    # Combined line items (primary first, then siblings sorted by pet name).
+    # Tag each item with the invoice it actually belongs to — the edit form
+    # must only submit rows owned by *this* invoice. Siblings are merged in
+    # here for display/total purposes only; if their rows were ever posted
+    # back through edit_invoice() they'd get permanently copied into this
+    # invoice's own snapshot, which then duplicates again on every future
+    # view (since siblings are always re-merged live).
     sibling_invoices.sort(key=lambda i: i.boarding.pet.name if i.boarding else '')
-    all_items    = list(invoice.items)
-    all_pets     = [invoice.boarding.pet] if invoice.boarding else []
+    all_items = [dict(i, invoice_id=invoice.id, invoice_number=invoice.invoice_number)
+                 for i in invoice.items]
+    all_pets       = [invoice.boarding.pet] if invoice.boarding else []
     combined_total = invoice.total
+    sibling_total  = 0.0
     for sib in sibling_invoices:
-        all_items      += sib.items
+        all_items += [dict(i, invoice_id=sib.id, invoice_number=sib.invoice_number)
+                      for i in sib.items]
         combined_total += sib.total
+        sibling_total  += sib.total
         if sib.boarding:
             all_pets.append(sib.boarding.pet)
 
@@ -11273,6 +11283,7 @@ def view_invoice(inv_id):
         invoice        = invoice,
         items          = all_items,
         combined_total = combined_total,
+        sibling_total  = sibling_total,
         sibling_invoices = sibling_invoices,
         sibling_ids    = sibling_ids,
         all_pets       = all_pets,

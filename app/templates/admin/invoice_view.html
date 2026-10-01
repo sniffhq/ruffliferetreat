@@ -113,18 +113,27 @@
             </thead>
             <tbody>
               {% for item in items %}
+              {% set is_own = (item.invoice_id == invoice.id) %}
               <tr class="line-row">
                 <td>
+                  {% if is_own %}
                   <input type="text" name="description[]"
                          class="form-control form-control-sm border-0 px-0"
                          value="{{ item.description }}"
                          style="background:transparent;">
                   <input type="hidden" name="type[]" value="{{ item.type }}">
+                  {% else %}
+                  <div class="px-0">{{ item.description }}</div>
+                  <small class="text-muted d-block">
+                    <i class="fas fa-link me-1"></i>part of {{ item.invoice_number }} — edit there to change
+                  </small>
+                  {% endif %}
                   {% if item.detail %}
                     <small class="text-muted">{{ item.detail }}</small>
                   {% endif %}
                 </td>
                 <td class="text-end">
+                  {% if is_own %}
                   <div class="input-group input-group-sm justify-content-end">
                     <span class="input-group-text border-0 bg-transparent pe-0">$</span>
                     <input type="number" name="amount[]" step="0.01"
@@ -132,12 +141,17 @@
                            style="max-width:90px;background:transparent;"
                            value="{{ '%.2f' % item.amount }}">
                   </div>
+                  {% else %}
+                  <span class="text-muted">${{ '%.2f' % item.amount }}</span>
+                  {% endif %}
                 </td>
                 <td class="text-center">
+                  {% if is_own %}
                   <button type="button" class="btn btn-sm btn-link text-danger p-0 remove-line"
                           title="Remove line">
                     <i class="fas fa-times"></i>
                   </button>
+                  {% endif %}
                 </td>
               </tr>
               {% endfor %}
@@ -167,7 +181,7 @@
               {# Running total #}
               <tr class="table-secondary">
                 <td class="fw-bold text-end" colspan="1">Total</td>
-                <td class="fw-bold text-end" id="runningTotal">
+                <td class="fw-bold text-end" id="runningTotal" data-sibling-total="{{ '%.2f' % sibling_total }}">
                   ${{ '%.2f' % combined_total }}
                 </td>
                 <td></td>
@@ -343,11 +357,11 @@
 <script>
 // ── Live total recalculation ─────────────────────────────────────────
 function recalcTotal() {
-  let total = 0;
+  const el = document.getElementById('runningTotal');
+  let total = parseFloat(el && el.dataset.siblingTotal) || 0;
   document.querySelectorAll('.line-amount').forEach(function(inp) {
     total += parseFloat(inp.value) || 0;
   });
-  const el = document.getElementById('runningTotal');
   if (el) el.textContent = '$' + total.toFixed(2);
 }
 document.addEventListener('input', function(e) {
