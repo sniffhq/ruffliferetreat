@@ -244,6 +244,9 @@
       {% if invoice.status in ('draft', 'sent') %}
         {# Send / Re-send #}
         <form method="POST" action="{{ url_for('admin.send_invoice_new', inv_id=invoice.id) }}">
+          {% for sid in sibling_ids %}
+          <input type="hidden" name="sibling_ids[]" value="{{ sid }}">
+          {% endfor %}
           <button type="submit" class="btn btn-mauve">
             <i class="fas fa-paper-plane me-1"></i>
             {{ 'Resend Invoice' if invoice.status == 'sent' else 'Send Invoice' }}
@@ -332,13 +335,23 @@
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <form method="POST" action="{{ url_for('admin.void_invoice', inv_id=invoice.id) }}">
+        {% for sid in sibling_ids %}
+        <input type="hidden" name="sibling_ids[]" value="{{ sid }}">
+        {% endfor %}
         <div class="modal-header bg-danger text-white">
           <h5 class="modal-title">Void Invoice</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
+          {% if sibling_invoices %}
+          <p>This will void <strong>{{ invoice.invoice_number }}</strong> and its linked
+             invoice{{ 's' if sibling_invoices|length > 1 }}
+             (<strong>{{ sibling_invoices | map(attribute='invoice_number') | join(', ') }}</strong>)
+             and cancel any outstanding payment record. This cannot be undone.</p>
+          {% else %}
           <p>This will void <strong>{{ invoice.invoice_number }}</strong> and cancel
              any outstanding payment record. This cannot be undone.</p>
+          {% endif %}
           <div class="mb-2">
             <label class="form-label">Reason (optional)</label>
             <input type="text" name="reason" class="form-control"

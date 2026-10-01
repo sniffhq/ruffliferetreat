@@ -11233,6 +11233,24 @@ def _generate_boarding_invoice(booking, generated_by_id=None):
     return invoice
 
 
+def _collect_sibling_invoices(customer):
+    """Resolve sibling_ids[] posted from the combined invoice view into live
+    Invoice objects eligible for the same status change as the primary
+    invoice — same customer, not already paid or void. Used to fan a
+    send/void/pay action out across every pet's invoice for one stay,
+    since each pet's boarding still generates its own Invoice row."""
+    from app.models import Invoice
+    siblings = []
+    for sid in request.form.getlist('sibling_ids[]'):
+        try:
+            sib = Invoice.query.get(int(sid))
+        except (ValueError, TypeError):
+            continue
+        if sib and sib.customer_id == customer.id and sib.status not in ('paid', 'void'):
+            siblings.append(sib)
+    return siblings
+
+
 @bp.route('/invoices/search')
 @login_required
 @admin_required
@@ -11391,7 +11409,8 @@ def edit_invoice(inv_id):
 @login_required
 @admin_required
 def send_invoice_new(inv_id):
-    """Send the draft invoice via SMS and stamp an outstanding Payment record."""
+    """Send the draft invoice (and any siblings for the same stay) via SMS
+    and stamp a combined outstanding Payment record."""
     from app.models import Invoice, InvoiceToken, SmsMessage, Payment
     from app.sms_service import _normalize_phone
     import secrets
@@ -11406,37 +11425,39 @@ def send_invoice_new(inv_id):
         flash('This invoice has been voided.', 'danger')
         return redirect(url_for('admin.view_invoice', inv_id=inv_id))
 
+    all_invoices   = [invoice] + _collect_sibling_invoices(customer)
+    combined_total = sum(inv.total for inv in all_invoices)
+    inv_numbers    = ', '.join(inv.invoice_number for inv in all_invoices)
+
     # ── Create / update outstanding Payment record ────────────────────────
-    existing_pay = Payment.query.filter_by(
-        customer_id  = customer.id,
-        service_type = 'Boarding',
-        status       = 'outstanding',
-    ).first()
+    existing_pay = None
+    if invoice.boarding and invoice.boarding.payment_id:
+        existing_pay = Payment.query.get(invoice.boarding.payment_id)
 
     if existing_pay:
-        existing_pay.amount       = invoice.total
+        existing_pay.amount       = combined_total
         existing_pay.payment_date = datetime.now().date()
-        existing_pay.notes        = f'Invoice {invoice.invoice_number} sent via SMS (updated)'
+        existing_pay.notes        = f'Invoice {inv_numbers} sent via SMS (updated)'
         pay_record = existing_pay
     else:
         pay_record = Payment(
             customer_id    = customer.id,
-            amount         = invoice.total,
+            amount         = combined_total,
             payment_date   = datetime.now().date(),
             service_type   = 'Boarding',
             payment_method = 'Invoice',
             status         = 'outstanding',
-            notes          = f'Invoice {invoice.invoice_number} sent via SMS',
+            notes          = f'Invoice {inv_numbers} sent via SMS',
         )
         db.session.add(pay_record)
     db.session.flush()
 
-    # Link boarding to payment record
-    if invoice.boarding:
-        invoice.boarding.payment_id = pay_record.id
-
-    invoice.status  = 'sent'
-    invoice.sent_at = datetime.now()
+    # Mark every invoice in the stay as sent and link its boarding to the payment
+    for inv in all_invoices:
+        inv.status  = 'sent'
+        inv.sent_at = datetime.now()
+        if inv.boarding:
+            inv.boarding.payment_id = pay_record.id
 
     # Invoice token for customer link
     token_rec = InvoiceToken.query.filter_by(customer_id=customer.id).first()
@@ -11449,7 +11470,7 @@ def send_invoice_new(inv_id):
 
     # ── Send SMS ──────────────────────────────────────────────────────────
     if not customer.phone:
-        flash(f'Invoice recorded (${invoice.total:.2f} outstanding) — no phone number on file.', 'info')
+        flash(f'Invoice recorded (${combined_total:.2f} outstanding) — no phone number on file.', 'info')
         return redirect(url_for('admin.view_invoice', inv_id=inv_id))
 
     try:
@@ -11471,7 +11492,7 @@ def send_invoice_new(inv_id):
             first_name    = customer.first_name,
             invoice_type  = 'boarding',
             business_name = business,
-            total         = f'{invoice.total:.2f}',
+            total         = f'{combined_total:.2f}',
             link          = link,
         )
 
@@ -11494,10 +11515,10 @@ def send_invoice_new(inv_id):
         try:
             from app.audit_service import audit
             audit('invoice.sent', 'invoice', invoice.id, invoice.invoice_number,
-                  f'Invoice {invoice.invoice_number} ${invoice.total:.2f} sent via SMS by {current_user.first_name} {current_user.last_name}')
+                  f'Invoice {inv_numbers} ${combined_total:.2f} sent via SMS by {current_user.first_name} {current_user.last_name}')
         except Exception: pass
 
-        flash(f'Invoice sent to {customer.first_name} — ${invoice.total:.2f} outstanding.', 'success')
+        flash(f'Invoice sent to {customer.first_name} — ${combined_total:.2f} outstanding.', 'success')
 
     except Exception as e:
         current_app.logger.error(f'Invoice SMS failed for invoice {inv_id}: {e}')
@@ -11524,16 +11545,7 @@ def pay_invoice(inv_id):
         return redirect(url_for('admin.view_invoice', inv_id=inv_id))
 
     # Collect all invoices in this stay (primary + siblings passed from the form)
-    sibling_id_strs = request.form.getlist('sibling_ids[]')
-    all_invoices = [invoice]
-    for sid in sibling_id_strs:
-        try:
-            sib = Invoice.query.get(int(sid))
-            if sib and sib.status not in ('paid', 'void') and sib.customer_id == customer.id:
-                all_invoices.append(sib)
-        except (ValueError, TypeError):
-            pass
-
+    all_invoices   = [invoice] + _collect_sibling_invoices(customer)
     combined_total = sum(inv.total for inv in all_invoices)
     # Zelle processing fee (once, on the combined total)
     if method.lower() == 'zelle':
@@ -11613,37 +11625,43 @@ def pay_invoice(inv_id):
 @login_required
 @admin_required
 def void_invoice(inv_id):
-    """Void a draft or sent invoice."""
+    """Void a draft or sent invoice, and any siblings for the same stay."""
     from app.models import Invoice, Payment
-    invoice = Invoice.query.get_or_404(inv_id)
+    invoice  = Invoice.query.get_or_404(inv_id)
+    customer = invoice.customer
     if invoice.status == 'paid':
         flash('Cannot void a paid invoice. Use an adjustment instead.', 'danger')
         return redirect(url_for('admin.view_invoice', inv_id=inv_id))
 
-    reason              = (request.form.get('reason') or '').strip()
-    invoice.status      = 'void'
-    invoice.voided_at   = datetime.now()
-    invoice.voided_reason = reason or 'No reason given'
+    reason       = (request.form.get('reason') or '').strip()
+    all_invoices = [invoice] + _collect_sibling_invoices(customer)
+    inv_numbers  = ', '.join(inv.invoice_number for inv in all_invoices)
 
-    # Cancel outstanding payment linked to this boarding
-    if invoice.boarding and invoice.boarding.payment_id:
-        pay = Payment.query.get(invoice.boarding.payment_id)
-        if pay and pay.status == 'outstanding':
-            pay.status = 'void'
-        invoice.boarding.payment_id = None
+    for inv in all_invoices:
+        inv.status        = 'void'
+        inv.voided_at      = datetime.now()
+        inv.voided_reason  = reason or 'No reason given'
 
-    # Detach the voided invoice from the boarding so a new one can be generated
-    invoice.boarding_id = None
+        # Cancel outstanding payment linked to this boarding (harmless if the
+        # same shared Payment record gets hit once per sibling invoice)
+        if inv.boarding and inv.boarding.payment_id:
+            pay = Payment.query.get(inv.boarding.payment_id)
+            if pay and pay.status == 'outstanding':
+                pay.status = 'void'
+            inv.boarding.payment_id = None
+
+        # Detach the voided invoice from the boarding so a new one can be generated
+        inv.boarding_id = None
 
     db.session.commit()
 
     try:
         from app.audit_service import audit
         audit('invoice.voided', 'invoice', invoice.id, invoice.invoice_number,
-              f'Invoice {invoice.invoice_number} voided by {current_user.first_name} {current_user.last_name}: {reason}')
+              f'Invoice {inv_numbers} voided by {current_user.first_name} {current_user.last_name}: {reason}')
     except Exception: pass
 
-    flash(f'Invoice {invoice.invoice_number} voided.', 'warning')
+    flash(f'Invoice {inv_numbers} voided.', 'warning')
     return redirect(url_for('admin.customer_detail', customer_id=invoice.customer_id))
 
 
