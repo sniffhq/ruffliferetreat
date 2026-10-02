@@ -32,6 +32,13 @@ class Config:
     # Support ticket SMS recipient
     SUPPORT_PHONE = '9128097600'
 
+    # Jira — support tickets filed by staff are mirrored into this project
+    JIRA_BASE_URL    = os.environ.get('JIRA_BASE_URL', 'https://sniffhq.atlassian.net')
+    JIRA_EMAIL       = os.environ.get('JIRA_EMAIL')
+    JIRA_API_TOKEN   = os.environ.get('JIRA_API_TOKEN')
+    JIRA_PROJECT_KEY = os.environ.get('JIRA_PROJECT_KEY', 'SUPP')
+    JIRA_ISSUE_TYPE  = os.environ.get('JIRA_ISSUE_TYPE', 'Task')
+
     # Business Info
     BUSINESS_NAME    = 'Ruff Life Retreat'
     BUSINESS_PHONE   = '(912) 648-2295'
