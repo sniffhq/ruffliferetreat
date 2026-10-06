@@ -5,8 +5,13 @@ from threading import Thread
 
 def send_async_email(app, msg):
     """Send email asynchronously"""
+    import logging
+    _log = logging.getLogger(__name__)
     with app.app_context():
-        mail.send(msg)
+        try:
+            mail.send(msg)
+        except Exception as e:
+            _log.error(f'Email send failed (subject: {getattr(msg, "subject", "?")}): {e}')
 
 def send_email(subject, recipients, text_body, html_body):
     """Send email with both text and HTML versions"""
