@@ -3085,8 +3085,9 @@ def boarding_detail(booking_id):
 
             # Nights: base nights + 1 if pickup after 10 AM; minimum 1 for same-day stays.
             # Same-day stays always bill as 1 night — no late-pickup surcharge.
+            # Completed boardings use actual checkout time; others use scheduled time.
             _raw = (booking.check_out_date - booking.check_in_date).days
-            cout = str(booking.check_out_time or '17:00')[:5]
+            cout = booking.completed_at.strftime('%H:%M') if booking.completed_at else str(booking.check_out_time or '17:00')[:5]
             days = 1 if _raw == 0 else (_raw if cout <= '10:00' else _raw + 1)
 
             # Is this the first pet for this stay?
@@ -4085,11 +4086,19 @@ def _boarding_days(b):
     If pickup is after 10:00 AM, the checkout day counts as an extra night.
     e.g. Jun 20–22, pickup at 5 PM = 3 nights; pickup at 9 AM = 2 nights.
     Same-day (day boarding): always bills as 1 night.
+
+    For completed boardings, uses the actual checkout time (completed_at) so the
+    invoice reflects when the customer actually picked up, not the scheduled time.
+    For active/upcoming boardings, falls back to the scheduled check_out_time.
     """
     raw = (b.check_out_date - b.check_in_date).days
     if raw == 0:
         return 1  # same-day stay always bills as 1 night, no late-pickup surcharge
-    cout = str(b.check_out_time or '17:00')[:5]
+    # Use actual pickup time if available, otherwise scheduled time
+    if b.completed_at:
+        cout = b.completed_at.strftime('%H:%M')
+    else:
+        cout = str(b.check_out_time or '17:00')[:5]
     return raw if cout <= '10:00' else raw + 1
 
 
@@ -4447,7 +4456,7 @@ def send_estimate_sms(customer_id):
         base = (b.check_out_date - b.check_in_date).days
         if base == 0:
             return 1
-        cout = str(b.check_out_time or '17:00')[:5]
+        cout = b.completed_at.strftime('%H:%M') if b.completed_at else str(b.check_out_time or '17:00')[:5]
         return base if cout <= '10:00' else base + 1
 
     total = 0.0
@@ -5041,7 +5050,7 @@ def reports_dashboard():
         base = (b.check_out_date - b.check_in_date).days
         if base == 0:
             return 1
-        cout = str(b.check_out_time or '17:00')[:5]
+        cout = b.completed_at.strftime('%H:%M') if b.completed_at else str(b.check_out_time or '17:00')[:5]
         return base if cout <= '10:00' else base + 1
 
     for i in range(11, -1, -1):
