@@ -2831,6 +2831,11 @@ def complete_boarding(booking_id):
     booking = Boarding.query.get_or_404(booking_id)
     booking.status = 'completed'
     booking.completed_at = datetime.now()
+    # If the pet is checking out early, move check_out_date to today so
+    # billing and records reflect the actual departure date.
+    today = datetime.now().date()
+    if booking.check_out_date and booking.check_out_date > today:
+        booking.check_out_date = today
     db.session.commit()
 
     # Mark the specific linked appointment as completed (match by check_in_date)
