@@ -3448,6 +3448,13 @@ def delete_user(user_id):
         return redirect(url_for('admin.users'))
 
     name = f'{user.first_name} {user.last_name}'
+
+    # Reassign daily logs authored by this user to the current admin so we
+    # don't violate the NOT NULL constraint on daily_log.author_id.
+    from app.models import DailyLog
+    DailyLog.query.filter_by(author_id=user.id).update({'author_id': current_user.id})
+    db.session.flush()
+
     db.session.delete(user)
     db.session.commit()
     flash(f'{name} has been permanently deleted.', 'danger')
