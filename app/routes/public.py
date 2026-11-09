@@ -180,119 +180,63 @@ def view_estimate(token):
 
 @bp.route('/invoice/<string:token>')
 def view_invoice(token):
-    """Public tokenized invoice view — no login required."""
-    from app.models import InvoiceToken, Boarding, DaycareAttendance, DaycareEnrollment
-    from app.models import Payment
-    from datetime import date, timedelta
-    import re
+    """Public tokenized invoice view — reads from Invoice snapshots, no login required."""
+    from app.models import InvoiceToken, Invoice
+    from datetime import date
 
     token_rec = InvoiceToken.query.filter_by(token=token).first_or_404()
     customer  = token_rec.customer
     today     = date.today()
 
-    DAYCARE_MULTI  = 20.00
-    DAYCARE_SINGLE = 25.00
+    # Load all unpaid (sent or draft) invoices for this customer, newest first.
+    # The Invoice model stores locked line_items as a JSON snapshot so the
+    # total is always correct regardless of boarding.payment_id state.
+    invoices = (Invoice.query
+                .filter_by(customer_id=customer.id)
+                .filter(Invoice.status.in_(['sent', 'draft']))
+                .order_by(Invoice.generated_at.asc())
+                .all())
 
-    def _boarding_days(b):
-        base = (b.check_out_date - b.check_in_date).days
-        cout = str(b.check_out_time or '17:00')[:5]
-        return base if cout <= '10:00' else base + 1
+    # Build pet_sections from invoice line items so the template stays the same.
+    # Group by pet name where possible; fall back to a single "Services" group.
+    pet_map = {p.name: p for p in customer.pets}
+    sections = []
+    combined_total = 0.0
 
-    def _parse_addon_price(s):
-        m = re.search(r'\$(\d+)', s)
-        return float(m.group(1)) if m else 0.0
-
-    pet_sections = []
-    for pet in sorted(customer.pets, key=lambda p: p.name):
+    for inv in invoices:
+        items = inv.items  # parsed JSON list
+        if not items:
+            continue
+        # Try to match to a pet via boarding relationship; skip if unresolvable
+        pet = inv.boarding.pet if inv.boarding else None
+        if pet is None:
+            continue
         lines = []
-
-        boardings = Boarding.query.filter_by(
-            pet_id=pet.id, status='completed'
-        ).filter(Boarding.payment_id == None).order_by(
-            Boarding.check_in_date.asc()
-        ).all()
-
-        for b in boardings:
-            days     = _boarding_days(b)
-            siblings = Boarding.query.filter_by(
-                user_id=b.user_id,
-                check_in_date=b.check_in_date,
-                check_out_date=b.check_out_date,
-                status='completed'
-            ).order_by(Boarding.pet_id.asc()).all()
-            is_first = (not siblings) or siblings[0].pet_id == pet.id
-            rate     = 40.00 if is_first else 25.00
-            amount   = rate * days
-            cout     = str(b.check_out_time or '17:00')[:5]
-            early    = ' (early checkout — no charge for departure day)' if cout <= '10:00' else ''
-
-            addons = []
-            try:
-                from app.models import Appointment as _A, ServiceType as _ST
-                _svc = _ST.query.filter(_ST.name.ilike('%boarding%')).first()
-                if _svc:
-                    _appt = _A.query.filter_by(
-                        pet_id=pet.id, user_id=customer.id,
-                        service_type_id=_svc.id
-                    ).order_by(_A.id.desc()).first()
-                    if _appt and _appt.notes:
-                        from app.routes.admin import _parse_addons_from_notes
-                        addons, _ = _parse_addons_from_notes(_appt.notes)
-            except Exception:
-                pass
-
+        for item in items:
             lines.append({
-                'description': f'Boarding — {b.check_in_date.strftime("%b %d")} to {b.check_out_date.strftime("%b %d, %Y")}',
-                'detail':      f'{days} day{"s" if days != 1 else ""} @ ${rate:.0f}/day{"  (additional pet)" if not is_first else ""}{early}',
-                'amount':      amount,
-                'addons':      addons,
-                'addon_total': sum(_parse_addon_price(a) for a in addons),
+                'description': item.get('description', ''),
+                'detail':      item.get('detail', ''),
+                'amount':      float(item.get('amount', 0)),
+                'addons':      [],
+                'addon_total': 0,
             })
-
-        for enr in DaycareEnrollment.query.filter_by(pet_id=pet.id).all():
-            attendances = DaycareAttendance.query.filter_by(
-                enrollment_id=enr.id
-            ).filter(
-                DaycareAttendance.check_out_time != None,
-                DaycareAttendance.payment_id == None
-            ).order_by(DaycareAttendance.check_in_time.asc()).all()
-
-            for att in attendances:
-                week_start = att.check_in_time.date() - timedelta(days=att.check_in_time.weekday())
-                week_end   = week_start + timedelta(days=6)
-                week_count = DaycareAttendance.query.filter(
-                    DaycareAttendance.enrollment_id == enr.id,
-                    DaycareAttendance.check_in_time >= week_start,
-                    DaycareAttendance.check_in_time <= week_end
-                ).count()
-                rate = enr.special_rate if enr.special_rate else (DAYCARE_MULTI if week_count > 1 else DAYCARE_SINGLE)
-                lines.append({
-                    'description': f'Daycare — {att.check_in_time.strftime("%b %d, %Y")}',
-                    'detail':      f'${rate:.0f}/day',
-                    'amount':      rate,
-                    'addons':      [],
-                    'addon_total': 0,
-                })
-
-        if lines:
-            subtotal = sum(l['amount'] + l['addon_total'] for l in lines)
-            pet_sections.append({'pet': pet, 'lines': lines, 'subtotal': subtotal})
-
-    payments          = Payment.query.filter_by(customer_id=customer.id).order_by(Payment.payment_date.desc()).all()
-    # All boardings on this invoice have payment_id=None (unpaid).
-    # Prior-stay payments belong to different boardings and must not be credited here.
-    total_paid        = 0.0
-    total_outstanding = sum(s['subtotal'] for s in pet_sections)
-    true_balance      = max(0.0, total_outstanding - total_paid)
+        subtotal = inv.total
+        combined_total += subtotal
+        sections.append({
+            'pet':      pet,
+            'invoice':  inv,
+            'lines':    lines,
+            'subtotal': subtotal,
+        })
 
     return render_template('public/invoice.html',
         customer=customer,
-        pet_sections=pet_sections,
-        payments=payments,
-        total_paid=total_paid,
-        total_outstanding=total_outstanding,
-        true_balance=true_balance,
-        grand_total=total_outstanding,
+        pet_sections=sections,
+        payments=[],
+        total_paid=0.0,
+        total_outstanding=combined_total,
+        true_balance=combined_total,
+        grand_total=combined_total,
         today=today)
 
 
