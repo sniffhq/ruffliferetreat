@@ -1,0 +1,335 @@
+{% extends "base.html" %}
+{% block title %}Boarding Hours Calendar{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4" style="max-width:1100px;">
+
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+      <h3 class="mb-1"><i class="fas fa-clock me-2" style="color:#1a1a2e;"></i>Boarding Hours Calendar</h3>
+      <div class="text-muted small">Set date-specific drop-off &amp; pick-up time overrides. Click any day to add or edit hours.</div>
+    </div>
+    <a href="{{ url_for('admin.business_settings') }}#boarding-hours" class="btn btn-sm btn-outline-secondary">
+      <i class="fas fa-arrow-left me-1"></i>Settings
+    </a>
+  </div>
+
+  <!-- Month navigation -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-body py-2 px-3">
+      <div class="d-flex align-items-center gap-3">
+        <a href="{{ url_for('admin.hours_calendar', year=prev_year, month=prev_month) }}"
+           class="btn btn-sm btn-outline-secondary">
+          <i class="fas fa-chevron-left"></i>
+        </a>
+        <span class="fw-bold fs-5">{{ month_name }}</span>
+        <a href="{{ url_for('admin.hours_calendar', year=next_year, month=next_month) }}"
+           class="btn btn-sm btn-outline-secondary">
+          <i class="fas fa-chevron-right"></i>
+        </a>
+        <a href="{{ url_for('admin.hours_calendar') }}" class="btn btn-sm btn-outline-primary ms-2">Today</a>
+        <div class="ms-auto d-flex align-items-center gap-3" style="font-size:0.8rem;">
+          <span><span class="badge" style="background:#f59e0b;">&nbsp;&nbsp;</span> Override set</span>
+          <span><span class="badge bg-secondary">&nbsp;&nbsp;</span> Default hours</span>
+          <span><span class="badge bg-danger">&nbsp;&nbsp;</span> Closed</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Calendar grid -->
+  <div class="card shadow-sm">
+    <div class="card-body p-2">
+      <table class="table table-bordered mb-0" style="table-layout:fixed;">
+        <thead>
+          <tr style="background:#1a1a2e; color:#fff;">
+            {% for day in ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] %}
+            <th class="text-center py-2" style="font-size:0.85rem;">{{ day }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for week in weeks %}
+          <tr style="height:100px; vertical-align:top;">
+            {% for (d, in_month) in week %}
+            {% set ds = d.isoformat() %}
+            {% set ov = overrides.get(ds) %}
+            {% set dow = d.weekday() %}{# 0=Mon … 6=Sun #}
+            {# calendar starts Sunday; d.weekday() gives Mon=0…Sun=6 #}
+            {% set cell_class = '' %}
+            {% if not in_month %}
+              {% set cell_class = 'bg-light text-muted' %}
+            {% elif d == today %}
+              {% set cell_class = 'border-primary border-2' %}
+            {% endif %}
+            <td class="p-1 {{ cell_class }}" style="cursor:pointer; font-size:0.78rem;"
+                onclick="openModal('{{ ds }}')"
+                data-date="{{ ds }}">
+              <!-- Date number -->
+              <div class="d-flex justify-content-between align-items-start mb-1">
+                <span class="fw-bold {% if d == today %}text-primary{% elif not in_month %}text-muted{% endif %}"
+                      style="font-size:0.9rem;">{{ d.day }}</span>
+                {% if ov %}
+                <span class="badge" style="background:#f59e0b; font-size:0.65rem;">override</span>
+                {% endif %}
+              </div>
+
+              {% if in_month %}
+                {% if ov %}
+                  <!-- Override hours -->
+                  <div class="text-dark" style="font-size:0.72rem; line-height:1.3;">
+                    <div class="text-muted" style="font-size:0.65rem;">Drop-off</div>
+                    {% if ov.dropoff_closed %}
+                      <span class="text-danger">Closed</span>
+                    {% else %}
+                      {{ ov.dropoff_open or '?' }}–{{ ov.dropoff_close or '?' }}
+                    {% endif %}
+                    <div class="text-muted mt-1" style="font-size:0.65rem;">Pick-up</div>
+                    {% if ov.pickup_closed %}
+                      <span class="text-danger">Closed</span>
+                    {% else %}
+                      {{ ov.pickup_open or '?' }}–{{ ov.pickup_close or '?' }}
+                    {% endif %}
+                    {% if ov.label %}
+                    <div class="text-muted fst-italic mt-1" style="font-size:0.65rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ ov.label }}</div>
+                    {% endif %}
+                  </div>
+                {% else %}
+                  <!-- Weekly defaults — dow mapping: Mon=0…Sun=6 -->
+                  {% set day_names = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'] %}
+                  {% set dn = day_names[dow] %}
+                  {% set do_cfg = dropoff_defaults.get(dn, {}) %}
+                  {% set pu_cfg = pickup_defaults.get(dn, {}) %}
+                  <div class="text-secondary" style="font-size:0.72rem; line-height:1.3;">
+                    <div style="font-size:0.65rem;">Drop-off</div>
+                    {% if do_cfg.get('closed') %}
+                      <span class="text-danger">Closed</span>
+                    {% elif do_cfg.get('open') %}
+                      {{ do_cfg.open }}–{{ do_cfg.get('close','?') }}
+                    {% else %}
+                      <span class="text-muted">—</span>
+                    {% endif %}
+                    <div class="mt-1" style="font-size:0.65rem;">Pick-up</div>
+                    {% if pu_cfg.get('closed') %}
+                      <span class="text-danger">Closed</span>
+                    {% elif pu_cfg.get('open') %}
+                      {{ pu_cfg.open }}–{{ pu_cfg.get('close','?') }}
+                    {% else %}
+                      <span class="text-muted">—</span>
+                    {% endif %}
+                  </div>
+                {% endif %}
+              {% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<!-- ============================================================
+     Override modal
+     ============================================================ -->
+<div class="modal fade" id="hoursModal" tabindex="-1" aria-labelledby="hoursModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#1a1a2e; color:#fff;">
+        <h5 class="modal-title" id="hoursModalLabel">
+          <i class="fas fa-clock me-2"></i>Set Hours Override
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="modalDate">
+        <div class="mb-2">
+          <label class="form-label fw-bold small mb-1">Date</label>
+          <div id="modalDateDisplay" class="form-control-plaintext fw-bold"></div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small mb-1">Label (optional — e.g. "Holiday", "Staff training")</label>
+          <input type="text" id="modalLabel" class="form-control form-control-sm" placeholder="e.g. Thanksgiving">
+        </div>
+
+        <div class="row g-3">
+          <!-- Drop-off -->
+          <div class="col-6">
+            <div class="card h-100" style="border-color:#f59e0b;">
+              <div class="card-header py-1 px-2" style="background:#fef3c7; font-size:0.8rem; font-weight:600;">
+                <i class="fas fa-sign-in-alt me-1"></i>Drop-off
+              </div>
+              <div class="card-body p-2">
+                <div class="form-check form-switch mb-2">
+                  <input class="form-check-input" type="checkbox" id="dropoffClosed" onchange="toggleWindow('dropoff')">
+                  <label class="form-check-label small" for="dropoffClosed">Closed</label>
+                </div>
+                <div id="dropoffWindow">
+                  <div class="mb-1">
+                    <label class="form-label small mb-0">Open</label>
+                    <input type="time" id="dropoffOpen" class="form-control form-control-sm">
+                  </div>
+                  <div>
+                    <label class="form-label small mb-0">Close</label>
+                    <input type="time" id="dropoffClose" class="form-control form-control-sm">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Pick-up -->
+          <div class="col-6">
+            <div class="card h-100" style="border-color:#3b82f6;">
+              <div class="card-header py-1 px-2" style="background:#dbeafe; font-size:0.8rem; font-weight:600;">
+                <i class="fas fa-sign-out-alt me-1"></i>Pick-up
+              </div>
+              <div class="card-body p-2">
+                <div class="form-check form-switch mb-2">
+                  <input class="form-check-input" type="checkbox" id="pickupClosed" onchange="toggleWindow('pickup')">
+                  <label class="form-check-label small" for="pickupClosed">Closed</label>
+                </div>
+                <div id="pickupWindow">
+                  <div class="mb-1">
+                    <label class="form-label small mb-0">Open</label>
+                    <input type="time" id="pickupOpen" class="form-control form-control-sm">
+                  </div>
+                  <div>
+                    <label class="form-label small mb-0">Close</label>
+                    <input type="time" id="pickupClose" class="form-control form-control-sm">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="modalMsg" class="mt-2 text-danger small d-none"></div>
+      </div>
+      <div class="modal-footer justify-content-between">
+        <button type="button" class="btn btn-sm btn-outline-danger" id="deleteBtn" onclick="deleteOverride()">
+          <i class="fas fa-trash me-1"></i>Remove Override
+        </button>
+        <div>
+          <button type="button" class="btn btn-sm btn-secondary me-1" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-sm btn-primary" onclick="saveOverride()">
+            <i class="fas fa-save me-1"></i>Save Override
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---- Existing overrides from server (keyed by ISO date string) ----
+const OVERRIDES = {
+  {% for ds, ov in overrides.items() %}
+  "{{ ds }}": {
+    label:          {{ (ov.label or '')|tojson }},
+    dropoff_open:   {{ (ov.dropoff_open  or '')|tojson }},
+    dropoff_close:  {{ (ov.dropoff_close or '')|tojson }},
+    dropoff_closed: {{ 'true' if ov.dropoff_closed else 'false' }},
+    pickup_open:    {{ (ov.pickup_open   or '')|tojson }},
+    pickup_close:   {{ (ov.pickup_close  or '')|tojson }},
+    pickup_closed:  {{ 'true' if ov.pickup_closed else 'false' }},
+  },
+  {% endfor %}
+};
+
+function openModal(ds) {
+  document.getElementById('modalDate').value = ds;
+  // Pretty date display
+  const d = new Date(ds + 'T12:00:00');
+  document.getElementById('modalDateDisplay').textContent =
+    d.toLocaleDateString('en-US', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+
+  const ov = OVERRIDES[ds] || {};
+  document.getElementById('modalLabel').value        = ov.label || '';
+  document.getElementById('dropoffClosed').checked   = ov.dropoff_closed || false;
+  document.getElementById('dropoffOpen').value       = ov.dropoff_open  || '';
+  document.getElementById('dropoffClose').value      = ov.dropoff_close || '';
+  document.getElementById('pickupClosed').checked    = ov.pickup_closed  || false;
+  document.getElementById('pickupOpen').value        = ov.pickup_open   || '';
+  document.getElementById('pickupClose').value       = ov.pickup_close  || '';
+
+  toggleWindow('dropoff');
+  toggleWindow('pickup');
+
+  // Show delete button only when override already exists
+  document.getElementById('deleteBtn').classList.toggle('d-none', !OVERRIDES[ds]);
+  document.getElementById('modalMsg').classList.add('d-none');
+
+  new bootstrap.Modal(document.getElementById('hoursModal')).show();
+}
+
+function toggleWindow(type) {
+  const closed = document.getElementById(type + 'Closed').checked;
+  document.getElementById(type + 'Window').style.opacity = closed ? '0.4' : '1';
+  document.getElementById(type + 'Window').style.pointerEvents = closed ? 'none' : '';
+}
+
+function saveOverride() {
+  const ds = document.getElementById('modalDate').value;
+  const payload = {
+    date:           ds,
+    label:          document.getElementById('modalLabel').value.trim(),
+    dropoff_open:   document.getElementById('dropoffOpen').value,
+    dropoff_close:  document.getElementById('dropoffClose').value,
+    dropoff_closed: document.getElementById('dropoffClosed').checked,
+    pickup_open:    document.getElementById('pickupOpen').value,
+    pickup_close:   document.getElementById('pickupClose').value,
+    pickup_closed:  document.getElementById('pickupClosed').checked,
+  };
+
+  fetch('{{ url_for("admin.set_hours_override") }}', {
+    method:  'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCsrf()},
+    body:    JSON.stringify(payload),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) {
+      OVERRIDES[ds] = payload;
+      location.reload();
+    } else {
+      showMsg(data.error || 'Error saving override.');
+    }
+  })
+  .catch(() => showMsg('Network error — please try again.'));
+}
+
+function deleteOverride() {
+  const ds = document.getElementById('modalDate').value;
+  if (!confirm('Remove the override for ' + ds + '? The day will revert to weekly defaults.')) return;
+  fetch('/admin/settings/hours-override/' + ds, {
+    method:  'DELETE',
+    headers: {'X-CSRFToken': getCsrf()},
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) {
+      delete OVERRIDES[ds];
+      location.reload();
+    } else {
+      showMsg(data.error || 'Error deleting override.');
+    }
+  })
+  .catch(() => showMsg('Network error — please try again.'));
+}
+
+function showMsg(msg) {
+  const el = document.getElementById('modalMsg');
+  el.textContent = msg;
+  el.classList.remove('d-none');
+}
+
+function getCsrf() {
+  const m = document.cookie.match(/csrf_token=([^;]+)/);
+  if (m) return decodeURIComponent(m[1]);
+  const tag = document.querySelector('meta[name="csrf-token"]');
+  return tag ? tag.content : '';
+}
+</script>
+{% endblock %}

@@ -10613,6 +10613,145 @@ def business_settings():
                            boarding_days=_BOARDING_DAYS)
 
 
+@bp.route('/settings/hours-calendar')
+@login_required
+@admin_required
+def hours_calendar():
+    """Month-view calendar for date-specific drop-off / pick-up hour overrides."""
+    from app.models import BoardingHoursOverride
+    from datetime import date as _date, timedelta
+    import json as _json
+    import calendar as _cal
+
+    # Which month to display (default = current month)
+    try:
+        year  = int(request.args.get('year',  _date.today().year))
+        month = int(request.args.get('month', _date.today().month))
+    except ValueError:
+        year, month = _date.today().year, _date.today().month
+    year  = max(2020, min(year,  2100))
+    month = max(1,    min(month, 12))
+
+    # Build prev/next month links
+    prev_month = month - 1 or 12
+    prev_year  = year - (1 if month == 1 else 0)
+    next_month = (month % 12) + 1
+    next_year  = year + (1 if month == 12 else 0)
+
+    # Overrides for this month keyed by ISO date string
+    first_day = _date(year, month, 1)
+    last_day  = _date(year, month, _cal.monthrange(year, month)[1])
+    overrides_q = BoardingHoursOverride.query.filter(
+        BoardingHoursOverride.override_date >= first_day,
+        BoardingHoursOverride.override_date <= last_day,
+    ).all()
+    overrides = {str(o.override_date): o for o in overrides_q}
+
+    # Weekly defaults from facility_setting (for display in calendar cells)
+    try:
+        raw_do = get_setting('boarding_dropoff_hours')
+        dropoff_defaults = _json.loads(raw_do) if raw_do and raw_do != '{}' else {}
+    except Exception:
+        dropoff_defaults = {}
+    try:
+        raw_pu = get_setting('boarding_pickup_hours')
+        pickup_defaults = _json.loads(raw_pu) if raw_pu and raw_pu != '{}' else {}
+    except Exception:
+        pickup_defaults = {}
+
+    _DAY_NAMES_CAL = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
+    _FALLBACK_DO   = ['07:00–18:00','07:00–18:00','07:00–18:00','07:00–18:00','07:00–18:00','07:00–11:00','15:00–18:00']
+    _FALLBACK_PU   = ['07:00–18:00','07:00–18:00','07:00–18:00','07:00–18:00','07:00–18:00','17:00–18:00','15:00–18:00']
+
+    def _fmt_window(cfg, fallback_list, dow):
+        day_cfg = cfg.get(_DAY_NAMES_CAL[dow], {})
+        if day_cfg.get('closed'):
+            return 'Closed'
+        o = day_cfg.get('open')
+        c = day_cfg.get('close')
+        if o and c:
+            return f'{o}–{c}'
+        return fallback_list[dow]
+
+    # Build calendar weeks — list of weeks, each a list of (date, is_current_month)
+    cal = _cal.Calendar(firstweekday=6)  # week starts Sunday
+    weeks = []
+    for week in cal.monthdatescalendar(year, month):
+        weeks.append([(d, d.month == month) for d in week])
+
+    return render_template('admin/hours_calendar.html',
+        year=year, month=month,
+        month_name=_date(year, month, 1).strftime('%B %Y'),
+        weeks=weeks,
+        overrides=overrides,
+        dropoff_defaults=dropoff_defaults,
+        pickup_defaults=pickup_defaults,
+        fmt_window=_fmt_window,
+        fallback_do=_FALLBACK_DO,
+        fallback_pu=_FALLBACK_PU,
+        today=_date.today(),
+        prev_year=prev_year,  prev_month=prev_month,
+        next_year=next_year,  next_month=next_month,
+    )
+
+
+@bp.route('/settings/hours-override', methods=['POST'])
+@login_required
+@admin_required
+def set_hours_override():
+    """Create or update a date-specific hours override."""
+    from app.models import BoardingHoursOverride
+    from datetime import date as _date
+    data = request.get_json(silent=True) or {}
+    try:
+        override_date = _date.fromisoformat(data.get('date', ''))
+    except (ValueError, TypeError):
+        return jsonify({'ok': False, 'error': 'Invalid date.'}), 400
+
+    rec = BoardingHoursOverride.query.filter_by(override_date=override_date).first()
+    if rec is None:
+        rec = BoardingHoursOverride(override_date=override_date)
+        db.session.add(rec)
+
+    rec.label          = (data.get('label') or '').strip() or None
+    rec.dropoff_open   = data.get('dropoff_open')   or None
+    rec.dropoff_close  = data.get('dropoff_close')  or None
+    rec.dropoff_closed = bool(data.get('dropoff_closed'))
+    rec.pickup_open    = data.get('pickup_open')    or None
+    rec.pickup_close   = data.get('pickup_close')   or None
+    rec.pickup_closed  = bool(data.get('pickup_closed'))
+    rec.created_by     = current_user.id
+    db.session.commit()
+
+    try:
+        from app.audit_service import audit
+        audit('hours_override.set', 'settings', rec.id, str(override_date),
+              f'Hours override set for {override_date} by {current_user.first_name} {current_user.last_name}')
+    except Exception:
+        pass
+
+    return jsonify({'ok': True, 'date': str(override_date)})
+
+
+@bp.route('/settings/hours-override/<string:date_str>', methods=['DELETE'])
+@login_required
+@admin_required
+def delete_hours_override(date_str):
+    """Remove a date-specific hours override, reverting to weekly defaults."""
+    from app.models import BoardingHoursOverride
+    from datetime import date as _date
+    try:
+        override_date = _date.fromisoformat(date_str)
+    except ValueError:
+        return jsonify({'ok': False, 'error': 'Invalid date.'}), 400
+
+    rec = BoardingHoursOverride.query.filter_by(override_date=override_date).first()
+    if rec:
+        db.session.delete(rec)
+        db.session.commit()
+    return jsonify({'ok': True})
+
+
 @bp.route('/settings/blackouts', methods=['POST'])
 @login_required
 @admin_required

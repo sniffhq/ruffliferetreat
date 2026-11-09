@@ -1100,6 +1100,36 @@ class AddonBlackout(db.Model):
         return f'<AddonBlackout {self.start_date}–{self.end_date}>'
 
 
+class BoardingHoursOverride(db.Model):
+    """
+    Date-specific drop-off / pick-up window overrides.
+    Takes precedence over the per-day-of-week settings stored in facility_setting.
+    A null open/close with closed=True means that slot is unavailable for the day.
+    """
+    __tablename__ = 'boarding_hours_override'
+
+    id             = db.Column(db.Integer, primary_key=True)
+    override_date  = db.Column(db.Date, nullable=False, unique=True, index=True)
+    label          = db.Column(db.String(100), nullable=True)   # e.g. "Thanksgiving"
+
+    dropoff_open   = db.Column(db.String(5), nullable=True)     # HH:MM
+    dropoff_close  = db.Column(db.String(5), nullable=True)
+    dropoff_closed = db.Column(db.Boolean, default=False, nullable=False)
+
+    pickup_open    = db.Column(db.String(5), nullable=True)
+    pickup_close   = db.Column(db.String(5), nullable=True)
+    pickup_closed  = db.Column(db.Boolean, default=False, nullable=False)
+
+    created_by     = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at     = db.Column(db.DateTime, default=datetime.now)
+    updated_at     = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+
+    creator = db.relationship('User', foreign_keys=[created_by])
+
+    def __repr__(self):
+        return f'<BoardingHoursOverride {self.override_date}>'
+
+
 class FacilitySetting(db.Model):
     """Key/value store for facility-wide configuration."""
     __tablename__ = 'facility_setting'

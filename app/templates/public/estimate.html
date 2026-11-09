@@ -84,9 +84,15 @@
                 <div class="est-sub">(912) 648-2295 &nbsp;|&nbsp; rufflife.app</div>
             </div>
             <div class="text-end">
-                <div class="est-sub text-uppercase" style="letter-spacing:1px;">Estimate</div>
+                <div class="est-sub text-uppercase" style="letter-spacing:1px;">
+                    {% if is_invoice_fallback %}Invoice{% else %}Estimate{% endif %}
+                </div>
                 <div class="fw-bold" style="color:white;">{{ today.strftime('%B %d, %Y') }}</div>
-                <div class="mt-1"><span class="est-badge">Pre-Checkout</span></div>
+                <div class="mt-1">
+                    <span class="est-badge">
+                        {% if is_invoice_fallback %}Balance Due{% else %}Pre-Checkout{% endif %}
+                    </span>
+                </div>
             </div>
         </div>
     </div>
@@ -95,10 +101,17 @@
     <div class="est-body shadow-sm">
 
         <!-- Estimate notice -->
+        {% if is_invoice_fallback %}
+        <div class="est-notice mb-4" style="background:#fff0f0; border-left-color:#c0395a;">
+            <i class="fas fa-file-invoice-dollar me-2" style="color:#c0395a;"></i>
+            <strong>Balance Due.</strong> Your stay has ended and an invoice is ready. Please remit payment at your earliest convenience. Thank you!
+        </div>
+        {% else %}
         <div class="est-notice mb-4">
             <i class="fas fa-info-circle me-2 text-warning"></i>
             <strong>This is an estimate only.</strong> The final amount will be confirmed at checkout and may vary based on actual check-out time and any additional services. Early checkout by 10:00 AM may reduce the total.
         </div>
+        {% endif %}
 
         <!-- Bill To / Total -->
         <div class="row mb-4">
@@ -109,11 +122,19 @@
                 {% if customer.phone %}<div class="text-muted small">{{ customer.phone }}</div>{% endif %}
             </div>
             <div class="col-sm-6 text-sm-end mt-3 mt-sm-0">
-                <div class="est-label mb-1">Estimated Total</div>
-                <div class="fs-3 fw-bold" style="color:#1B2A4A;">
+                <div class="est-label mb-1">
+                    {% if is_invoice_fallback %}Balance Due{% else %}Estimated Total{% endif %}
+                </div>
+                <div class="fs-3 fw-bold" style="color:{% if is_invoice_fallback %}#c0395a{% else %}#1B2A4A{% endif %};">
                     ${{ "%.2f"|format(grand_total) }}
                 </div>
-                <div class="text-muted small">Based on active services as of {{ today.strftime('%b %d') }}</div>
+                <div class="text-muted small">
+                    {% if is_invoice_fallback %}
+                        Please remit payment at your convenience
+                    {% else %}
+                        Based on active services as of {{ today.strftime('%b %d') }}
+                    {% endif %}
+                </div>
             </div>
         </div>
 

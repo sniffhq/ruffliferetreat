@@ -1050,19 +1050,37 @@ def available_times():
     close_str = None
     day_closed = False
 
+    # 1. Check for a date-specific override first
     try:
-        from app.settings_service import get_setting as _gs2
-        import json as _json2
-        raw = _gs2(setting_key)
-        if raw and raw != '{}':
-            hours_cfg = _json2.loads(raw)
-            day_cfg   = hours_cfg.get(day_name, {})
-            day_closed = day_cfg.get('closed', False)
-            if not day_closed:
-                open_str  = day_cfg.get('open')
-                close_str = day_cfg.get('close')
+        from app.models import BoardingHoursOverride
+        ov = BoardingHoursOverride.query.filter_by(override_date=target_date).first()
+        if ov:
+            if slot_type == 'checkin':
+                day_closed = ov.dropoff_closed
+                open_str   = ov.dropoff_open
+                close_str  = ov.dropoff_close
+            else:
+                day_closed = ov.pickup_closed
+                open_str   = ov.pickup_open
+                close_str  = ov.pickup_close
     except Exception:
         pass
+
+    # 2. Fall back to weekly settings when no override was found
+    if not day_closed and not open_str:
+        try:
+            from app.settings_service import get_setting as _gs2
+            import json as _json2
+            raw = _gs2(setting_key)
+            if raw and raw != '{}':
+                hours_cfg = _json2.loads(raw)
+                day_cfg   = hours_cfg.get(day_name, {})
+                day_closed = day_cfg.get('closed', False)
+                if not day_closed:
+                    open_str  = day_cfg.get('open')
+                    close_str = day_cfg.get('close')
+        except Exception:
+            pass
 
     # Fallback to legacy hardcoded schedule if settings not configured
     if not day_closed and (not open_str or not close_str):

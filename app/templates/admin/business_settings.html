@@ -218,8 +218,11 @@
                 </div>
             </div>
             <div class="card shadow-sm mb-3">
-                <div class="card-header py-2 px-3" style="background:#1a1a2e;">
+                <div class="card-header py-2 px-3 d-flex justify-content-between align-items-center" style="background:#1a1a2e;">
                     <strong class="text-white"><i class="fas fa-clock me-2"></i>Boarding Hours by Day</strong>
+                    <a href="{{ url_for('admin.hours_calendar') }}" class="btn btn-sm btn-outline-light py-0 px-2" style="font-size:0.78rem;">
+                        <i class="fas fa-calendar-alt me-1"></i>Date Overrides
+                    </a>
                 </div>
                 <div class="card-body p-0">
                     <p class="text-muted small px-3 pt-3 mb-2">Set when customers can drop off and pick up each day. The booking portal generates 15-minute time slots within these windows. Check "Closed" to hide that slot type on that day. Use "Lunch Break" to block a midday window where no drop-offs or pick-ups can be booked — check "No Break" to disable it for that day.</p>
