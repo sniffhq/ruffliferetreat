@@ -6584,6 +6584,51 @@ def sms_broadcast():
         elif audience == 'boarding':
             recipients = boarding_owners
             label      = 'Current boarding guests'
+        elif audience == 'boarding_dates':
+            # Date-range boarding broadcast
+            from datetime import date as _date
+            try:
+                date_from = _date.fromisoformat(request.form.get('date_from', ''))
+                date_to   = _date.fromisoformat(request.form.get('date_to', ''))
+            except ValueError:
+                flash('Please enter valid From and To dates.', 'danger')
+                return redirect(url_for('admin.sms_broadcast'))
+            if date_to < date_from:
+                flash('The end date must be on or after the start date.', 'danger')
+                return redirect(url_for('admin.sms_broadcast'))
+            # Owners with any boarding that overlaps the date window
+            recipients = (db.session.query(User)
+                .join(Pet, Pet.user_id == User.id)
+                .join(Boarding, Boarding.pet_id == Pet.id)
+                .filter(
+                    Boarding.status.in_(['active', 'scheduled']),
+                    Boarding.check_in_date  <= date_to,
+                    Boarding.check_out_date >= date_from,
+                )
+                .distinct()
+                .all())
+            label = (f'Boarding guests {date_from.strftime("%b %-d")}–'
+                     f'{date_to.strftime("%b %-d, %Y")}')
+            # Encode dates into audience string for the confirm hidden field
+            audience = f'boarding_dates|{date_from}|{date_to}'
+        elif audience and audience.startswith('boarding_dates|'):
+            # Confirm step — dates already encoded in audience field
+            from datetime import date as _date
+            _, df_str, dt_str = audience.split('|')
+            date_from  = _date.fromisoformat(df_str)
+            date_to    = _date.fromisoformat(dt_str)
+            recipients = (db.session.query(User)
+                .join(Pet, Pet.user_id == User.id)
+                .join(Boarding, Boarding.pet_id == Pet.id)
+                .filter(
+                    Boarding.status.in_(['active', 'scheduled']),
+                    Boarding.check_in_date  <= date_to,
+                    Boarding.check_out_date >= date_from,
+                )
+                .distinct()
+                .all())
+            label = (f'Boarding guests {date_from.strftime("%b %-d")}–'
+                     f'{date_to.strftime("%b %-d, %Y")}')
         else:
             flash('Invalid audience selection.', 'danger')
             return redirect(url_for('admin.sms_broadcast'))

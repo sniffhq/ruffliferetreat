@@ -105,11 +105,36 @@
                                 </label>
 
                                 <label style="cursor:pointer;">
-                                    <input type="radio" name="audience" value="boarding" class="me-2">
+                                    <input type="radio" name="audience" value="boarding" class="me-2" id="aud-boarding">
                                     <strong>Current Boarding Guests</strong>
                                     <span class="badge bg-primary ms-2">{{ boarding_owners|length }}</span>
-                                    <div class="text-muted small ms-4">Owners of pets currently checked in to boarding</div>
+                                    <span class="badge bg-danger ms-1" style="font-size:0.65rem;">Emergency</span>
+                                    <div class="text-muted small ms-4">Owners of pets checked in right now — use for urgent facility alerts</div>
                                 </label>
+
+                                <label style="cursor:pointer;">
+                                    <input type="radio" name="audience" value="boarding_dates" class="me-2" id="aud-boarding-dates">
+                                    <strong>Boarding by Date Range</strong>
+                                    <div class="text-muted small ms-4">Owners with a reservation that falls within a specific date window</div>
+                                </label>
+
+                                <!-- Date range fields — shown only when "Boarding by Date Range" is selected -->
+                                <div id="date-range-fields" class="ms-4 mt-2 p-3 rounded" style="background:#f0f4ff; display:none;">
+                                    <div class="row g-2 align-items-end">
+                                        <div class="col-auto">
+                                            <label class="form-label small fw-bold mb-1">Check-in from</label>
+                                            <input type="date" name="date_from" id="date_from" class="form-control form-control-sm" style="max-width:160px;">
+                                        </div>
+                                        <div class="col-auto">
+                                            <label class="form-label small fw-bold mb-1">Check-out through</label>
+                                            <input type="date" name="date_to" id="date_to" class="form-control form-control-sm" style="max-width:160px;">
+                                        </div>
+                                    </div>
+                                    <div class="text-muted small mt-2">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Includes any reservation that overlaps this window — not just check-ins.
+                                    </div>
+                                </div>
 
                             </div>
                         </div>
@@ -151,6 +176,8 @@
                         <li>Daycare day cancellations</li>
                         <li>Vaccination reminder campaigns</li>
                         <li>New service announcements</li>
+                        <li><strong>Pre-arrival reminders</strong> for upcoming boarders (date range)</li>
+                        <li><strong>Emergency alerts</strong> for all current boarding guests</li>
                     </ul>
                     <div class="alert alert-warning py-2 mb-0">
                         <strong>⚠️ Important:</strong> Broadcasts cannot be undone once sent. Always review the preview before confirming.
@@ -166,7 +193,8 @@
                     {% for label, count, color in [
                         ('All Opted-In Customers', opted_in|length, 'secondary'),
                         ('Active Daycare Enrollments', daycare_owners|length, 'warning'),
-                        ('Current Boarding Guests', boarding_owners|length, 'primary')
+                        ('Current Boarding Guests', boarding_owners|length, 'primary'),
+                        ('Boarding by Date Range', '—', 'info')
                     ] %}
                     <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
                         <span style="font-size:0.85rem;">{{ label }}</span>
@@ -191,6 +219,19 @@
             counter.style.color = len > 160 ? '#dc3545' : '#888';
         });
     }
+
+    // Show/hide date range fields based on audience selection
+    const dateFields = document.getElementById('date-range-fields');
+    document.querySelectorAll('input[name="audience"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            if (dateFields) {
+                dateFields.style.display = radio.value === 'boarding_dates' ? 'block' : 'none';
+            }
+            // Make date inputs required only when that option is selected
+            document.getElementById('date_from').required = radio.value === 'boarding_dates';
+            document.getElementById('date_to').required   = radio.value === 'boarding_dates';
+        });
+    });
 </script>
 {% endblock %}
 
